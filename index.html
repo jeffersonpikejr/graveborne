@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.11</title>
+<title>GRAVEBORNE — alpha v0.12</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -507,7 +507,7 @@ function newGame(){
   uid=1;
   S={week:1,day:0,coin:100,prov:15,renown:0,over:false,actOne:false,
      roster:[],hirePool:[],contracts:[],graves:[],regions:[],log:[],battle:null,chronicle:[],
-     bondCounts:{},usedBg:[],usedNames:[],agents:[],hexes:null,caravan:null};
+     bondCounts:{},usedBg:[],usedNames:[],agents:[],deserters:[],hexes:null,caravan:null};
   S.regions=REGION_DEFS.map((d,i)=>({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-8,8)),swallowed:false}));
   genWorld();
   S.caravan={q:REGION_DEFS[1].q,r:REGION_DEFS[1].r};
@@ -594,6 +594,8 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
   // pre-v0.5 saves: traits, corruption, faction standing
   for(const arr of [S.roster,S.hirePool]) for(const p of arr){ if(!p.traits){p.traits=[];p.corr=0;touched=true;} }
   if(!S.rep){ S.rep={karsk:0,folk:0,conclave:0}; touched=true; }
+  if(!S.deserters){ S.deserters=[]; touched=true; }
+  if(S.story&&S.roster.length&&!S.roster.some(x=>x.commander)){ ensureCommander(); touched=true; }
   // pre-v0.9 saves already at stage 5: schedule the barrow meeting
   if(S.story&&S.story.stage===5&&!S.story.meetWeek){
     const bs=Object.values(S.hexes).filter(h=>h.feat==='barrow');
@@ -796,7 +798,7 @@ function weeklyTick(){
   if(S.coin<0){ S.coin=0; S.roster.forEach(s=>s.res=Math.max(10,s.res-3)); log('The company goes unpaid. Resolve suffers.','bad'); }
   // desertion check when unpaid/starving
   if(starved){ S.roster.forEach(s=>{ s.hp=Math.max(1,s.hp-2); }); log('Hunger gnaws the line. Everyone weakens.','bad');
-    if(S.roster.length&&chance(25)){ const d=pick(S.roster); removeFromRoster(d); log(`${d.name} deserts in the night, taking their gear and their unfinished story.`,'bad'); }
+    if(S.roster.length&&chance(25)){ desert(pick(S.roster)); }
   } else { S.roster.forEach(s=>{ s.hp=Math.min(s.maxhp,s.hp+3); }); }
   // blight pressure spreads along the roads — the front advances by corridor
   for(const r of S.regions){
@@ -848,6 +850,11 @@ function weeklyTick(){
     if((s.corr||0)>=4&&!s.whispered&&chance(25)){ queueModal(()=>whisperEvent(s)); break; }
   }
   blightCreep();
+  S.deserters=(S.deserters||[]).filter(d=>{
+    if(S.week>d.weekGone+4){ log(`${d.name} is gone for good — another banner, another road, or the Blight found them first. What they carried, they carry still.`,'bad'); return false; }
+    return true;
+  });
+  ensureCommander();
   refreshHirePool(); genContracts();
   checkGameOver();
 }
@@ -891,6 +898,7 @@ function hire(idx){
   if(S.coin<cost) return;
   S.coin-=cost; S.hirePool.splice(idx,1); S.roster.push(h);
   log(`${h.name} signs on — ${bgOf(h).line}`,'good');
+  ensureCommander();
   save(); render();
 }
 function checkGameOver(){
@@ -901,11 +909,67 @@ function checkGameOver(){
   }
   // Hires cost 20-35 and the pool refreshes weekly; with an empty roster coin
   // cannot decrease, so the run is only dead when the cheapest possible hire is out of reach.
-  if(S.roster.length===0&&S.coin<20){
+  if(S.roster.length===0&&S.coin<20&&!(S.deserters&&S.deserters.length&&S.coin>=40)){
     S.over=true;
     log('The banner falls. No one is left to carry it.','bad');
   }
 }
+/* ---- the deserter & the banner ---- */
+function ensureCommander(){
+  if(!S.story||!S.roster.length)return;
+  if(S.roster.some(x=>x.commander))return;
+  const heir=S.roster.slice().sort((a,b)=>(b.level-a.level)||((b.battles||0)-(a.battles||0)))[0];
+  heir.commander=true;
+  log(`${heir.name} takes up the banner. Someone has to carry the story.`,'wk');
+}
+function pickDeserterTown(){
+  const cur=(caravanHex()||{}).region;
+  const opts=REGION_DEFS.map((d,i)=>i).filter(i=>!S.regions[i].swallowed&&i!==cur);
+  return opts.length?pick(opts):ri(0,REGION_DEFS.length-1);
+}
+function desert(s){
+  removeFromRoster(s);
+  s.town=pickDeserterTown(); s.weekGone=S.week; s.wasCommander=!!s.commander; s.commander=false;
+  (S.deserters=S.deserters||[]).push(s);
+  if(s.wasCommander) log(`${s.name} — your Commander — is gone by first light, oath and gear and all. Word will find where they ran: ${REGION_DEFS[s.town].town}.`,'bad');
+  else log(`${s.name} deserts in the night, gear and grudges and all. Word says they ran for ${REGION_DEFS[s.town].town}.`,'bad');
+  ensureCommander();
+  if(s.wasCommander) queueModal(()=>bannerPassesModal(s.name,'desert'));
+}
+function bannerPassesModal(name,how){
+  const nc=cmdr();
+  const lost=how==='desert'
+    ? `${esc(name)} carried the banner — and slipped away with it in the night, oath and all.`
+    : `${esc(name)} fell with the banner in hand.`;
+  const body=nc
+    ? `<p>${lost}</p><p><b>${esc(nc.name)}</b> takes it up. Maren’s oath, the letters, the whole tangled debt pass to steadier hands. You have lost the one who carried it — not the road they walked.</p>`
+    : `<p>${lost}</p><p>No one is left to lift it. The banner lies in the mud with the company’s promises — until you hire a hand to carry them.</p>`;
+  showModal('The Banner Passes',body,[{label:'Take up the banner',cls:'primary',fn:()=>closeModal()}]);
+}
+window.BUYBACK=function(idx){
+  const s=S.deserters[idx]; if(!s)return;
+  const cost=40+s.level*10, canPay=S.coin>=cost, town=REGION_DEFS[s.town].town;
+  const rejoin=(makeCmdr)=>{
+    if(S.coin<cost)return;
+    S.coin-=cost; S.deserters.splice(idx,1); delete s.town; delete s.weekGone;
+    S.roster.push(s);
+    if(makeCmdr){ S.roster.forEach(x=>x.commander=false); s.commander=true; log(`${s.name} takes the banner back. The company pretends the tavern never happened.`,'good'); }
+    else log(`${s.name} marches again — a common sword now, and cheaper than pride.`,'good');
+    ensureCommander(); closeModal();
+  };
+  const opts=[];
+  if(s.wasCommander){
+    opts.push({label:`Pay ${cost}c — give ${s.name} back the banner`,cls:'pick',disabled:!canPay,fn:()=>rejoin(true)});
+    opts.push({label:`Pay ${cost}c — take ${s.name} back as a common sword`,cls:'pick',disabled:!canPay,fn:()=>rejoin(false)});
+  } else {
+    opts.push({label:`Pay ${cost}c — buy back their oath`,cls:'pick',disabled:!canPay,fn:()=>rejoin(false)});
+  }
+  opts.push({label:'Leave them to the tavern',fn:()=>closeModal()});
+  showModal(`${s.name}, run to ${town}`,
+    `<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+     <p>You find ${esc(s.name)} ${s.wasCommander?'nursing a bottle and what is left of your company’s honor':'three drinks deep'} in a ${esc(town)} tavern. Back-wages and a bruised apology will bring them home${canPay?'.':' — but you cannot cover it right now.'}</p></div></div>`,
+    opts);
+};
 
 /* ============================== XP / LEVELS ============================== */
 const XP_LVL=[0,6,14,24,36,999];
@@ -1318,7 +1382,7 @@ function killSoldier(s){
   const bonds=s.bonds.map(b=>b.id);
   S.graves.push({id:nid(),soldierId:s.id,name:s.name,bg:s.bg,snap,bonds,state:'field',regionId:S.battle?S.battle.regionId:0,
                  weekDied:S.week,iter:0,hook:s.ashPromised?'a promise to the Ash, unkept':bgOf(s).hook,face:s.face});
-  if(s.commander)log('The Commander has fallen. The banner has no voice now — the story waits for one.','bad');
+  if(s.commander){ s.commander=false; ensureCommander(); if(S.story)S._cmdrLost=s.name; log('The Commander has fallen with the banner in hand.','bad'); }
   S.chronicle.push(`Week ${S.week}: ${s.name} (${bgOf(s).tag}) fell — ${bgOf(s).hook}.`);
   // bonded survivors take it hard — and carry it until she rests
   for(const bid of bonds){ const b=soldierById(bid); if(b){ b.res=Math.max(10,b.res-3); addTrait(b,'grieving'); } }
@@ -1565,6 +1629,7 @@ function endBattle(outcome){
   S.contracts=S.contracts.filter(c=>c.id!==B.contractId);
   // a beaten map agent is gone from the map
   if(B.agentId&&outcome==='victory')S.agents=S.agents.filter(a=>a.id!==B.agentId);
+  if(S._cmdrLost){ const nm=S._cmdrLost; S._cmdrLost=null; queueModal(()=>bannerPassesModal(nm,'fell')); }
   checkGameOver();
   save(); render(); pumpModals();
 }
@@ -2018,7 +2083,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.11</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.12</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2094,6 +2159,8 @@ function hexSvg(){
   out+=glyphs;
   for(const c of S.contracts){const{x,y}=hexCenter(c.q,c.r);
     out+=`<g onclick="HEX(${c.q},${c.r})" style="cursor:pointer"><circle cx="${x+HXS*0.5}" cy="${y-HXS*0.5}" r="${c.story?7:6}" fill="${c.story?'#b08bc9':'#c9a227'}" ${c.story?'stroke="#e8d9f5" stroke-width="1.2"':''}/><text x="${x+HXS*0.5}" y="${y-HXS*0.5+3.5}" class="hxC">!</text></g>`;}
+  for(const d of (S.deserters||[])){const t=REGION_DEFS[d.town];const c0=hexCenter(t.q,t.r);
+    out+=`<g pointer-events="none"><circle cx="${(c0.x-HXS*0.5).toFixed(1)}" cy="${(c0.y-HXS*0.5).toFixed(1)}" r="6" fill="#12100c" stroke="#5ab3a0" stroke-width="1.6"/><text x="${(c0.x-HXS*0.5).toFixed(1)}" y="${(c0.y-HXS*0.5+3).toFixed(1)}" style="font-size:9px;fill:#5ab3a0;text-anchor:middle;font-weight:bold">⚐</text></g>`;}
   const byHex={};
   for(const a of S.agents){ (byHex[a.q+','+a.r]=byHex[a.q+','+a.r]||[]).push(a); }
   for(const k2 in byHex) byHex[k2].forEach((a,idx)=>{
@@ -2180,6 +2247,7 @@ function renderCompany(){
         ${S.story&&S.story.stage===6&&setl!==3?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: ${S.story.missedBarrow?'the meeting happened without witnesses — what you still hold must reach':'the Envoy’s ledger must reach'} <b>the palace at Karsk Gate</b>. The King is dying, and three heirs are listening.</div>`:''}
         ${S.story&&S.story.stage===7?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: the heir’s price — <b>${S.story.heir==='aldric'?'The Ford Must Hold':S.story.heir==='maren'?'The Collegium Archive':'The Quiet Handoff'}</b>, the purple mark on the map.</div>`:''}
         ${S.story&&S.story.stage>=8?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: the heir owes you a debt, and the candles at the King’s bedside are lit. The finale awaits a future build.</div>`:''}
+        ${(S.deserters||[]).map((d,i)=>atSettlement()===d.town?`<button class="storybtn" style="border-color:#5ab3a0;color:#8fbfb0" onclick="BUYBACK(${i})">🍺 ${esc(d.name)} drinks here — buy back their oath (${40+d.level*10}c)</button>`:'').join('')}
       </div>
       ${selectedPanel()}
       <h2>Standing</h2>
@@ -2188,6 +2256,7 @@ function renderCompany(){
       ${S.contracts.map(c=>`<div class="statline" style="cursor:pointer" onclick="HEX(${c.q},${c.r})"><span style="color:${c.story?'#b08bc9':'var(--gold)'}">!</span> ${esc(c.cname||CONTRACT_TYPES[c.type].n)} <span class="hint">(${OBJECTIVES[c.obj||'slay'].n})</span> — <span class="pay">${c.pay}c</span> · ${esc(S.regions[c.regionId].name)}</div>`).join('')||'<p class="hint">Nothing posted. Rest a week.</p>'}
       <h2 style="margin-top:8px">Rumors</h2>
       ${risen.map(g=>`<div class="statline" style="color:#b08bc9;cursor:pointer" onclick="${(()=>{const a=S.agents.find(a=>a.kind==='revenant'&&a.graveId===g.id);return a?`HEX(${a.q},${a.r})`:''})()}">⚰ ${esc(g.name)} walks ${esc(S.regions[g.regionId].name)}${g.iter?` · improved ×${g.iter}`:''} — <i>${esc(g.hook)}</i></div>`).join('')||'<p class="hint">Your dead are quiet — the ones you kept.</p>'}
+      ${(S.deserters&&S.deserters.length)?`<h2 style="margin-top:8px">Deserters</h2>${S.deserters.map(d=>`<div class="statline" style="cursor:pointer;color:#8fbfb0" onclick="HEX(${REGION_DEFS[d.town].q},${REGION_DEFS[d.town].r})">⚐ ${esc(d.name)}${d.wasCommander?' — your old Commander':''} · ${esc(REGION_DEFS[d.town].town)} · ${Math.max(0,d.weekGone+4-S.week)} wk to find them</div>`).join('')}`:''}
       <h2 style="margin-top:8px">Grave ledger</h2>
       ${graves.length?graves.map(g=>`<div class="statline">⚰ ${esc(g.name)} — <i>${g.state}</i>${g.state==='rest'?' ✓':''}</div>`).join(''):'<p class="hint">Empty. It won’t stay that way.</p>'}
     </div>
