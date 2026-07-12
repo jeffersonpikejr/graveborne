@@ -1,13 +1,18 @@
 # GRAVEBORNE — alpha
 
+**▶ Play (desktop or phone): https://jeffersonpikejr.github.io/graveborne/**
+
 Dark-fantasy mercenary squad tactics. **You will fight everyone you fail to protect**: soldiers whose bodies you abandon, sell, or bury in doomed ground come back as revenants carrying their exact builds and unfinished stories.
 
-Single-file game: open `index.html` (or `python3 -m http.server 8931 --directory .` → localhost:8931). Saves to localStorage. Design docs live in the Obsidian vault: `1 - Projects ☑️/Graveborne/` (roadmap v2 is the source of truth).
+Single-file game — no build, no backend, saves to your device's localStorage. Play at the link above, or run locally: open `index.html` (or `python3 -m http.server 8931 --directory .` → localhost:8931). Design docs live in the Obsidian vault: `1 - Projects ☑️/Graveborne/` (roadmap v2 is the source of truth).
 
 ## How to play
 - **Company screen**: take contracts (pay vs. danger vs. region pressure), hire, fit armor, buy provisions, rest to advance the week. The Blight pressure bars are the clock — a region at 100 is swallowed, and its buried graves rise.
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
+
+## v0.11 (2026-07-12) — Mobile Pass & Public Release
+The game is now phone-playable and live at https://jeffersonpikejr.github.io/graveborne/ (GitHub Pages, public, no personal data — saves stay in your own browser). On narrow screens the three-column company view collapses into a **tab bar** (March / Company / Camp), the hex map goes full-width with the selected-hex panel inline beneath it, battle tiles scale down to fit all 13 columns on a 375px screen, and the palace stealth grid scales too. Hover tooltips (weapons, feats, stats, standing) become **tap-to-reveal** toasts on touch. Tactical views re-render on rotate/resize. Desktop layout unchanged.
 
 ## v0.10 (2026-07-11) — Act III Part 1: The Succession
 **The heir choice.** With the ledger (or without it, on the missed path), the palace at Karsk Gate opens onto *Three Doors*: the dying King's three heirs, each demanding a different quest and offering a different company future. **Prince Aldric** the soldier — hold the ford road against a Blight surge (survive); perk: a second royal column patrols the March at strength 16, and armor comes at quartermaster's rates (−20%). **Princess Maren** the knife — seize the Collegium archive and drag Vell into the light (capture); perk: +15 Karsk standing and a 10c weekly palace stipend. **Prince Casmir** the dealmaker — hand him the evidence quietly through fog and Hunters, your own wagons on the field (protect); perk: +15 Conclave standing, bodies and relics sell +10c, and the Folk hear of it (−5). Each posts an authored set-piece; winning it closes Act III part 1 with the heir in your debt and the King's bedside candles lit. The choice is permanent, the perks run for the rest of the campaign, and all three paths converge on the finale hook.
