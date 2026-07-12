@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.12</title>
+<title>GRAVEBORNE — alpha v0.13</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -164,6 +164,9 @@
     .scard .face{flex:0 0 40px}
     #log{margin:0 8px 10px;height:118px}
     #modal{padding:13px 14px}
+    #actbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:5px;padding:7px 8px;background:var(--panel);border-top:1px solid var(--gold);z-index:40;margin:0}
+    #actbar button{flex:1;padding:12px 3px;font-size:13px}
+    #battleWrap{padding-bottom:62px}
   }
 </style>
 </head>
@@ -222,6 +225,12 @@ const FEATS={
  reaper:{n:'Reaper',d:'Each kill: +5 hit for rest of battle (stacks)'},
  ashfire:{n:'Ashfire Graft',d:'ASH. Ability: hurl blightfire — range 4, 4–7 damage, ignores armor. Each cast feeds the graft (+1 corruption).',ash:true},
  veindrink:{n:'Veindrinker Graft',d:'ASH. Melee hits drink 2 HP back. Each kill feeds the graft (+1 corruption).',ash:true},
+ bonespears:{n:'Bone-Spear Graft',d:'ASH. Ability: erupt bone at range 3 — 3–5 damage and root the target (no move next turn). +1 corruption.',ash:true},
+ ashward:{n:'Ashen Ward Graft',d:'ASH. Ability: shroud an ally within 2 — +3 armor until their next turn. +1 corruption.',ash:true},
+ hook:{n:'Grapple-Hook',d:'Ability: yank an enemy within 2 one tile toward you and off-balance them (−10 to hit next turn).'},
+ warcry:{n:'War-Cry',d:'Ability (once per battle): enemies within 2 are shaken (−10 to hit next round); allies within 2 shed a rattle.'},
+ skirmisher:{n:'Skirmisher',d:'After you attack, take one free step — strike and fade.'},
+ rally:{n:'Rally',d:'Ability: steady an adjacent ally — clear their rattle and grant +10 hit next turn.'},
 };
 const TRAITS={
  scarred:{n:'Scarred',d:'+3 resolve, and the face remembers. Survived a battle at death’s edge.',good:true},
@@ -232,12 +241,17 @@ const TRAITS={
  grieving:{n:'Grieving',d:'−5 resolve until their bonded dead is laid to rest.',good:false},
 };
 const WEAPONS={
- shortsword:{n:'Shortsword',lo:2,hi:4,rng:1,hitB:0},
- spear:{n:'Spear',lo:2,hi:4,rng:1,hitB:5},
- axe:{n:'War Axe',lo:3,hi:6,rng:1,hitB:-5},
- halberd:{n:'Halberd',lo:4,hi:7,rng:1,hitB:-10},
- bow:{n:'Hunting Bow',lo:2,hi:4,rng:5,hitB:0},
- warbow:{n:'War Bow',lo:3,hi:5,rng:5,hitB:0},
+ shortsword:{n:'Shortsword',lo:2,hi:4,rng:1,hitB:0,tier:1,up:'armingsword'},
+ armingsword:{n:'Arming Sword',lo:3,hi:5,rng:1,hitB:5,tier:2},
+ spear:{n:'Spear',lo:2,hi:4,rng:1,hitB:5,reach:true,tier:1,up:'pike'},
+ pike:{n:'War Pike',lo:3,hi:5,rng:1,hitB:5,reach:true,tier:2},
+ axe:{n:'War Axe',lo:3,hi:6,rng:1,hitB:-5,cleave:true,tier:1,up:'greataxe'},
+ greataxe:{n:'Greataxe',lo:5,hi:8,rng:1,hitB:-8,cleave:true,tier:2},
+ halberd:{n:'Halberd',lo:4,hi:7,rng:1,hitB:-8,reach:true,cleave:true,tier:2},
+ mace:{n:'Mace & Shield',lo:2,hi:4,rng:1,hitB:0,armor:1,bash:true,tier:1,up:'flanged'},
+ flanged:{n:'Flanged Mace & Shield',lo:3,hi:5,rng:1,hitB:0,armor:1,bash:true,tier:2},
+ bow:{n:'Hunting Bow',lo:2,hi:4,rng:5,hitB:0,tier:1,up:'warbow'},
+ warbow:{n:'War Bow',lo:3,hi:5,rng:5,hitB:0,tier:2},
 };
 const ARMORS=[{n:'None',v:0,cost:0},{n:'Gambeson',v:1,cost:25},{n:'Mail Shirt',v:2,cost:60}];
 const ENEMIES={
@@ -248,15 +262,19 @@ const ENEMIES={
  husk:{n:'Husk',hp:14,skl:2,spd:2,w:'axe',arm:1,undead:true,xp:4},
  acolyte:{n:'Conclave Acolyte',hp:7,skl:4,spd:3,w:'bow',arm:0,undead:false,xp:4},
  graveguard:{n:'Graveguard',hp:16,skl:4,spd:3,w:'halberd',arm:2,undead:true,xp:6},
+ cutthroat:{n:'Cutthroat',hp:8,skl:4,spd:6,w:'shortsword',arm:0,undead:false,xp:4,ai:'flank'},
+ shieldman:{n:'Shieldman',hp:13,skl:3,spd:3,w:'mace',arm:2,undead:false,xp:5,ai:'anchor'},
+ pikeman:{n:'Levy Pikeman',hp:11,skl:4,spd:3,w:'spear',arm:1,undead:false,xp:4},
 };
 const CONTRACT_TYPES={
- patrol:{n:'Road Patrol',employer:'Karsk',desc:'Clear brigands from the {r} road.',pool:['brigand','brigand','archer','deserter'],base:40},
- purge:{n:'Purge the Risen',employer:'Karsk',desc:'Put down the dead walking in {r}.',pool:['husk','husk','hound','acolyte'],base:55},
- hunt:{n:'Hound Cull',employer:'Village elders',desc:'Blight-hounds are taking children in {r}.',pool:['hound','hound','hound','husk'],base:45},
- hold:{n:'Hold the Line',employer:'Karsk',desc:'Hold a Blight-line crossing in {r}.',pool:['husk','hound','acolyte','graveguard','brigand'],base:70},
+ patrol:{n:'Road Patrol',employer:'Karsk',desc:'Clear brigands from the {r} road.',pool:['brigand','brigand','archer','cutthroat','deserter'],base:40},
+ purge:{n:'Purge the Risen',employer:'Karsk',desc:'Put down the dead walking in {r}.',pool:['husk','husk','hound','acolyte','shieldman'],base:55},
+ hunt:{n:'Hound Cull',employer:'Village elders',desc:'Blight-hounds are taking children in {r}.',pool:['hound','hound','hound','cutthroat','husk'],base:45},
+ hold:{n:'Hold the Line',employer:'Karsk',desc:'Hold a Blight-line crossing in {r}.',pool:['husk','hound','acolyte','graveguard','shieldman','pikeman'],base:70},
  delve:{n:'Ruin Delve',employer:'Undercrown broker',desc:'Salvage the ruins of swallowed {r}.',pool:['husk','husk','graveguard','acolyte','hound'],base:95},
  bounty:{n:'Put-Down Bounty',employer:'Karsk',desc:'A revenant in your old colors walks {r}. They want it gone. So do you.',pool:['husk','acolyte'],base:80},
  putdown:{n:'The Confrontation',employer:'The company',desc:'One of yours walks {r}. End it.',pool:['husk','acolyte'],base:0},
+ reclaim:{n:'Reconsecrate the Ground',employer:'Village elders',desc:'Hold the shrine in {r} through the rite. Win, and the Blight itself recedes.',pool:['husk','hound','acolyte','graveguard','shieldman'],base:80},
 };
 const OBJECTIVES={
  slay:{n:'No Survivors',d:'Kill every enemy on the field.'},
@@ -266,12 +284,14 @@ const OBJECTIVES={
  capture:{n:'Seize the Ground',d:'Hold the marked ground at round’s end, twice. It matters to someone.'},
  assassinate:{n:'Cut Off the Head',d:'Kill the marked leader ♛. The rest will scatter without them.'},
  burn:{n:'Burn the Nest',d:'Destroy the Blight-nest. It will not stop birthing until it burns.'},
+ reclaim:{n:'Hold the Rite',d:'Survive six rounds at the shrine. Victory pushes the Blight back across the whole region.'},
 };
 function rollObjective(type){
   if(type==='patrol'){const r=ri(1,100); return r<=40?'escort':r<=60?'assassinate':'slay';}
   if(type==='purge'){const r=ri(1,100); return r<=30?'capture':r<=55?'burn':'slay';}
   if(type==='hold')return chance(50)?'survive':'protect';
   if(type==='delve')return 'capture';
+  if(type==='reclaim')return 'reclaim';
   return 'slay';
 }
 const REGION_DEFS=[
@@ -613,7 +633,9 @@ function genContracts(){
   for(const r of S.regions){
     if(S.contracts.some(c=>c.regionId===r.id))continue;
     let type;
+    const shrineInRegion=Object.values(S.hexes).some(h=>h.region===r.id&&h.feat==='shrine');
     if(r.swallowed){ if((r.salvage||0)<=0)continue; type='delve'; }
+    else if(!r.swallowed&&r.pressure>=55&&shrineInRegion&&chance(45)) type='reclaim';
     else type=pick(r.pressure>=45?['purge','hold','patrol','hunt']:['patrol','hunt','purge']);
     const ct=CONTRACT_TYPES[type];
     const danger=dangerOf(r);
@@ -631,6 +653,7 @@ function genContracts(){
 function contractAnchor(regionId,type){
   const mine=Object.values(S.hexes).filter(h=>h.region===regionId&&h.t!=='mountain'&&h.setl===null);
   if(type==='delve'){const ruins=mine.filter(h=>h.feat==='ruin'); if(ruins.length)return pick(ruins);}
+  if(type==='reclaim'){const sh=mine.filter(h=>h.feat==='shrine'); if(sh.length)return pick(sh);}
   if(type==='patrol'){const roads=mine.filter(h=>h.road); if(roads.length)return pick(roads);}
   return mine.length?pick(mine):null;
 }
@@ -1017,7 +1040,7 @@ function startBattle(contract,squadIds){
   const B={contractId:contract.id,type:contract.type,regionId:region.id,round:1,units:[],bodies:[],tiles:[],
            queue:[],qi:0,sel:null,over:false,outcome:null,revGraveIds:[],log:[],ambush:!!contract.ambush,
            pay:contract.pay,agentId:contract.agentId||null,
-           obj:contract.obj||'slay',objRounds:6,capProgress:0,objFailed:false,objTile:null,weather:null,
+           obj:contract.obj||'slay',objRounds:6,capProgress:0,objFailed:false,objTile:null,weather:null,aim:null,leaderStyle:null,
            poolKeys:CONTRACT_TYPES[contract.type].pool,caravanRaid:!!contract.caravanRaid,wagonsLost:0,
            cname:contract.cname||null,storyBeat:contract.story||null,leaderUid:null,nestUid:null};
   // terrain keyed to the caravan's hex — you fight on the ground you're standing on
@@ -1080,7 +1103,18 @@ function startBattle(contract,squadIds){
     let lead=contract.leader?B.units.find(z=>z.kind==='foe'&&z.ekey===contract.leader):null;
     if(!lead)lead=B.units.filter(z=>z.kind==='foe').sort((a,b)=>b.maxhp-a.maxhp)[0];
     if(lead){ B.leaderUid=lead.uid; lead.name=contract.leaderName||(lead.name+' Captain');
-      lead.hp+=4; lead.maxhp+=4; lead.wMod=(lead.wMod||0)+1; lead.xpv=(lead.xpv||4)+4; }
+      lead.xpv=(lead.xpv||4)+4;
+      B.leaderStyle=contract.leaderStyle||(chance(50)?'bruiser':'skittish');
+      if(B.leaderStyle==='bruiser'){ // tough & aggressive: a butcher that charges the line
+        lead.hp+=10; lead.maxhp+=10; lead.weapon='greataxe'; lead.wMod=1; lead.arm=Math.max(lead.arm,2); lead.ai='charge';
+        if(!contract.leaderName)lead.name=lead.name.replace(' Captain','')+' the Butcher';
+      } else { // skittish & protected: runs, ringed by guards
+        lead.hp+=3; lead.maxhp+=3; lead.spd+=1; lead.ai='flee';
+        const g1=spawnEnemy(B,'shieldman',danger,false), g2=spawnEnemy(B,'shieldman',danger,false);
+        [g1,g2].forEach((g,i)=>{ if(g){ g.x=clamp(lead.x-1+2*i,0,GW-1); g.y=clamp(lead.y+(i?1:-1),0,GH-1); if(unitAt(B,g.x,g.y)!==g){g.x=lead.x;g.y=Math.max(0,lead.y-1-i);} } });
+        if(!contract.leaderName)lead.name=lead.name.replace(' Captain','')+', the Quarry';
+      }
+    }
   }
   if(B.obj==='burn'){
     const nx=GW-3, ny=ri(2,GH-3);
@@ -1109,8 +1143,9 @@ function startBattle(contract,squadIds){
 function spawnEnemy(B,key,danger,flank){
   const e=ENEMIES[key];
   const u={uid:nid(),kind:'foe',ekey:key,name:e.n,hp:e.hp+danger,maxhp:e.hp+danger,skl:e.skl,spd:e.spd,res:35,
-    weapon:e.w,wMod:danger>=3?1:0,arm:e.arm,feats:[],traits:[],undead:e.undead,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:e.xp,graveId:null};
+    weapon:e.w,wMod:danger>=3?1:0,arm:e.arm,feats:[],traits:[],undead:e.undead,ai:e.ai||null,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:e.xp,graveId:null};
   placeFoe(B,u,flank); B.units.push(u);
+  return u;
 }
 function placeFoe(B,u,flank){
   if(flank){
@@ -1157,13 +1192,16 @@ function buildQueue(B){
 function curUnit(B){ const id=B.queue[B.qi]; return B.units.find(u=>u.uid===id&&u.hp>0&&!u.fled); }
 function nextTurn(){
   const B=S.battle; if(!B||B.over)return;
-  B.inspect=null;
+  const prev=curUnit(B);
+  if(prev){ prev.rooted=false; prev.offbalance=false; prev.warcried=false; prev.rallied=false; prev.warded=0; prev.freeStep=false; prev.skirmished=false; }
+  B.inspect=null; B.aim=null;
   B.qi++;
   if(B.qi>=B.queue.length){ B.round++; buildQueue(B); blightTick(B); if(!B.over)objTick(B); }
   if(B.over)return;
   const u=curUnit(B);
   if(!u){ if(!B.over) nextTurn(); return; }
   u.defending=false;
+  if(u.stunned){ u.stunned=false; blog(B,`${u.name} is staggered and loses the turn.`); render(); setTimeout(()=>{ if(S.battle&&!S.battle.over)nextTurn(); },450); return; }
   render(); maybeAI();
 }
 function blightTick(B){
@@ -1176,6 +1214,7 @@ function blightTick(B){
 }
 function blog(B,msg){ B.log.unshift(msg); if(B.log.length>40)B.log.pop(); }
 function reachable(B,u){
+  if(u.rooted)return [];
   let mov=u.spd>=5?4:3;
   if(u.feats.includes('fleet'))mov+=1;
   const seen={}; const out=[]; const q=[{x:u.x,y:u.y,d:0}];
@@ -1259,12 +1298,16 @@ function objTick(B){
       if(B.capProgress>=2){ blog(B,'The ground is yours. Contract fulfilled.'); endBattle('victory'); return; } }
   }
 }
-function wOf(u){const w=WEAPONS[u.weapon];return {n:w.n,lo:w.lo+(u.wMod||0),hi:w.hi+(u.wMod||0),rng:w.rng+((u.feats.includes('deadeye')&&w.rng>1)?1:0),hitB:w.hitB};}
+function wOf(u){const w=WEAPONS[u.weapon]||WEAPONS.shortsword;return {n:w.n,lo:w.lo+(u.wMod||0),hi:w.hi+(u.wMod||0),rng:w.rng+((u.feats.includes('deadeye')&&w.rng>1)?1:0),hitB:w.hitB,reach:!!w.reach,cleave:!!w.cleave,bash:!!w.bash,armor:w.armor||0};}
+function inWeaponRange(B,att,def){
+  const w=wOf(att);
+  const dx=Math.abs(att.x-def.x),dy=Math.abs(att.y-def.y),man=dx+dy,cheb=Math.max(dx,dy);
+  if(w.rng>1){ const rng=B.weather?Math.min(w.rng,3):w.rng; return cheb>=2&&cheb<=rng&&hasLOS(B,att,def); }
+  if(w.reach){ return (cheb<=1&&man>=1)||(man===2&&(dx===0||dy===0)); } // 8 neighbours + straight poke
+  return man===1; // plain melee: orthogonal adjacent only
+}
 function attackTargets(B,u){
-  const w=wOf(u);
-  // bows: no point-blank, need line of sight, and weather cuts the shot
-  const rng=(B.weather&&w.rng>1)?Math.min(w.rng,3):w.rng;
-  return B.units.filter(t=>t.hp>0&&!t.fled&&isEnemy(u,t)&&(w.rng===1?adjacent(u,t):(distC(u,t)<=rng&&distC(u,t)>=2&&hasLOS(B,u,t))));
+  return B.units.filter(t=>t.hp>0&&!t.fled&&isEnemy(u,t)&&inWeaponRange(B,u,t));
 }
 function isEnemy(a,b){return (a.kind==='foe')!==(b.kind==='foe');}
 function hitChance(B,att,def){
@@ -1275,6 +1318,9 @@ function hitChance(B,att,def){
   if(tileAt(B,def.x,def.y).t==='forest')h-=15;
   if(def.defending)h-=10;
   if(att.shakenBy)h-=10;
+  if(att.offbalance)h-=10;
+  if(att.warcried)h-=10;
+  if(att.rallied)h+=10;
   h-=att.rattled*5;
   h+=att.reaper*5;
   // bond adjacency
@@ -1305,6 +1351,8 @@ function dmgOf(B,att,def){
   if((att.traits||[]).includes('blightmarked')&&def.undead)d+=2;
   if(def.graveId&&att.kind==='pc'&&att.feats.includes('vengeful')&&isBondedToGrave(att,def.graveId))d+=2;
   let arm=def.arm;
+  arm+=(WEAPONS[def.weapon]&&WEAPONS[def.weapon].armor)||0; // mace & shield
+  arm+=def.warded||0;
   if(def.defending)arm+=2;
   if(def.feats.includes('bulwark'))arm+=1;
   if(def.feats.includes('shieldwall')){
@@ -1332,11 +1380,21 @@ function doAttack(B,att,def){
       att.bkills=(att.bkills||0)+1;
       if(att.kind==='pc'){const s=soldierById(att.ref); if(s){s.kills++; grantXp(s,def.xpv||3);
         if(att.feats.includes('veindrink'))addCorruption(s,1);}} }
+    if(w.cleave&&!B.over){
+      const extra=B.units.filter(t=>t!==def&&t.hp>0&&!t.fled&&isEnemy(att,t)&&adjacent(t,def)).slice(0,2);
+      for(const t of extra){ if(B.over)break;
+        const cd=Math.max(1,Math.floor(dmgOf(B,att,t)/2));
+        t.hp-=cd; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+cd,color:'#e0593f'});
+        blog(B,`  …the blow cleaves into ${t.name} for ${cd}.`);
+        if(t.hp<=0){ applyDeath(B,t); if(att.kind==='pc'){const s2=soldierById(att.ref); if(s2){s2.kills++; grantXp(s2,t.xpv||3);}} }
+      }
+    }
   } else {
     fx.push({type:'dodge',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:def.defending?'blocked':'dodged',color:'#7d93a3'});
     blog(B,`${att.name} misses ${def.name} (${h}%).`);
   }
   att.acted=true;
+  if(att.kind==='pc'&&(att.feats||[]).includes('skirmisher')&&!att.skirmished){ att.skirmished=true; att.freeStep=true; }
 }
 function applyDeath(B,u){
   u.hp=0;
@@ -1439,14 +1497,22 @@ function calloutModal(B,g){
 function tryMove(x,y){
   const B=S.battle; const u=curUnit(B);
   if(!u||u.kind!=='pc')return;
-  if(u.moved&&u.acted)return;
+  if(u.moved&&u.acted&&!u.freeStep)return;
+  if(u.freeStep){ // skirmisher: one free orthogonal step after attacking
+    if(!stepTiles(B,u).some(t=>t.x===x&&t.y===y))return;
+    u.x=x;u.y=y;u.freeStep=false; B.aim=null; render(); endUnitTurn(); return;
+  }
   if(!reachable(B,u).some(t=>t.x===x&&t.y===y))return;
   const dash=u.moved; // second move spends the action
   u.x=x;u.y=y;
   if(dash){ u.acted=true; blog(B,`${u.name} dashes.`); } else u.moved=true;
-  B.cast=false;
+  B.aim=null;
   render();
-  if(u.moved&&u.acted) endUnitTurn();
+  if(u.moved&&u.acted&&!u.freeStep) endUnitTurn();
+}
+function stepTiles(B,u){
+  return [[1,0],[-1,0],[0,1],[0,-1]].map(d=>({x:u.x+d[0],y:u.y+d[1]}))
+    .filter(t=>t.x>=0&&t.y>=0&&t.x<GW&&t.y<GH&&tileAt(B,t.x,t.y).t!=='rock'&&!unitAt(B,t.x,t.y));
 }
 function tryAttack(targetUid){
   const B=S.battle; const u=curUnit(B);
@@ -1454,26 +1520,77 @@ function tryAttack(targetUid){
   const t=B.units.find(z=>z.uid===targetUid);
   if(!t||!attackTargets(B,u).includes(t))return;
   doAttack(B,u,t);
-  if(!B.over){ render(); if(u.acted&&u.moved) endUnitTurn(); }
+  if(!B.over){ render(); if(u.acted&&u.moved&&!u.freeStep) endUnitTurn(); }
 }
 function endUnitTurn(){ const B=S.battle; if(!B||B.over)return; nextTurn(); }
 function defend(){ const B=S.battle; const u=curUnit(B); if(!u||u.kind!=='pc'||u.acted)return;
   u.defending=true; u.rattled=Math.max(0,u.rattled-1); u.acted=true;u.moved=true;
   blog(B,`${u.name} braces — −10 to be hit, +2 armor, nerves steadied, until their next turn.`); nextTurn(); }
+function unitAbility(u){
+  if(!u||u.kind!=='pc')return null;
+  const f=u.feats||[]; const w=WEAPONS[u.weapon]||{};
+  if(f.includes('ashfire'))return {k:'ashfire',label:'☄ Ashfire',range:4,side:'enemy',ranged:true,tip:'Blightfire — range 4, 4–7 dmg, ignores armor. +1 corruption.'};
+  if(f.includes('bonespears'))return {k:'bonespears',label:'☠ Bone Spears',range:3,side:'enemy',ranged:true,tip:'Range 3, 3–5 dmg, roots the target (no move next turn). +1 corruption.'};
+  if(f.includes('ashward'))return {k:'ashward',label:'✦ Ashen Ward',range:2,side:'ally',tip:'Ally within 2: +3 armor until their next turn. +1 corruption.'};
+  if(f.includes('hook'))return {k:'hook',label:'⤛ Hook',range:2,side:'enemy',tip:'Yank an enemy within 2 one tile toward you; −10 to their hit next turn.'};
+  if(w.bash)return {k:'bash',label:'⛊ Shield Bash',range:1,side:'enemy',tip:'Bash an adjacent enemy: knock them back and stagger them (they lose their next turn).'};
+  if(f.includes('rally'))return {k:'rally',label:'✚ Rally',range:1,side:'ally',tip:'Steady an adjacent ally: clear rattle, +10 hit next turn.'};
+  if(f.includes('warcry')&&!u.warcryUsed)return {k:'warcry',label:'⚑ War-Cry',range:0,side:'self',tip:'Once/battle: shake enemies within 2 (−10 hit next round); allies within 2 shed a rattle.'};
+  if(f.includes('medic')&&!u.medicUsed)return {k:'medic',label:'✚ Field Medic',range:1,side:'ally',tip:'Heal an adjacent ally 5 HP (once per battle).'};
+  return null;
+}
+function abilityValidTarget(B,u,ab,t){
+  if(!t||t.hp<=0||t.fled)return false;
+  if(ab.side==='enemy'&&!isEnemy(u,t))return false;
+  if(ab.side==='ally'&&!(t.kind===u.kind&&t!==u&&!t.prop))return false;
+  if(ab.ranged)return distC(u,t)>=2&&distC(u,t)<=(B.weather?Math.min(ab.range,3):ab.range)&&hasLOS(B,u,t);
+  return distC(u,t)<=ab.range&&distC(u,t)>=1;
+}
 function useAbility(){
   const B=S.battle; const u=curUnit(B);
   if(!u||u.kind!=='pc'||u.acted)return;
-  if(u.feats.includes('ashfire')){ B.cast=!B.cast; render(); return; }
-  if(!u.feats.includes('medic')||u.medicUsed)return;
-  const ally=B.units.find(t=>t.kind==='pc'&&t!==u&&t.hp>0&&!t.fled&&adjacent(u,t)&&t.hp<t.maxhp);
-  if(!ally){blog(B,'No wounded ally adjacent.');render();return;}
-  ally.hp=Math.min(ally.maxhp,ally.hp+5);
-  const as=soldierById(ally.ref); if(as)as.hp=ally.hp;
-  u.medicUsed=true;u.acted=true;
-  fx.push({type:'float',x:ally.x,y:ally.y,txt:'+5',color:'#9ab86f'});
-  blog(B,`${u.name} binds ${ally.name}’s wounds (+5).`);
-  render();
-  if(u.moved) endUnitTurn();
+  const ab=unitAbility(u); if(!ab)return;
+  if(ab.side==='self'){ execAbility(B,u,ab,null); if(!B.over){ render(); if(u.acted&&u.moved) endUnitTurn(); } return; }
+  B.aim=(B.aim===ab.k)?null:ab.k; render();
+}
+function afterAbility(B,u){ if(!B.over){ render(); if(u.acted&&u.moved&&!u.freeStep) endUnitTurn(); } }
+function execAbility(B,u,ab,t){
+  const corrupt=()=>{ if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} };
+  if(ab.k==='ashfire'){ doCast(B,u,t); return; }
+  if(ab.k==='bonespears'){
+    fx.push({type:'arrow',fx:u.x,fy:u.y,tx:t.x,ty:t.y});
+    const h=clamp(70+u.skl*3-t.spd*2,30,95);
+    if(ri(1,100)<=h){ const d=ri(3,5); t.hp-=d; t.rooted=true; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+d,color:'#b08bc9'}); blog(B,`Bone erupts under ${t.name} for ${d} — rooted fast.`); if(t.hp<=0){applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}} }
+    else blog(B,`The bone-spears shatter wide of ${t.name}.`);
+    corrupt(); u.acted=true; B.aim=null; return;
+  }
+  if(ab.k==='ashward'){ t.warded=3; fx.push({type:'float',x:t.x,y:t.y,txt:'ward',color:'#b08bc9'}); blog(B,`${u.name} shrouds ${t.name} in ash — +3 armor.`); corrupt(); u.acted=true; B.aim=null; return; }
+  if(ab.k==='hook'){
+    const dx=Math.sign(u.x-t.x),dy=Math.sign(u.y-t.y),nx=t.x+dx,ny=t.y+dy;
+    if(!(nx===u.x&&ny===u.y)&&tileAt(B,nx,ny)&&tileAt(B,nx,ny).t!=='rock'&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
+    t.offbalance=true; fx.push({type:'float',x:t.x,y:t.y,txt:'hooked',color:'#c9a227'}); blog(B,`${u.name} hooks ${t.name} in close and off-balance.`);
+    u.acted=true; B.aim=null; return;
+  }
+  if(ab.k==='bash'){
+    const dx=Math.sign(t.x-u.x),dy=Math.sign(t.y-u.y),d=ri(1,2);
+    t.hp-=d; t.stunned=true;
+    const nx=t.x+dx,ny=t.y+dy;
+    if(tileAt(B,nx,ny)&&tileAt(B,nx,ny).t!=='rock'&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
+    fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'staggered',color:'#7d93a3'});
+    blog(B,`${u.name} bashes ${t.name} back and staggers them.`);
+    if(t.hp<=0){applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}}
+    u.acted=true; B.aim=null; return;
+  }
+  if(ab.k==='rally'){ t.rattled=0; t.rallied=true; fx.push({type:'float',x:t.x,y:t.y,txt:'steady',color:'#9ab86f'}); blog(B,`${u.name} rallies ${t.name} — steady now.`); u.acted=true; B.aim=null; return; }
+  if(ab.k==='medic'){ t.hp=Math.min(t.maxhp,t.hp+5); const as=soldierById(t.ref); if(as)as.hp=t.hp; u.medicUsed=true; fx.push({type:'float',x:t.x,y:t.y,txt:'+5',color:'#9ab86f'}); blog(B,`${u.name} binds ${t.name}’s wounds (+5).`); u.acted=true; B.aim=null; return; }
+  if(ab.k==='warcry'){
+    u.warcryUsed=true; u.acted=true;
+    for(const z of B.units){ if(z.hp<=0||z.fled)continue;
+      if(isEnemy(u,z)&&distC(u,z)<=2)z.warcried=true;
+      else if(z.kind===u.kind&&z!==u&&distC(u,z)<=2)z.rattled=Math.max(0,z.rattled-1); }
+    fx.push({type:'float',x:u.x,y:u.y,txt:'WAR-CRY',color:'#c9a227'}); blog(B,`${u.name} bellows — the enemy line flinches.`);
+    B.aim=null; return;
+  }
 }
 function doCast(B,att,def){
   const h=clamp(75+att.skl*3-def.spd*2,30,95);
@@ -1490,7 +1607,7 @@ function doCast(B,att,def){
     fx.push({type:'float',x:def.x,y:def.y,txt:'guttered',color:'#7a5f95'});
     blog(B,`${att.name}’s ashfire gutters out (${h}%).`);
   }
-  att.acted=true; B.cast=false;
+  att.acted=true; B.aim=null;
   if(att.kind==='pc'){const s=soldierById(att.ref); if(s)addCorruption(s,1);}
 }
 function retreat(){
@@ -1593,8 +1710,14 @@ function endBattle(outcome){
         queueModal(()=>heirEpilogue());
       }
     }
-    if(!B.ambush&&(B.type==='purge'||B.type==='delve')&&chance(B.obj==='capture'?45:30)){
-      queueModal(()=>relicModal(pick(['ashfire','veindrink'])));
+    if(!B.ambush&&(B.type==='purge'||B.type==='delve'||B.type==='reclaim')&&chance(B.obj==='capture'?45:30)){
+      queueModal(()=>relicModal(pick(['ashfire','veindrink','bonespears','ashward'])));
+    }
+    if(B.type==='reclaim'&&!B.ambush){
+      region.pressure=Math.max(3,region.pressure-25);
+      Object.values(S.hexes).filter(h=>h.region===region.id&&h.blighted).slice(0,6).forEach(h=>h.blighted=false);
+      repAdd('folk',4);
+      log(`The rite holds. The Blight recedes from ${region.name} — the ground remembers being clean (−25 pressure).`,'good');
     }
     if(S.story&&S.story.stage===2&&(B.type==='purge'||B.type==='delve')&&chance(35)){
       S.story.stage=3;
@@ -1605,7 +1728,7 @@ function endBattle(outcome){
     if(B.type==='delve'){ region.salvage=Math.max(0,(region.salvage||0)-1);
       if(!region.salvage) log(`${region.name} is picked clean. Nothing is left there worth dying for.`,'bad'); }
     if(!region.swallowed&&region.pressure>0&&(B.type==='purge'||B.type==='hold')){ region.pressure=Math.max(5,region.pressure-6); log(`Your work slows the Blight in ${region.name} (−6 pressure).`,'good'); }
-    if(chance(30)){ const w=pick(['spear','axe','warbow','halberd']); queueModal(()=>lootModal(w)); }
+    if(chance(30)){ const w=pick(['spear','axe','warbow','halberd','mace','armingsword','pike','greataxe']); queueModal(()=>lootModal(w)); }
   } else {
     for(const b of B.bodies){
       const g=graveOfSoldier(b.soldierId); if(!g||g.state!=='field')continue;
@@ -1679,6 +1802,15 @@ function ritesModal(g){
     ]);
 }
 /* ---- enemy AI ---- */
+function threatScore(B,t){ // how tempting a target is to the enemy
+  let s=0;
+  if((WEAPONS[t.weapon]||{}).rng>1)s+=6;      // archers & casters first
+  if((t.feats||[]).some(f=>FEATS[f]&&FEATS[f].ash))s+=3;
+  s+=(t.maxhp-t.hp);                           // finish the wounded
+  s+=Math.max(0,4-(t.arm||0));                 // soft targets
+  return s;
+}
+function minDistTo(list,p){ return list.reduce((m,t)=>Math.min(m,distC(t,p)),99); }
 function maybeAI(){
   const B=S.battle; if(!B||B.over)return;
   if(activeModal){ setTimeout(maybeAI,300); return; }
@@ -1715,11 +1847,27 @@ function aiAct(u){
     }
   } else if((B.obj==='protect'||B.obj==='escort')&&charges.length&&chance(45)){
     target=charges.slice().sort(near)[0];
+  } else if(u.ai==='flank'&&pcs.length){
+    // cutthroats knife the backline — go for archers/casters and the wounded
+    target=pcs.slice().sort((a,b)=>threatScore(B,b)-threatScore(B,a)||near(a,b))[0];
   }
   const inRange=attackTargets(B,u);
   if(!target){
     const pool=pcs.concat(charges);
-    target=inRange.sort((a,b)=>a.hp-b.hp)[0]||pool.sort(near)[0];
+    // default: prefer whoever's in reach, else the juiciest reachable target (soft/wounded/ranged)
+    target=inRange.sort((a,b)=>threatScore(B,b)-threatScore(B,a)||a.hp-b.hp)[0]
+      ||pool.slice().sort((a,b)=>near(a,b)||threatScore(B,b)-threatScore(B,a))[0];
+  }
+  // the assassinate leader: a butcher charges, the quarry runs
+  if(u.uid===B.leaderUid&&pcs.length){
+    if(u.ai==='flee'){
+      const steps=reachable(B,u);
+      if(steps.length){ steps.sort((a,b)=>minDistTo(pcs,b)-minDistTo(pcs,a)); const far=steps[0];
+        if(minDistTo(pcs,far)>minDistTo(pcs,u)){u.x=far.x;u.y=far.y;} }
+      const nr=attackTargets(B,u); if(nr.length)doAttack(B,u,nr.sort((a,b)=>a.hp-b.hp)[0]);
+      if(!B.over){ render(); nextTurn(); } return;
+    }
+    if(u.ai==='charge') target=pcs.slice().sort(near)[0];
   }
   // archers back away from blades at their throat
   if(w.rng>1&&pcs.some(t=>distC(u,t)<2)){
@@ -2080,10 +2228,20 @@ function mobileTabBar(){
     clearTimeout(th); th=setTimeout(()=>toast.classList.remove('show'),3600);
   },true);
   let rz; window.addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(S)render(); },150); });
+  document.addEventListener('keydown',e=>{
+    if(activeModal||!S||!S.battle)return;
+    const B=S.battle, u=curUnit(B); if(!u||u.kind!=='pc')return;
+    const k=e.key.toLowerCase();
+    if(k===' '||k==='enter'){ e.preventDefault(); endUnitTurn(); }
+    else if(k==='b'){ defend(); }
+    else if(k==='f'||k==='q'){ useAbility(); }
+    else if(k==='r'){ retreat(); }
+    else if(k==='escape'){ if(B.aim){B.aim=null;render();} }
+  });
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.12</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.13</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2206,10 +2364,13 @@ function soldierCard(s,inHire,idx){
       ${s.traits&&s.traits.length?`<div class="featline traitchip">${s.traits.map(t=>`<span class="tt" data-tip="${esc(TRAITS[t].d)}">${TRAITS[t].n}</span>`).join(' · ')}</div>`:''}
       ${s.corr?`<div class="featline corrchip"><span class="tt" data-tip="Corruption: the graft feeds on use. At 4 and 7 it takes something back — and her revenant will be stronger for it.">Corruption ${s.corr}</span></div>`:''}
       ${inHire?`<button ${S.coin<hireCost(s)?'disabled':''} onclick="HIRE(${idx})">Hire — ${hireCost(s)}c</button>`
-              :(nextArm?`<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${nextArm.n} (${armorCost(s.armor+1)}c)</button>`:'')}
+              :`${nextArm?`<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${nextArm.n} (${armorCost(s.armor+1)}c)</button>`:''}${(WEAPONS[s.weapon]&&WEAPONS[s.weapon].up&&atSettlement()!==null)?`<button ${S.coin<reforgeCost()?'disabled':''} onclick="REFORGE(${s.id})" title="Reforge to a finer weapon at the smithy">Reforge → ${WEAPONS[WEAPONS[s.weapon].up].n} (${reforgeCost()}c)</button>`:''}`}
     </div>
   </div>`;
 }
+function reforgeCost(){ return (S.story&&S.story.heir==='aldric')?36:45; }
+window.REFORGE=function(id){ const s=soldierById(id); if(!s)return; const w=WEAPONS[s.weapon]; if(!w||!w.up||atSettlement()===null)return; const c=reforgeCost(); if(S.coin<c)return; S.coin-=c; s.weapon=w.up; s.wName=null; log(`${s.name}’s ${w.n} is reforged into a ${WEAPONS[w.up].n}.`,'good'); save(); render(); };
+window.SHRINE=function(){ const h=caravanHex(); if(!h||h.feat!=='shrine'||S.coin<30)return; S.coin-=30; const r=S.regions[h.region]; r.pressure=Math.max(3,r.pressure-12); repAdd('folk',3); blightCreep(); log(`You kneel at the shrine and give coin to the rite. The Blight loosens its grip on ${r.name} (−12 pressure).`,'good'); save(); render(); };
 window.HIRE=hire; window.BUYARM=buyArmor; window.BUYPROV=buyProv; window.WEEK=()=>advanceDays(7);
 function renderCompany(){
   const ch=caravanHex();
@@ -2236,6 +2397,7 @@ function renderCompany(){
           <button onclick="BUYPROV()" ${setl===null||S.coin<provCost()?'disabled':''} title="${setl===null?'Markets are in settlements':''}">Provisions ×5 (${provCost()}c)</button>
         </div>
         <div class="hint" style="margin-top:5px">Weekly: wages 3c/head, 1 provision/head, wounds mend. The world moves while you rest — and while you travel.</div>
+        ${ch&&ch.feat==='shrine'&&!S.regions[ch.region].swallowed?`<button class="storybtn" style="border-color:#8fbfb0;color:#8fbfb0" ${S.coin<30?'disabled':''} onclick="SHRINE()">☨ Kneel at the shrine — 30c to push back the Blight in ${esc(S.regions[ch.region].name)} (−12 pressure, +Folk)</button>`:''}
         ${S.story&&S.story.stage===1&&setl===3&&cmdr()?`<button class="storybtn" onclick="SNEAK()">🕯 The Palace — the princess pays for discreet swords. Find a way in.</button>`:''}
         ${S.story&&S.story.stage===1&&setl!==3?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: reach <b>Karsk Gate</b> — the princess Maren pays for discreet swords.</div>`:''}
         ${S.story&&S.story.stage===2?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: bring Maren proof — win purge or delve contracts to intercept Conclave letters.</div>`:''}
@@ -2350,9 +2512,11 @@ function renderBattle(){
   const availH=narrow?window.innerHeight-320:window.innerHeight-260;
   const TS=clamp(Math.floor(Math.min(availW/GW,availH/GH)),narrow?24:46,84);
   TSCUR=TS;
-  const moves=isPC&&(!u.moved||!u.acted)?reachable(B,u):[];
-  const targets=isPC&&!u.acted&&!B.cast?attackTargets(B,u):[];
-  const casts=isPC&&B.cast&&!u.acted?B.units.filter(t=>t.hp>0&&!t.fled&&isEnemy(u,t)&&distC(u,t)<=(B.weather?3:4)&&hasLOS(B,u,t)):[];
+  const moves=isPC?(u.freeStep?stepTiles(B,u):((!u.moved||!u.acted)&&!B.aim?reachable(B,u):[])):[];
+  const ab=isPC?unitAbility(u):null;
+  const aiming=isPC&&B.aim&&ab&&ab.k===B.aim?ab:null;
+  const targets=isPC&&!u.acted&&!B.aim?attackTargets(B,u):[];
+  const casts=aiming?B.units.filter(t=>abilityValidTarget(B,u,aiming,t)):[];
   // threat overlay for an inspected enemy: everywhere it could move + strike next turn
   const iu=B.inspect?B.units.find(z=>z.uid===B.inspect&&z.hp>0&&!z.fled):null;
   const threat=new Set();
@@ -2378,6 +2542,10 @@ function renderBattle(){
       if(un.defending)title+=', bracing';
       if(un.shakenBy)title+=', SHAKEN';
       if(un.rattled)title+=`, rattled×${un.rattled}`;
+      if(un.rooted)title+=', rooted';
+      if(un.stunned)title+=', staggered';
+      if(un.warded)title+=', warded (+armor)';
+      if(un.offbalance||un.warcried)title+=', −10 to hit';
       if(atk)title+=` — ${hc}% to hit`;
       else if(un.kind!=='pc')title+=' — click to scout its range';
     }
@@ -2391,7 +2559,7 @@ function renderBattle(){
     grid+=tileArt(t.t,x,y);
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
-      const badge=un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
+      const badge=un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
       const fsz=Math.round(TS*0.66);
       if(foggedU)inner='?';
@@ -2422,20 +2590,22 @@ function renderBattle(){
       <div class="statline">HP ${show.hp}/${show.maxhp} · SKL ${show.skl} · SPD ${show.spd}${show.shakenBy?' · <span class="skull">SHAKEN −10</span>':''}${show.rattled?' · rattled×'+show.rattled+' (−'+(show.rattled*5)+')':''}${show.defending?' · bracing':''}</div>
       <div class="wline">${WPN_ICON[show.weapon]||'⚔'} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng:''}</div>
       <div class="featline">✦ ${featChips(show.feats)}</div>
-      ${iu?`<div class="hint">Red-hatched tiles: everywhere it can reach and strike next turn. Click it again to dismiss.</div>`
-        :isPC?`<div class="hint">${B.cast?'ASHFIRE: click a purple-rimmed enemy within 4. ':''}${u.moved&&u.acted?'':'Click a gold tile to move'+(!u.acted?' — twice, if you skip your action (dash)':'')+'. '}${u.acted?'':'Click a red-rimmed enemy to strike (odds shown). '}Click any other enemy to scout its range.</div>`
+      ${iu?`<div class="hint">Red-hatched tiles: everywhere it can reach and strike next turn. Tap it again to dismiss.</div>`
+        :isPC?`<div class="hint">${u.freeStep?'FREE STEP: skirmisher — tap an adjacent tile to reposition. ':''}${aiming?esc((ab.label||'').replace(/^\S+\s/,'').toUpperCase())+': tap a '+(ab.side==='ally'?'blue-rimmed ally':'purple-rimmed target')+'. ':''}${u.moved&&u.acted?'':'Tap a gold tile to move'+(!u.acted?' — twice to dash':'')+'. '}${u.acted?'':'Tap a red-rimmed enemy to strike. '}Tap any other enemy to scout it.<br><span style="opacity:.7">Keys: Space end · B brace · F ability · R retreat · Esc cancel</span></div>`
         :'<div class="hint">The enemy moves…</div>'}
     </div>`:'';
   const ct=CONTRACT_TYPES[B.type];
+  const objProg=B.obj==='survive'||B.obj==='reclaim'?` · ${Math.min(B.round,B.objRounds)}/${B.objRounds}`:B.obj==='capture'?` · held ${B.capProgress}/2`:'';
   return `<div id="battleTop"><h1>⚔ ${B.cname||ct.n}</h1><span class="stat">Round <b>${B.round}</b></span>
-      <span class="stat" style="color:var(--gold)">⚑ <b>${OBJECTIVES[B.obj].n}</b>${B.obj==='survive'?` · ${Math.min(B.round,B.objRounds)}/${B.objRounds}`:B.obj==='capture'?` · held ${B.capProgress}/2`:''}</span>
-      ${B.weather?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Ranged attacks and ashfire are capped at range 3; enemies beyond 5 tiles are hidden">${B.weather==='fog'?'FOG':'ASH-HAZE'}</span>`:''}
+      <span class="stat" style="color:var(--gold)">⚑ <b>${OBJECTIVES[B.obj].n}</b>${objProg}</span>
+      ${B.weather?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Ranged attacks capped at range 3; enemies beyond 5 tiles are hidden">${B.weather==='fog'?'FOG':'ASH-HAZE'}</span>`:''}
       ${isPC?`<span class="pips">Move ${u.moved?'—':'●'} · Action ${u.acted?'—':'●'}</span>`:'<span class="hint">enemy turn…</span>'}
       <span style="flex:1"></span>
-      <button ${isPC&&!u.acted&&(u.feats.includes('ashfire')||(u.feats.includes('medic')&&!u.medicUsed))?'':'disabled'} onclick="MEDIC()" title="${isPC&&u&&u.feats.includes('ashfire')?'Spend your action: hurl ashfire — range 4, 4–7 dmg, ignores armor. Feeds the graft (+1 corruption).':'Spend your action: heal an adjacent ally 5 HP (once per battle)'}">${isPC&&u&&u.feats.includes('ashfire')?(B.cast?'Cancel Ashfire':'☄ Ashfire'):'Field Medic'}</button>
-      <button ${isPC&&!u.acted?'':'disabled'} onclick="DEFEND()" title="Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled)">Brace</button>
-      <button ${isPC?'':'disabled'} onclick="ENDT()">End Turn</button>
-      <button class="danger" ${isPC?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen comrades are carried out only if a living soldier stands beside their body.">Retreat</button></div>
+      <span id="actbar">
+      ${ab?`<button ${isPC&&!u.acted?'':'disabled'} onclick="MEDIC()" title="${esc(ab.tip)}">${B.aim===ab.k?'Cancel':ab.label}</button>`:''}
+      <button ${isPC&&!u.acted?'':'disabled'} onclick="DEFEND()" title="Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled)">🛡 Brace</button>
+      <button class="primary" ${isPC?'':'disabled'} onclick="ENDT()">End Turn ⏎</button>
+      <button class="danger" ${isPC?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen comrades are carried out only if a living soldier stands beside their body.">Retreat</button></span></div>
     <div id="battleWrap">${grid}
       <div class="col" id="sidePanel"><h2>Initiative</h2>${q}<h2 style="margin-top:8px">Unit</h2>${insp}
         <h2 style="margin-top:8px">Field log</h2><div style="font-size:12px;max-height:180px;overflow-y:auto">${B.log.map(m=>`<p style="margin:2px 0">${m}</p>`).join('')}</div>
@@ -2445,14 +2615,15 @@ window.TILE=function(x,y){
   const B=S.battle; if(!B||B.over||activeModal)return;
   const u=curUnit(B); if(!u||u.kind!=='pc')return;
   const t=unitAt(B,x,y);
-  if(B.cast&&t&&isEnemy(u,t)&&!u.acted&&distC(u,t)<=(B.weather?3:4)&&hasLOS(B,u,t)){
-    doCast(B,u,t);
-    if(!B.over){ render(); if(u.acted&&u.moved) endUnitTurn(); }
-    return;
+  // ability targeting mode
+  if(B.aim&&!u.acted){
+    const ab=unitAbility(u);
+    if(ab&&ab.k===B.aim&&t&&abilityValidTarget(B,u,ab,t)){ execAbility(B,u,ab,t); afterAbility(B,u); return; }
+    if(t&&t===u){ return; }
   }
   if(t&&isEnemy(u,t)){
     if(B.weather&&t.kind==='foe'&&!B.units.some(p=>p.kind==='pc'&&p.hp>0&&!p.fled&&distC(p,t)<=5))return; // just a shape in the murk
-    if(!u.acted&&attackTargets(B,u).includes(t)){ tryAttack(t.uid); return; }
+    if(!u.acted&&!B.aim&&attackTargets(B,u).includes(t)){ tryAttack(t.uid); return; }
     B.inspect=(B.inspect===t.uid)?null:t.uid; render(); return;  // scout its range instead
   }
   B.inspect=null;
