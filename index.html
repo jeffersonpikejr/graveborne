@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.15</title>
+<title>GRAVEBORNE — alpha v0.16</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -25,9 +25,9 @@
   .col{box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 3px 10px rgba(0,0,0,.45)}
   #modal{box-shadow:0 0 50px rgba(0,0,0,.85),inset 0 0 0 1px #2a2318;border-radius:5px}
   .lgi{opacity:.55;margin-right:5px}
-  .tile.alt{filter:brightness(1.07)}
+  .tile.alt{box-shadow:inset 0 0 0 200px rgba(255,255,255,.03)}
   .body{font-size:17px;color:#cfc4ac;text-shadow:0 0 4px #000;transform:rotate(-14deg)}
-  @keyframes torch{0%,100%{box-shadow:inset 0 0 0 1px rgba(212,60,44,.3),inset 0 0 14px rgba(212,80,44,.25)}50%{box-shadow:inset 0 0 0 1px rgba(212,60,44,.5),inset 0 0 22px rgba(212,90,44,.4)}}
+  @keyframes torch{0%,100%{box-shadow:inset 0 0 0 1px rgba(224,89,63,.3),inset 0 0 14px rgba(212,80,44,.25)}50%{box-shadow:inset 0 0 0 1px rgba(224,89,63,.5),inset 0 0 22px rgba(212,90,44,.4)}}
   .stile.vis{animation:torch 1.5s infinite}
   .fxarrow::after{content:'';position:absolute;right:-4px;top:-3px;border-left:8px solid #d8cdb8;border-top:4px solid transparent;border-bottom:4px solid transparent}
   .decor{position:absolute;inset:0;pointer-events:none}
@@ -35,7 +35,6 @@
   .bpool{animation:bpulse 2.6s infinite}
   .objtile{box-shadow:inset 0 0 0 3px rgba(201,162,39,.55);background-image:repeating-linear-gradient(-45deg,rgba(201,162,39,.12) 0 6px,transparent 6px 12px)}
   .unit.ally{background:#8a7a5a}
-  .unit.fogged{background:#3a3d44;color:#aab3c0;font-size:19px;font-weight:bold}
   .fogveil{position:absolute;inset:0;pointer-events:none;z-index:15;background:repeating-linear-gradient(105deg,rgba(165,170,182,.05) 0 26px,rgba(165,170,182,.12) 26px 52px);animation:fogdrift 16s linear infinite}
   @keyframes fogdrift{to{background-position:210px 0}}
   #header{display:flex;gap:18px;align-items:baseline;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -62,7 +61,7 @@
   .statup{color:#9ab86f;font-weight:bold}
   /* sneak minigame */
   .stile{width:var(--ss,44px);height:var(--ss,44px);background:#211d16;position:relative;cursor:pointer}
-  .stile.vis{background:#3a2020;box-shadow:inset 0 0 0 1px rgba(212,60,44,.35)}
+  .stile.vis{background:#3a2020;box-shadow:inset 0 0 0 1px rgba(224,89,63,.35)}
   .stile.pillar{background:#39332a;cursor:default}
   .stile.exitd{background:#2c2a1a;box-shadow:inset 0 0 0 2px rgba(201,162,39,.5)}
   .stile.canmove{outline:2px solid rgba(201,162,39,.4);outline-offset:-2px}
@@ -90,9 +89,11 @@
   #battleWrap{display:flex;gap:10px;padding:10px;align-items:flex-start;flex-wrap:wrap}
   #gridwrap{max-width:100%;max-height:68vh;overflow:auto;border:1px solid var(--line);border-radius:3px;background:#0c0a07}
   #grid{display:grid;gap:1px;background:#000;width:max-content}
-  .tile.hi{filter:brightness(1.14);box-shadow:inset 0 2px 0 rgba(201,162,39,.28),inset 0 0 0 1px rgba(0,0,0,.25)}
-  .tile.lo{filter:brightness(.8);box-shadow:inset 0 0 9px rgba(0,0,0,.55)}
-  .tile.fogseen{filter:brightness(.42) saturate(.5)}
+  /* tile shading via inset shadow (paints UNDER the child unit token, not over it) */
+  .tile.hi{box-shadow:inset 0 3px 0 rgba(201,162,39,.22),inset 0 0 0 200px rgba(233,214,160,.06)}
+  .tile.lo{box-shadow:inset 0 0 10px rgba(0,0,0,.5),inset 0 0 0 200px rgba(0,0,0,.16)}
+  .tile.fogseen{box-shadow:inset 0 0 0 200px rgba(6,5,3,.62)}
+  .tile.fogseen .decor{opacity:.5}
   .tile.fogdark{background:#0c0a07 !important;cursor:default}
   .tile{width:var(--ts,46px);height:var(--ts,46px);background:#26221a;position:relative;cursor:pointer;font-size:11px}
   .tile.castable{outline:2px solid rgba(122,79,163,.8);outline-offset:-2px}
@@ -100,13 +101,11 @@
   .repbar>div{position:absolute;top:0;bottom:0}
   .traitchip{color:#c98a5a}
   .corrchip{color:#b08bc9}
-  .tile.plain{background:#2a251c}.tile.forest{background:#232c1c}.tile.rock{background:#3b372f;cursor:default}
-  .tile.blight{background:#2c2135}
   .tile.moveable{outline:2px solid rgba(201,162,39,.45);outline-offset:-2px}
   .tile.attackable{outline:2px solid rgba(163,59,46,.7);outline-offset:-2px}
   .tile .terr{position:absolute;top:1px;left:3px;color:#5c5545;font-size:10px}
   .unit{position:absolute;inset:4px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:15px;border:2px solid transparent;color:#0e0c09}
-  .unit.pc{background:var(--steel)} .unit.foe{background:#a3653b} .unit.undead{background:#6b7a5a}
+  .unit.pc{background:var(--steel)} .unit.foe{background:#8a4a28;box-shadow:inset 0 0 0 1px #17130e} .unit.undead{background:#556347;box-shadow:inset 0 0 0 1px #17130e}
   .unit.rev{background:var(--blight);color:#efe6f7;box-shadow:0 0 10px rgba(122,79,163,.8)}
   .unit.current{border-color:var(--gold)}
   .unit .hp{position:absolute;bottom:-2px;left:2px;right:2px;height:3px;background:#3a201c}
@@ -123,7 +122,7 @@
   .hitpct{position:absolute;top:1px;right:2px;font-size:10px;color:var(--gold);text-shadow:0 0 3px #000;pointer-events:none;font-weight:bold}
   @keyframes fxup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-24px)}}
   .fxfloat{position:absolute;z-index:20;font-weight:bold;font-size:13px;pointer-events:none;animation:fxup .8s ease-out forwards;text-shadow:0 0 4px #000}
-  @keyframes hitflash{0%{box-shadow:0 0 0 3px rgba(212,60,44,.95),0 0 16px rgba(212,60,44,.9)}100%{box-shadow:none}}
+  @keyframes hitflash{0%{box-shadow:0 0 0 3px rgba(224,89,63,.95),0 0 16px rgba(224,89,63,.9)}100%{box-shadow:none}}
   .unit.hitflash{animation:hitflash .45s ease-out}
   @keyframes dodgejig{0%{transform:translateX(0)}30%{transform:translateX(6px)}60%{transform:translateX(-4px)}100%{transform:translateX(0)}}
   .unit.dodge{animation:dodgejig .4s ease-out}
@@ -422,10 +421,10 @@ function faceSvg(f,o){
   o=o||{}; const size=o.size||46; const rev=!!o.revenant;
   if(!f)f={skin:0,hair:0,hc:0,eyes:0,mouth:0,extra:0};
   const skin=rev?'#98a396':SKINS[f.skin], hc=rev?'#575060':HAIRC[f.hc];
-  const eyeC=rev?'#b08bc9':'#17120d';
+  const eyeC=rev?'#b08bc9':'#17130e';
   let s='';
-  s+=`<rect x="41" y="76" width="18" height="14" fill="${skin}" stroke="#171310" stroke-width="2"/>`;
-  s+=`<ellipse cx="50" cy="56" rx="25" ry="29" fill="${skin}" stroke="#171310" stroke-width="2.5"/>`;
+  s+=`<rect x="41" y="76" width="18" height="14" fill="${skin}" stroke="#17130e" stroke-width="2"/>`;
+  s+=`<ellipse cx="50" cy="56" rx="25" ry="29" fill="${skin}" stroke="#17130e" stroke-width="2.5"/>`;
   s+=`<path d="M31 62 Q38 77 49 81 Q36 76 29 64 Z" fill="rgba(0,0,0,.15)"/>`;
   const HAIR=[
     `<path d="M25 52 Q27 22 50 21 Q73 22 75 52 L75 42 Q69 29 50 29 Q31 29 25 42 Z" fill="${hc}"/>`,
@@ -442,17 +441,17 @@ function faceSvg(f,o){
     `<path d="M37 55 q4 -4 8 0" stroke="${eyeC}" stroke-width="2.4" fill="none"/><path d="M55 55 q4 -4 8 0" stroke="${eyeC}" stroke-width="2.4" fill="none"/>`,
   ];
   s+=EYES[f.eyes%EYES.length];
-  s+=`<path d="M36 47 l10 -2 M54 45 l10 2" stroke="#171310" stroke-width="2" fill="none"/>`;
+  s+=`<path d="M36 47 l10 -2 M54 45 l10 2" stroke="#17130e" stroke-width="2" fill="none"/>`;
   const MOUTH=[
-    `<path d="M42 72 h16" stroke="#171310" stroke-width="2.2"/>`,
-    `<path d="M42 74 q8 -5 16 0" stroke="#171310" stroke-width="2.2" fill="none"/>`,
-    `<path d="M42 71 q8 5 16 0" stroke="#171310" stroke-width="2.2" fill="none"/>`,
+    `<path d="M42 72 h16" stroke="#17130e" stroke-width="2.2"/>`,
+    `<path d="M42 74 q8 -5 16 0" stroke="#17130e" stroke-width="2.2" fill="none"/>`,
+    `<path d="M42 71 q8 5 16 0" stroke="#17130e" stroke-width="2.2" fill="none"/>`,
   ];
   s+=MOUTH[f.mouth%MOUTH.length];
   if(f.extra===4)s+=`<path d="M33 44 L44 66" stroke="#8a3b2e" stroke-width="2.4"/>`;
-  if(f.extra===5)s+=`<rect x="52" y="49" width="14" height="9" rx="2" fill="#17120d"/><path d="M28 46 L74 52" stroke="#17120d" stroke-width="2.6"/>`;
+  if(f.extra===5)s+=`<rect x="52" y="49" width="14" height="9" rx="2" fill="#17130e"/><path d="M28 46 L74 52" stroke="#17130e" stroke-width="2.6"/>`;
   if(f.extra===6)s+=`<rect x="30" y="58" width="40" height="5" fill="rgba(90,40,30,.55)"/>`;
-  if(f.extra===7)s+=`<path d="M22 60 Q22 12 50 12 Q78 12 78 60 L70 56 Q70 24 50 24 Q30 24 30 56 Z" fill="#241f17" stroke="#171310" stroke-width="1.5"/>`;
+  if(f.extra===7)s+=`<path d="M22 60 Q22 12 50 12 Q78 12 78 60 L70 56 Q70 24 50 24 Q30 24 30 56 Z" fill="#241f17" stroke="#17130e" stroke-width="1.5"/>`;
   if(rev){
     s+=`<path d="M43 34 L46 46 M60 38 L57 50 M50 66 L52 78" stroke="#7a4fa3" stroke-width="1.6" opacity=".8"/>`;
     s+=`<circle cx="41" cy="54" r="4.2" fill="none" stroke="#b08bc9" stroke-width="1.2" opacity=".7"/><circle cx="59" cy="54" r="4.2" fill="none" stroke="#b08bc9" stroke-width="1.2" opacity=".7"/>`;
@@ -461,42 +460,42 @@ function faceSvg(f,o){
 }
 function enemyFace(key,size){
   size=size||32;
-  const F=(fill)=>`<ellipse cx="50" cy="58" rx="23" ry="26" fill="${fill}" stroke="#12100c" stroke-width="2.5"/>`;
+  const F=(fill)=>`<ellipse cx="50" cy="58" rx="23" ry="26" fill="${fill}" stroke="#17130e" stroke-width="2.5"/>`;
   let s='';
   switch(key){
     case 'brigand':
-      s=F('#a9825f')+`<path d="M27 46 Q30 26 50 26 Q70 26 73 46 L73 52 L27 52 Z" fill="#4a3b28" stroke="#12100c" stroke-width="2"/>
-        <rect x="36" y="54" width="8" height="3.5" fill="#17120d"/><rect x="56" y="54" width="8" height="3.5" fill="#17120d"/>
-        <path d="M41 74 q9 -4 18 1" stroke="#17120d" stroke-width="2.2" fill="none"/>
+      s=F('#a9825f')+`<path d="M27 46 Q30 26 50 26 Q70 26 73 46 L73 52 L27 52 Z" fill="#4a3b28" stroke="#17130e" stroke-width="2"/>
+        <rect x="36" y="54" width="8" height="3.5" fill="#17130e"/><rect x="56" y="54" width="8" height="3.5" fill="#17130e"/>
+        <path d="M41 74 q9 -4 18 1" stroke="#17130e" stroke-width="2.2" fill="none"/>
         <path d="M34 68 l4 2 M62 70 l4 -1" stroke="#5c4a35" stroke-width="1.5"/>`; break;
     case 'archer':
-      s=F('#8a7157')+`<path d="M50 8 Q80 24 78 66 Q64 58 50 58 Q36 58 22 66 Q20 24 50 8 Z" fill="#33291c" stroke="#12100c" stroke-width="2"/>
+      s=F('#8a7157')+`<path d="M50 8 Q80 24 78 66 Q64 58 50 58 Q36 58 22 66 Q20 24 50 8 Z" fill="#33291c" stroke="#17130e" stroke-width="2"/>
         <ellipse cx="50" cy="60" rx="16" ry="14" fill="rgba(0,0,0,.35)"/>
-        <circle cx="43" cy="58" r="2.4" fill="#e8d9a0"/><circle cx="57" cy="58" r="2.4" fill="#e8d9a0"/>`; break;
+        <circle cx="43" cy="58" r="2.4" fill="#17130e"/><circle cx="57" cy="58" r="2.4" fill="#17130e"/>`; break;
     case 'deserter':
-      s=F('#a9825f')+`<path d="M26 48 Q28 22 50 22 Q72 22 74 48 Z" fill="#5a5a60" stroke="#12100c" stroke-width="2"/>
-        <rect x="22" y="46" width="56" height="5" rx="2" fill="#4a4a50" stroke="#12100c" stroke-width="1.5"/>
-        <rect x="37" y="56" width="7" height="3.5" fill="#17120d"/><rect x="56" y="56" width="7" height="3.5" fill="#17120d"/>
+      s=F('#a9825f')+`<path d="M26 48 Q28 22 50 22 Q72 22 74 48 Z" fill="#5a5a60" stroke="#17130e" stroke-width="2"/>
+        <rect x="22" y="46" width="56" height="5" rx="2" fill="#4a4a50" stroke="#17130e" stroke-width="1.5"/>
+        <rect x="37" y="56" width="7" height="3.5" fill="#17130e"/><rect x="56" y="56" width="7" height="3.5" fill="#17130e"/>
         <path d="M58 62 L66 76" stroke="#8a3b2e" stroke-width="2.4"/>
-        <path d="M42 75 h16" stroke="#17120d" stroke-width="2.2"/>`; break;
+        <path d="M42 75 h16" stroke="#17130e" stroke-width="2.2"/>`; break;
     case 'hound':
-      s=`<path d="M30 40 Q50 26 70 40 L78 62 Q66 84 50 84 Q34 84 22 62 Z" fill="#5a6350" stroke="#12100c" stroke-width="2.5"/>
-        <path d="M38 84 L50 96 L62 84 Z" fill="#4a5342" stroke="#12100c" stroke-width="2"/>
+      s=`<path d="M30 40 Q50 26 70 40 L78 62 Q66 84 50 84 Q34 84 22 62 Z" fill="#5a6350" stroke="#17130e" stroke-width="2.5"/>
+        <path d="M38 84 L50 96 L62 84 Z" fill="#4a5342" stroke="#17130e" stroke-width="2"/>
         <path d="M40 88 l4 5 M50 90 l0 6 M60 88 l-4 5" stroke="#d8cdb8" stroke-width="2"/>
         <circle cx="40" cy="54" r="3.5" fill="#b08bc9"/><circle cx="60" cy="54" r="3.5" fill="#b08bc9"/>
-        <path d="M26 38 L34 24 L40 38 Z M74 38 L66 24 L60 38 Z" fill="#5a6350" stroke="#12100c" stroke-width="2"/>`; break;
+        <path d="M26 38 L34 24 L40 38 Z M74 38 L66 24 L60 38 Z" fill="#5a6350" stroke="#17130e" stroke-width="2"/>`; break;
     case 'husk':
       s=F('#8a9384')+`<circle cx="41" cy="54" r="5" fill="#0d0b08"/><circle cx="59" cy="54" r="5" fill="#0d0b08"/>
         <circle cx="41" cy="54" r="1.6" fill="#b08bc9"/><circle cx="59" cy="54" r="1.6" fill="#b08bc9"/>
-        <path d="M44 70 l3 4 l3 -4 l3 4 l3 -4" stroke="#17120d" stroke-width="2" fill="none"/>
+        <path d="M44 70 l3 4 l3 -4 l3 4 l3 -4" stroke="#17130e" stroke-width="2" fill="none"/>
         <path d="M60 36 L67 48 M35 42 L40 50" stroke="#6b7a5e" stroke-width="2"/>`; break;
     case 'acolyte':
-      s=`<path d="M50 6 Q84 22 80 78 L20 78 Q16 22 50 6 Z" fill="#2a2333" stroke="#12100c" stroke-width="2.5"/>
+      s=`<path d="M50 6 Q84 22 80 78 L20 78 Q16 22 50 6 Z" fill="#2a2333" stroke="#17130e" stroke-width="2.5"/>
         <ellipse cx="50" cy="58" rx="17" ry="17" fill="#0d0b10"/>
         <circle cx="43" cy="56" r="2.6" fill="#b08bc9"/><circle cx="57" cy="56" r="2.6" fill="#b08bc9"/>
-        <circle cx="50" cy="80" r="3.5" fill="#7a4fa3" stroke="#12100c"/>`; break;
+        <circle cx="50" cy="80" r="3.5" fill="#7a4fa3" stroke="#17130e"/>`; break;
     case 'graveguard':
-      s=`<path d="M28 30 Q50 18 72 30 L74 74 Q50 86 26 74 Z" fill="#4a4a52" stroke="#12100c" stroke-width="2.5"/>
+      s=`<path d="M28 30 Q50 18 72 30 L74 74 Q50 86 26 74 Z" fill="#4a4a52" stroke="#17130e" stroke-width="2.5"/>
         <rect x="34" y="46" width="32" height="6" rx="3" fill="#0d0b08"/>
         <rect x="36" y="47.5" width="12" height="3" fill="#7a4fa3" opacity=".85"/><rect x="52" y="47.5" width="12" height="3" fill="#7a4fa3" opacity=".85"/>
         <path d="M50 30 L50 74 M34 60 h32" stroke="#3a3a40" stroke-width="2"/>
@@ -1052,7 +1051,7 @@ const bImpass=t=>!!(BT[t]&&BT[t].block);
 const bLOS=t=>!!(BT[t]&&BT[t].los);
 const bCover=t=>(BT[t]&&BT[t].cover)||0;
 const bMv=t=>(BT[t]&&BT[t].mv)||1;
-function elevAt(B,x,y){const t=tileAt(B,x,y);return t?(t.elev||1):1;}
+function elevAt(B,x,y){const t=tileAt(B,x,y);return t?(t.elev==null?1:t.elev):1;}
 function genBattleMap(B,bhex,region){
   GW=ri(19,24); GH=ri(13,16);
   B.tiles=[];
@@ -1105,6 +1104,85 @@ function genBattleMap(B,bhex,region){
   return theme;
 }
 function placeOpen(B,x0,x1){ for(let tries=0;tries<80;tries++){ const x=ri(x0,x1),y=ri(0,GH-1); if(!bImpass(tileAt(B,x,y).t)&&!unitAt(B,x,y))return {x,y}; } return {x:x0,y:0}; }
+function nearOpen(B,x,y,rad){ for(let r=0;r<=rad;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue; const nx=x+dx,ny=y+dy,t=tileAt(B,nx,ny); if(t&&!bImpass(t.t)&&!unitAt(B,nx,ny))return {x:nx,y:ny}; } return null; }
+/* ============================== ENEMY PODS — patrolling squads with their own sight ============================== */
+const MAXFOES=14;
+function foeCount(B){return B.units.filter(u=>u.kind==='foe'&&!u.prop&&u.hp>0).length;}
+function podFov(B,m){return (B.weather?4:5)+(elevAt(B,m.x,m.y)===2?1:0);} // one tile shorter than the player's — the company out-scouts patrols by a hair
+function podMembers(B,pod){return pod.members.map(id=>B.units.find(u=>u.uid===id)).filter(m=>m&&m.hp>0&&!m.fled);}
+function podNearestDist(B,pod,pt){let d=1e9;for(const m of podMembers(B,pod))d=Math.min(d,distC(m,pt));return d;}
+function podHasLOS(B,pod,list){ for(const m of podMembers(B,pod)){ const R=podFov(B,m); for(const p of list){ if(distC(m,p)<=R&&hasLOS(B,m,p))return true; } } return false; }
+function calloutFor(){ return pick(['A shout goes up — “THERE! On the line!”','A hand flies up: “Company, to me!”','A whistle, sharp and short. The patrol has seen you.','“Blades! They’re here!” — and the squad turns as one.']); }
+function alertPod(B,pod,seen,cause){
+  if(pod.state==='charge'){ pod.lastSeen=seen; return; }
+  const first=pod.state==='patrol';
+  pod.lastSeen=seen;
+  pod.state=(cause==='sight')?'charge':'alert';
+  if(first&&cause!=='shout'){
+    blog(B,calloutFor());
+    const s=B.units.find(u=>u.uid===pod.spotterUid)||pod.home;
+    const R=B.weather?4:6;                       // the shout carries; halved in weather
+    for(const o of B.pods){ if(o===pod||o.state!=='patrol')continue; if(podNearestDist(B,o,s)<=R)alertPod(B,o,seen,'shout'); }
+  }
+}
+function podSensePod(B,pod,list){
+  if(pod.state==='charge')return;
+  for(const m of podMembers(B,pod)){ const R=podFov(B,m);
+    for(const p of list){ if(distC(m,p)<=R&&hasLOS(B,m,p)){ pod.spotterUid=m.uid; alertPod(B,pod,{x:p.x,y:p.y},'sight'); return; } } }
+}
+function podSenseAll(B){
+  if(!B.podsActive||!B.pods)return;
+  const eyes=B.units.filter(u=>(u.kind==='pc'||u.kind==='ally')&&u.hp>0&&!u.fled);
+  if(!eyes.length)return;
+  for(const pod of B.pods){ if(pod.state!=='charge')podSensePod(B,pod,eyes); }
+}
+function noticeAttack(B,att,def){ if(B.podsActive&&def&&def.kind==='foe'&&def.podId!=null&&B.pods&&B.pods[def.podId])alertPod(B,B.pods[def.podId],{x:att.x,y:att.y},'attacked'); }
+function aiPatrol(B,u,pod){
+  const wp=(u.ai==='anchor')?pod.home:(pod.waypoints[pod.wi]||pod.home);
+  if(distC(u,wp)<=1){ pod.wi=(pod.wi+1)%Math.max(1,pod.waypoints.length); }
+  else { const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>distC(a,wp)-distC(b,wp)); u.x=steps[0].x;u.y=steps[0].y; } }
+  u.moved=true;u.acted=true;
+}
+function aiInvestigate(B,u,pod){
+  const wp=pod.lastSeen||pod.home;
+  if(distC(u,wp)<=1){ pod.state='patrol'; pod.lastSeen=null; }  // reached the noise, nothing there — fog break
+  else { const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>distC(a,wp)-distC(b,wp)); u.x=steps[0].x;u.y=steps[0].y; } }
+  u.moved=true;u.acted=true;
+}
+function podsEligible(B,contract){ return ['slay','capture','assassinate'].includes(B.obj)&&!B.ambush&&!B.caravanRaid&&!contract.story&&!contract.reckoning; }
+function pickHomes(B,podN){
+  const homes=[]; const minSp=Math.max(4,Math.floor(GW/(podN+1))); let guard=0;
+  while(homes.length<podN&&guard++<400){
+    const x=ri(Math.floor(GW*0.32),GW-2), y=ri(1,GH-2), t=tileAt(B,x,y);
+    if(!t||bImpass(t.t)||x<5)continue;
+    if(B.objTile&&B.objTile.x===x&&B.objTile.y===y)continue;
+    if(homes.some(h=>distC(h,{x,y})<minSp))continue;
+    homes.push({x,y});
+  }
+  while(homes.length<podN){ const p=placeOpen(B,Math.floor(GW*0.4),GW-2); homes.push({x:p.x,y:p.y}); }
+  return homes;
+}
+function makeWaypoints(B,home,r){
+  const wps=[{x:home.x,y:home.y}];
+  [[r,0],[0,r],[-r,0],[0,-r]].forEach(([dx,dy])=>{ const o=nearOpen(B,clamp(home.x+dx,0,GW-1),clamp(home.y+dy,0,GH-1),1); if(o&&!wps.some(w=>w.x===o.x&&w.y===o.y))wps.push(o); });
+  return wps.length>1?wps:[{x:home.x,y:home.y}];
+}
+function deployPods(B,contract,ct,danger){
+  const podN=clamp(1+danger+((contract.type==='hold'||S.regions[B.regionId].swallowed)?1:0),2,5);
+  const homes=pickHomes(B,podN); B.pods=[];
+  homes.forEach((home,pi)=>{
+    const radius=ri(3,4);
+    const pod={id:pi,state:'patrol',home,radius,waypoints:makeWaypoints(B,home,radius),wi:ri(0,3),members:[],lastSeen:null,spotterUid:null};
+    const size=clamp(2+(danger>=2?1:0)+ri(0,1),2,4);
+    for(let i=0;i<size;i++){ if(foeCount(B)>=MAXFOES)break;
+      const u=spawnEnemy(B,pick(ct.pool),danger,false);
+      const spot=nearOpen(B,home.x,home.y,3)||home; u.x=spot.x;u.y=spot.y;u.podId=pi;
+      if(danger>=3&&i===0){u.hp+=3;u.maxhp+=3;u.skl+=1;u.name='Veteran '+u.name;}
+      pod.members.push(u.uid);
+    }
+    B.pods.push(pod);
+  });
+}
 function startBattle(contract,squadIds){
   const region=S.regions[contract.regionId];
   const ct=CONTRACT_TYPES[contract.type];
@@ -1113,7 +1191,7 @@ function startBattle(contract,squadIds){
            pay:contract.pay,agentId:contract.agentId||null,
            obj:contract.obj||'slay',objRounds:6,capProgress:0,objFailed:false,objTile:null,weather:null,aim:null,leaderStyle:null,
            poolKeys:CONTRACT_TYPES[contract.type].pool,caravanRaid:!!contract.caravanRaid,wagonsLost:0,
-           cname:contract.cname||null,storyBeat:contract.story||null,leaderUid:null,nestUid:null,mapTheme:null,seen:{}};
+           cname:contract.cname||null,storyBeat:contract.story||null,leaderUid:null,nestUid:null,mapTheme:null,seen:{},pods:[],podsActive:false};
   const bhex=hex(S.caravan.q,S.caravan.r)||{t:'plains',blighted:false};
   B.weather=contract.weatherLock!==undefined?contract.weatherLock
            :bhex.blighted?(chance(40)?'ashhaze':null)
@@ -1146,10 +1224,13 @@ function startBattle(contract,squadIds){
       weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
       moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
   });
-  // enemies — flank deployments when there's something to protect; authored comps for set-pieces
+  // enemies — patrolling pods on generic hunts; flat deploy for set-pieces & aggro objectives
   const danger=contract.danger;
   const flank=(B.obj==='escort'||B.obj==='protect');
-  if(contract.comp){
+  B.podsActive=podsEligible(B,contract)&&!contract.comp;
+  if(B.podsActive){
+    deployPods(B,contract,ct,danger);
+  } else if(contract.comp){
     contract.comp.forEach(k=>spawnEnemy(B,k,danger,flank));
   } else {
     const count=clamp(2+danger+(contract.type==='hold'?1:0),3,7);
@@ -1167,7 +1248,8 @@ function startBattle(contract,squadIds){
       } else { // skittish & protected: runs, ringed by guards
         lead.hp+=3; lead.maxhp+=3; lead.spd+=1; lead.ai='flee';
         const g1=spawnEnemy(B,'shieldman',danger,false), g2=spawnEnemy(B,'shieldman',danger,false);
-        [g1,g2].forEach((g,i)=>{ if(g){ g.x=clamp(lead.x-1+2*i,0,GW-1); g.y=clamp(lead.y+(i?1:-1),0,GH-1); if(unitAt(B,g.x,g.y)!==g){g.x=lead.x;g.y=Math.max(0,lead.y-1-i);} } });
+        [g1,g2].forEach((g)=>{ if(!g)return; const spot=nearOpen(B,lead.x,lead.y,2); if(spot){g.x=spot.x;g.y=spot.y;}
+          if(B.podsActive&&lead.podId!=null){ g.podId=lead.podId; B.pods[lead.podId].members.push(g.uid); } }); // guard the captain as a unit
         if(!contract.leaderName)lead.name=lead.name.replace(' Captain','')+', the Quarry';
       }
     }
@@ -1200,7 +1282,7 @@ function startBattle(contract,squadIds){
 function spawnEnemy(B,key,danger,flank){
   const e=ENEMIES[key];
   const u={uid:nid(),kind:'foe',ekey:key,name:e.n,hp:e.hp+danger,maxhp:e.hp+danger,skl:e.skl,spd:e.spd,res:35,
-    weapon:e.w,wMod:danger>=3?1:0,arm:e.arm,feats:[],traits:[],undead:e.undead,ai:e.ai||null,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:e.xp,graveId:null};
+    weapon:e.w,wMod:danger>=3?1:0,arm:e.arm,feats:[],traits:[],undead:e.undead,ai:e.ai||null,podId:null,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:e.xp,graveId:null};
   placeFoe(B,u,flank); B.units.push(u);
   return u;
 }
@@ -1238,7 +1320,7 @@ function placeRight(B,u){
   }
   u.x=GW-1;u.y=0;
 }
-function tileAt(B,x,y){return B.tiles[y*GW+x];}
+function tileAt(B,x,y){return (x>=0&&y>=0&&x<GW&&y<GH)?B.tiles[y*GW+x]:undefined;}
 function unitAt(B,x,y){return B.units.find(u=>u.hp>0&&!u.fled&&u.x===x&&u.y===y);}
 function bodyAt(B,x,y){return B.bodies.find(b=>b.x===x&&b.y===y);}
 function buildQueue(B){
@@ -1255,6 +1337,7 @@ function nextTurn(){
   B.qi++;
   if(B.qi>=B.queue.length){ B.round++; buildQueue(B); blightTick(B); if(!B.over)objTick(B); }
   if(B.over)return;
+  if(B.podsActive)podSenseAll(B);   // fresh pod awareness before the next unit acts
   const u=curUnit(B);
   if(!u){ if(!B.over) nextTurn(); return; }
   u.defending=false;
@@ -1286,7 +1369,7 @@ function reachable(B,u){
       if(x<0||y<0||x>=GW||y>=GH)continue;
       const t=tileAt(B,x,y);
       if(bImpass(t.t)||unitAt(B,x,y))continue;
-      let step=bMv(t.t); if(t.blighted)step+=1; if(Math.abs((t.elev||1)-(tileAt(B,c.x,c.y).elev||1))>=1)step+=1;
+      let step=bMv(t.t); if(t.blighted)step+=1; if(Math.abs(elevAt(B,x,y)-elevAt(B,c.x,c.y))>=1)step+=1;
       const nd=c.d+step, k=x+','+y;
       if(nd<=mov&&(best[k]===undefined||nd<best[k])){ best[k]=nd; if(!out.some(o=>o.x===x&&o.y===y))out.push({x,y}); q.push({x,y,d:nd}); }
     }
@@ -1308,7 +1391,7 @@ function hasLOS(B,a,b){
     if(x0===x1&&y0===y1)break;
     const tl=tileAt(B,x0,y0);
     if(bLOS(tl.t))return false;
-    if((tl.elev||1)>hi)return false;          // a hill/high ground blocks sight past it
+    if((tl.elev==null?1:tl.elev)>hi)return false;          // a hill/high ground blocks sight past it
     const blocker=unitAt(B,x0,y0);
     if(blocker&&blocker.prop)return false;     // wagons & nests block sightlines
   }
@@ -1328,14 +1411,14 @@ function objTick(B){
   if(B.obj==='escort'){
     const w=B.units.find(u=>u.kind==='ally'&&u.prop&&u.hp>0);
     if(w){
-      const t=tileAt(B,w.x+1,w.y);
-      if(t&&!bImpass(t.t)&&!unitAt(B,w.x+1,w.y)){ w.x++; blog(B,'The wagon creaks forward.'); }
-      else blog(B,'The wagon waits — the road ahead is blocked.');
+      let stepped=0;
+      while(stepped<2){ const t=tileAt(B,w.x+1,w.y); if(t&&!bImpass(t.t)&&!unitAt(B,w.x+1,w.y)){ w.x++; stepped++; } else break; } // pace with map size (~2 tiles/round)
+      blog(B, stepped?'The wagon creaks forward.':'The wagon waits — the road ahead is blocked.');
       if(w.x>=GW-1){ blog(B,'The wagon is through. Contract fulfilled.'); endBattle('victory'); return; }
     }
   }
-  if(B.obj==='survive'){
-    if(B.round>B.objRounds){ blog(B,'The line held. What’s left of them melts back into the dark.'); endBattle('victory'); return; }
+  if(B.obj==='survive'||B.obj==='reclaim'){
+    if(B.round>B.objRounds){ blog(B, B.obj==='reclaim'?'The rite is spoken to its end — the Blight recedes from the ground.':'The line held. What’s left of them melts back into the dark.'); endBattle('victory'); return; }
     if(B.round===3||B.round===5){
       for(let i=0;i<2;i++)spawnEnemy(B,pick(B.poolKeys),1,false);
       buildQueue(B);
@@ -1426,6 +1509,7 @@ function dmgOf(B,att,def){
   return Math.max(1,d-arm);
 }
 function doAttack(B,att,def){
+  noticeAttack(B,att,def);   // a struck patroller's pod wakes (and shouts) even from stealth
   const h=hitChance(B,att,def);
   const w=wOf(att);
   if(w.rng>1) fx.push({type:'arrow',fx:att.x,fy:att.y,tx:def.x,ty:def.y});
@@ -1619,6 +1703,7 @@ function useAbility(){
 }
 function afterAbility(B,u){ if(!B.over){ render(); if(u.acted&&u.moved&&!u.freeStep) endUnitTurn(); } }
 function execAbility(B,u,ab,t){
+  if(t&&t.kind==='foe')noticeAttack(B,u,t);   // bone-spears/bash/hook on a patroller wakes its pod
   const corrupt=()=>{ if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} };
   if(ab.k==='ashfire'){ doCast(B,u,t); return; }
   if(ab.k==='bonespears'){
@@ -1657,6 +1742,7 @@ function execAbility(B,u,ab,t){
   }
 }
 function doCast(B,att,def){
+  noticeAttack(B,att,def);
   const h=clamp(75+att.skl*3-def.spd*2,30,95);
   fx.push({type:'arrow',fx:att.x,fy:att.y,tx:def.x,ty:def.y});
   if(ri(1,100)<=h){
@@ -1893,6 +1979,14 @@ function aiAct(u){
   const pcs=B.units.filter(t=>t.kind==='pc'&&t.hp>0&&!t.fled);
   const charges=B.units.filter(t=>t.kind==='ally'&&t.hp>0);
   if(!pcs.length&&!charges.length){ checkEnd(B); return; }
+  // POD GATE: patrolling/investigating squads never path to an unseen player — only a charging pod runs the combat body below
+  const pod=(B.podsActive&&u.podId!=null&&B.pods)?B.pods[u.podId]:null;
+  if(pod){
+    podSensePod(B,pod,pcs.concat(charges));                 // step-into-view reacts the same turn
+    if(pod.state==='patrol'){ aiPatrol(B,u,pod); if(!B.over){render();nextTurn();} return; }
+    if(pod.state==='alert'&&!podHasLOS(B,pod,pcs.concat(charges))){ aiInvestigate(B,u,pod); if(!B.over){render();nextTurn();} return; }
+    // charge (or alert with a live sightline): fall through to the existing, unchanged combat AI
+  }
   const near=(a,b)=>(Math.abs(a.x-u.x)+Math.abs(a.y-u.y))-(Math.abs(b.x-u.x)+Math.abs(b.y-u.y));
   let target=null;
   if(u.graveId){
@@ -1910,7 +2004,8 @@ function aiAct(u){
     // wounded, she slips to cover instead of trading blows
     if(u.hp<u.maxhp*0.4&&pcs.some(t=>adjacent(u,t))){
       const cov=reachable(B,u).filter(t2=>coverAt(B,t2)&&!pcs.some(p=>Math.abs(p.x-t2.x)+Math.abs(p.y-t2.y)<=1));
-      if(cov.length){const c2=pick(cov);u.x=c2.x;u.y=c2.y;blog(B,`${u.name} slips behind cover, bleeding, patient.`);}
+      if(cov.length){const c2=pick(cov);u.x=c2.x;u.y=c2.y;u.moved=true;blog(B,`${u.name} slips behind cover, bleeding, patient.`);
+        if(!B.over){ render(); nextTurn(); } return; }  // one reposition per turn — don't re-approach
     }
   } else if((B.obj==='protect'||B.obj==='escort')&&charges.length&&chance(45)){
     target=charges.slice().sort(near)[0];
@@ -2053,7 +2148,8 @@ function snkPaint(){
     const a=Math.atan2(g.dir.y,g.dir.x);
     const p1x=g.x+Math.cos(a-g.ang)*g.len, p1y=g.y+Math.sin(a-g.ang)*g.len;
     const p2x=g.x+Math.cos(a+g.ang)*g.len, p2y=g.y+Math.sin(a+g.ang)*g.len;
-    set('snkC'+i,'points',`${g.x.toFixed(1)},${g.y.toFixed(1)} ${p1x.toFixed(1)},${p1y.toFixed(1)} ${p2x.toFixed(1)},${p2y.toFixed(1)}`);
+    // true sector arc — matches snkSeen's circular detection so the drawn cone tells the truth
+    set('snkC'+i,'d',`M${g.x.toFixed(1)} ${g.y.toFixed(1)} L${p1x.toFixed(1)} ${p1y.toFixed(1)} A${g.len} ${g.len} 0 0 1 ${p2x.toFixed(1)} ${p2y.toFixed(1)} Z`);
   });
 }
 window.SNKTAP=function(e){
@@ -2251,9 +2347,9 @@ function demandEvent(s){
 }
 function renderSneak(){
   const S1=SNK;
-  const cones=S1.guards.map((g,i)=>`<polygon id="snkC${i}" points="" fill="rgba(212,60,44,.20)" stroke="rgba(212,60,44,.42)" stroke-width="1"/>`).join('');
+  const cones=S1.guards.map((g,i)=>`<path id="snkC${i}" d="" fill="rgba(224,89,63,.20)" stroke="rgba(224,89,63,.42)" stroke-width="1"/>`).join('');
   const pil=S1.pillars.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="#39332a" stroke="#17130e" stroke-width="2"/><circle cx="${p.x}" cy="${p.y}" r="${(p.r*0.5).toFixed(0)}" fill="none" stroke="#4c4436" stroke-width="1"/>`).join('');
-  const guards=S1.guards.map((g,i)=>`<circle id="snkG${i}" cx="${g.x}" cy="${g.y}" r="9" fill="#a3653b" stroke="#12100c" stroke-width="2"/>`).join('');
+  const guards=S1.guards.map((g,i)=>`<circle id="snkG${i}" cx="${g.x}" cy="${g.y}" r="9" fill="#a3653b" stroke="#17130e" stroke-width="2"/>`).join('');
   const exit=`<g><rect x="${S1.exit.x-10}" y="${S1.exit.y-18}" width="20" height="36" rx="3" fill="#3a2e12" stroke="#c9a227" stroke-width="2"/><text x="${S1.exit.x}" y="${S1.exit.y+5}" style="font-size:16px;fill:#c9a227;text-anchor:middle" pointer-events="none">➤</text></g>`;
   return `<div id="battleTop"><h1>🕯 The Palace of Karsk Gate</h1><span class="hint">tap where to move · dodge the torchlight · reach the gold door</span>
       <span style="flex:1"></span>
@@ -2262,7 +2358,7 @@ function renderSneak(){
       <svg id="snkSvg" viewBox="0 0 ${S1.W} ${S1.H}" onclick="SNKTAP(event)" ontouchstart="SNKTAP(event)" style="width:100%;display:block;background:#131009;border:1px solid var(--line);border-radius:4px;cursor:crosshair;touch-action:none">
         ${cones}${pil}${exit}${guards}
         <circle id="snkPd" cx="${S1.player.x}" cy="${S1.player.y}" r="13" fill="none" stroke="rgba(201,162,39,.35)" stroke-width="1"/>
-        <circle id="snkP" cx="${S1.player.x}" cy="${S1.player.y}" r="8" fill="#12100c" stroke="#c9a227" stroke-width="2.5"/>
+        <circle id="snkP" cx="${S1.player.x}" cy="${S1.player.y}" r="8" fill="#17130e" stroke="#c9a227" stroke-width="2.5"/>
       </svg>
       <div class="hint" style="margin-top:6px">The guards walk their rounds and turn to look — their red cones are what sees you. Pillars break their line of sight. Reach the ➤ gold door.<br><span style="opacity:.75">Move: tap a spot, or WASD / arrow keys. Esc to slip away.</span></div>
     </div>`;
@@ -2360,7 +2456,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.15</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.16</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2437,17 +2533,17 @@ function hexSvg(){
   for(const c of S.contracts){const{x,y}=hexCenter(c.q,c.r);
     out+=`<g onclick="HEX(${c.q},${c.r})" style="cursor:pointer"><circle cx="${x+HXS*0.5}" cy="${y-HXS*0.5}" r="${c.story?7:6}" fill="${c.story?'#b08bc9':'#c9a227'}" ${c.story?'stroke="#e8d9f5" stroke-width="1.2"':''}/><text x="${x+HXS*0.5}" y="${y-HXS*0.5+3.5}" class="hxC">!</text></g>`;}
   for(const d of (S.deserters||[])){const t=REGION_DEFS[d.town];const c0=hexCenter(t.q,t.r);
-    out+=`<g pointer-events="none"><circle cx="${(c0.x-HXS*0.5).toFixed(1)}" cy="${(c0.y-HXS*0.5).toFixed(1)}" r="6" fill="#12100c" stroke="#5ab3a0" stroke-width="1.6"/><text x="${(c0.x-HXS*0.5).toFixed(1)}" y="${(c0.y-HXS*0.5+3).toFixed(1)}" style="font-size:9px;fill:#5ab3a0;text-anchor:middle;font-weight:bold">⚐</text></g>`;}
+    out+=`<g pointer-events="none"><circle cx="${(c0.x-HXS*0.5).toFixed(1)}" cy="${(c0.y-HXS*0.5).toFixed(1)}" r="6" fill="#17130e" stroke="#7d93a3" stroke-width="1.6"/><text x="${(c0.x-HXS*0.5).toFixed(1)}" y="${(c0.y-HXS*0.5+3).toFixed(1)}" style="font-size:9px;fill:#a8b7c4;text-anchor:middle;font-weight:bold">⚐</text></g>`;}
   const byHex={};
   for(const a of S.agents){ (byHex[a.q+','+a.r]=byHex[a.q+','+a.r]||[]).push(a); }
   for(const k2 in byHex) byHex[k2].forEach((a,idx)=>{
     const c0=hexCenter(a.q,a.r);
     const ox=c0.x+(idx?9*idx-4:0), oy=c0.y-(idx?6:0);
-    const col=a.kind==='army'?'#7d93a3':a.kind==='revenant'?'#c9a9e0':a.kind==='horde'?'#9a6fc9':a.kind==='hunters'?'#5ab3c9':'#d9604a';
+    const col=a.kind==='army'?'#7d93a3':a.kind==='revenant'?'#c9a9e0':a.kind==='horde'?'#9a6fc9':a.kind==='hunters'?'#8a6f9f':'#e0593f';
     const g=a.kind==='army'?'♞':a.kind==='horde'?'☠':a.kind==='revenant'?'⚰':a.kind==='hunters'?'⚚':'⚑';
     out+=`<g pointer-events="none">
       ${a.kind==='revenant'?`<circle cx="${ox}" cy="${oy}" r="11" fill="none" stroke="#b08bc9" stroke-width="1.3" opacity=".6"/>`:''}
-      <circle cx="${ox}" cy="${oy}" r="8.5" fill="#12100c" stroke="${col}" stroke-width="1.8"/>
+      <circle cx="${ox}" cy="${oy}" r="8.5" fill="#17130e" stroke="${col}" stroke-width="1.8"/>
       <text x="${ox}" y="${oy+4}" style="font-size:11.5px;fill:${col};text-anchor:middle;font-weight:bold">${g}</text></g>`;
   });
   if(S.story&&S.story.stage===5&&S.story.meetHex&&S.week<=S.story.meetWeek){
@@ -2456,7 +2552,7 @@ function hexSvg(){
       <text x="${x}" y="${y-14}" style="font-size:9px;fill:#c9a9e0;text-anchor:middle">wk ${S.story.meetWeek}</text></g>`;
   }
   {const{x,y}=hexCenter(S.caravan.q,S.caravan.r);
-    out+=`<g pointer-events="none"><circle cx="${x}" cy="${y}" r="10" fill="#12100c" stroke="#c9a227" stroke-width="2"/>
+    out+=`<g pointer-events="none"><circle cx="${x}" cy="${y}" r="10" fill="#17130e" stroke="#c9a227" stroke-width="2"/>
       <text x="${x}" y="${y+5}" style="font-size:13px;text-anchor:middle">⛺</text></g>`;}
   if(sel){const [q,r]=sel.split(',').map(Number);const p=hexPath(S.caravan,{q,r});
     if(p&&p.length>1){let d='';p.forEach((st,i)=>{const c=hexCenter(st.q,st.r);d+=(i?'L':'M')+c.x.toFixed(1)+' '+c.y.toFixed(1)+' ';});
@@ -2516,7 +2612,7 @@ function renderCompany(){
           <button onclick="BUYPROV()" ${setl===null||S.coin<provCost()?'disabled':''} title="${setl===null?'Markets are in settlements':''}">Provisions ×5 (${provCost()}c)</button>
         </div>
         <div class="hint" style="margin-top:5px">Weekly: wages 3c/head, 1 provision/head, wounds mend. The world moves while you rest — and while you travel.</div>
-        ${ch&&ch.feat==='shrine'&&!S.regions[ch.region].swallowed?`<button class="storybtn" style="border-color:#8fbfb0;color:#8fbfb0" ${S.coin<30?'disabled':''} onclick="SHRINE()">☨ Kneel at the shrine — 30c to push back the Blight in ${esc(S.regions[ch.region].name)} (−12 pressure, +Folk)</button>`:''}
+        ${ch&&ch.feat==='shrine'&&!S.regions[ch.region].swallowed?`<button class="storybtn" style="border-color:#5f7a3a;color:#9ab86f" ${S.coin<30?'disabled':''} onclick="SHRINE()">☨ Kneel at the shrine — 30c to push back the Blight in ${esc(S.regions[ch.region].name)} (−12 pressure, +Folk)</button>`:''}
         ${S.story&&S.story.stage===1&&setl===3&&cmdr()?`<button class="storybtn" onclick="SNEAK()">🕯 The Palace — the princess pays for discreet swords. Find a way in.</button>`:''}
         ${S.story&&S.story.stage===1&&setl!==3?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: reach <b>Karsk Gate</b> — the princess Maren pays for discreet swords.</div>`:''}
         ${S.story&&S.story.stage===2?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: bring Maren proof — win purge or delve contracts to intercept Conclave letters.</div>`:''}
@@ -2530,7 +2626,7 @@ function renderCompany(){
         ${S.story&&S.story.stage===8?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: the heir owes you a debt, and the candles at the King’s bedside are lit. When he passes, Vell will move — rest and let the weeks turn.</div>`:''}
         ${S.story&&S.story.stage===9&&setl===3&&cmdr()?`<button class="storybtn" style="border-color:var(--blood);color:#d98074" onclick="FINALE()">⚔ The Throne of Karsk — Vell has the throne room. End it.</button>`:''}
         ${S.story&&S.story.stage===9&&setl!==3?`<div class="hint" style="margin-top:5px;color:#d98074">Story: the King is dead and Vell holds the throne room. Ride to <b>Karsk Gate</b>. There is no one else left to send.</div>`:''}
-        ${(S.deserters||[]).map((d,i)=>atSettlement()===d.town?`<button class="storybtn" style="border-color:#5ab3a0;color:#8fbfb0" onclick="BUYBACK(${i})">🍺 ${esc(d.name)} drinks here — buy back their oath (${40+d.level*10}c)</button>`:'').join('')}
+        ${(S.deserters||[]).map((d,i)=>atSettlement()===d.town?`<button class="storybtn" style="border-color:#7d93a3;color:#a8b7c4" onclick="BUYBACK(${i})">🍺 ${esc(d.name)} drinks here — buy back their oath (${40+d.level*10}c)</button>`:'').join('')}
       </div>
       ${selectedPanel()}
       <h2>Standing</h2>
@@ -2539,7 +2635,7 @@ function renderCompany(){
       ${S.contracts.map(c=>`<div class="statline" style="cursor:pointer" onclick="HEX(${c.q},${c.r})"><span style="color:${c.story?'#b08bc9':'var(--gold)'}">!</span> ${esc(c.cname||CONTRACT_TYPES[c.type].n)} <span class="hint">(${OBJECTIVES[c.obj||'slay'].n})</span> — <span class="pay">${c.pay}c</span> · ${esc(S.regions[c.regionId].name)}</div>`).join('')||'<p class="hint">Nothing posted. Rest a week.</p>'}
       <h2 style="margin-top:8px">Rumors</h2>
       ${risen.map(g=>`<div class="statline" style="color:#b08bc9;cursor:pointer" onclick="${(()=>{const a=S.agents.find(a=>a.kind==='revenant'&&a.graveId===g.id);return a?`HEX(${a.q},${a.r})`:''})()}">⚰ ${esc(g.name)} walks ${esc(S.regions[g.regionId].name)}${g.iter?` · improved ×${g.iter}`:''} — <i>${esc(g.hook)}</i></div>`).join('')||'<p class="hint">Your dead are quiet — the ones you kept.</p>'}
-      ${(S.deserters&&S.deserters.length)?`<h2 style="margin-top:8px">Deserters</h2>${S.deserters.map(d=>`<div class="statline" style="cursor:pointer;color:#8fbfb0" onclick="HEX(${REGION_DEFS[d.town].q},${REGION_DEFS[d.town].r})">⚐ ${esc(d.name)}${d.wasCommander?' — your old Commander':''} · ${esc(REGION_DEFS[d.town].town)} · ${Math.max(0,d.weekGone+4-S.week)} wk to find them</div>`).join('')}`:''}
+      ${(S.deserters&&S.deserters.length)?`<h2 style="margin-top:8px">Deserters</h2>${S.deserters.map(d=>`<div class="statline" style="cursor:pointer;color:#a8b7c4" onclick="HEX(${REGION_DEFS[d.town].q},${REGION_DEFS[d.town].r})">⚐ ${esc(d.name)}${d.wasCommander?' — your old Commander':''} · ${esc(REGION_DEFS[d.town].town)} · ${Math.max(0,d.weekGone+4-S.week)} wk to find them</div>`).join('')}`:''}
       <h2 style="margin-top:8px">Grave ledger</h2>
       ${graves.length?graves.map(g=>`<div class="statline">⚰ ${esc(g.name)} — <i>${g.state}</i>${g.state==='rest'?' ✓':''}</div>`).join(''):'<p class="hint">Empty. It won’t stay that way.</p>'}
     </div>
@@ -2601,7 +2697,7 @@ function pickSquad(cb){
     {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; closeModal(); cb([...picked]); }},
     {label:'Not yet',fn:()=>closeModal()}]);
 }
-const TILE_BG={grass:'#2e2a20',road:'#3d352a',bridge:'#4c3f2d',brush:'#2b301f',tree:'#222c19',boulder:'#413a30',rubble:'#3a352c',column:'#3a352c',stone:'#332f28',water:'#1c2836'};
+const TILE_BG={grass:'#2e2a20',road:'#3d352a',bridge:'#4c3f2d',brush:'#2b301f',tree:'#222c19',boulder:'#413a30',rubble:'#3a352c',column:'#3a352c',stone:'#332f28',water:'#20262e'};
 function tileArt(t,x,y,tile){
   const v=(x*7+y*13)%4;
   if(t==='tree')return `<svg class="decor" viewBox="0 0 46 46"><path d="M${9+v} 40 L${18+v} 12 L${27+v} 40 Z" fill="#243019" stroke="#141a10" stroke-width="1.2"/><rect x="${16.5+v}" y="38" width="3" height="6" fill="#2b2118"/><path d="M${24+v} 42 L${31+v} 20 L${38+v} 42 Z" fill="#1f2b18" stroke="#141a10"/></svg>`;
@@ -2610,7 +2706,7 @@ function tileArt(t,x,y,tile){
   if(t==='rubble')return `<svg class="decor" viewBox="0 0 46 46"><rect x="6" y="20" width="14" height="18" fill="#4a443a" stroke="#17130e"/><rect x="22" y="12" width="10" height="26" fill="#413a30" stroke="#17130e"/><rect x="14" y="30" width="8" height="8" fill="#3a352c" stroke="#17130e"/></svg>`;
   if(t==='column')return `<svg class="decor" viewBox="0 0 46 46"><rect x="18" y="8" width="10" height="32" rx="2" fill="#524b3f" stroke="#17130e"/><rect x="15" y="6" width="16" height="4" fill="#4a443a" stroke="#17130e"/><path d="M20 14 v22 M26 14 v22" stroke="#3a352c"/></svg>`;
   if(t==='stone')return `<svg class="decor" viewBox="0 0 46 46"><path d="M16 40 L14 12 Q23 6 32 12 L30 40 Z" fill="#4c4740" stroke="#17130e" stroke-width="1.5"/><path d="M22 16 v20" stroke="#3a352c"/></svg>`;
-  if(t==='water')return `<svg class="decor" viewBox="0 0 46 46"><path d="M4 ${16+v} q10 -4 20 0 t20 0 M4 ${26+v} q10 -4 20 0 t20 0 M4 ${36-v} q10 -4 20 0 t20 0" fill="none" stroke="#37506a" stroke-width="1.6" opacity=".8"/></svg>`;
+  if(t==='water')return `<svg class="decor" viewBox="0 0 46 46"><path d="M4 ${16+v} q10 -4 20 0 t20 0 M4 ${26+v} q10 -4 20 0 t20 0 M4 ${36-v} q10 -4 20 0 t20 0" fill="none" stroke="#4a5a68" stroke-width="1.6" opacity=".8"/></svg>`;
   if(t==='bridge')return `<svg class="decor" viewBox="0 0 46 46"><rect x="2" y="18" width="42" height="10" fill="#5a4632" stroke="#2b2118"/><path d="M8 18 v10 M18 18 v10 M28 18 v10 M38 18 v10" stroke="#3a2c1c"/></svg>`;
   if(tile&&tile.blighted)return `<svg class="decor" viewBox="0 0 46 46"><ellipse class="bpool" cx="23" cy="${28+v}" rx="13" ry="6" fill="#4a3266" opacity=".65"/><circle cx="${15+v*3}" cy="${20+v}" r="1.6" fill="#9a6fc9"/><path d="M${18+v} ${28+v} q3 -9 8 -12" stroke="#6b4a95" stroke-width="1.3" fill="none"/></svg>`;
   if(t==='road')return `<svg class="decor" viewBox="0 0 46 46"><path d="M0 23 h46" stroke="#5a4c34" stroke-width="6" opacity=".4"/></svg>`;
@@ -2619,7 +2715,7 @@ function tileArt(t,x,y,tile){
 const TERR_DESC={grass:'open ground',road:'a road — quick going',bridge:'a bridge — the only dry crossing',brush:'brush — light cover (−10 to be hit here)',tree:'dense trees — cover and no line of sight through',boulder:'a boulder — impassable, blocks sight',rubble:'ruined wall — impassable, blocks sight',column:'a fallen column — impassable, blocks sight',stone:'a standing stone — impassable, blocks sight',water:'water — impassable'};
 function terrDesc(tile){
   const base=TERR_DESC[tile.t]||'open ground';
-  const e=tile.elev||1;
+  const e=tile.elev==null?1:tile.elev;
   const el=e===2?' · high ground (+hit, +range for archers, blocks sight past it)':e===0?' · low ground (exposed from above)':'';
   return base+(tile.blighted?' · blighted (2 dmg/round to the living)':'')+el;
 }
@@ -2684,12 +2780,13 @@ function renderBattle(){
       if(un.offbalance||un.warcried)title+=', −10 to hit';
       if(atk)title+=` — ${hc}% to hit`;
       else if(un.kind==='foe')title+=' — tap to scout its range';
+      if(un.kind==='foe'&&un.podId!=null&&B.podsActive&&B.pods[un.podId]){ const ps=B.pods[un.podId].state; title+=ps==='patrol'?' · unaware (patrolling)':ps==='alert'?' · alerted — searching':' · engaged'; }
     }
     if(bd)title+=` — the body of ${bd.name}`;
     const cst=un&&casts.includes(un);
     const isObj=B.objTile&&B.objTile.x===x&&B.objTile.y===y;
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
-    const e=t.elev||1, bg=TILE_BG[t.t]||'#2e2a20';
+    const e=(t.elev==null?1:t.elev), bg=TILE_BG[t.t]||'#2e2a20';
     const fog=visible?'':(explored?'fogseen':'fogdark');
     grid+=`<div class="tile ${(x+y)%2?'alt':''} ${e===2?'hi':e===0?'lo':''} ${fog} ${mv?'moveable':''} ${atk?'attackable':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
     if(fog!=='fogdark')grid+=tileArt(t.t,x,y,t);
@@ -2704,7 +2801,10 @@ function renderBattle(){
       else inner=enemyFace(un.ekey,fsz);
       const cls2=un.kind==='ally'?'ally':cls;
       const crown=(B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
-      grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''}" data-uid="${un.uid}">${inner}${badge}${crown}<div class="hp"><div style="width:${Math.round(100*un.hp/un.maxhp)}%"></div></div></div>`;
+      let podB='';
+      if(un.kind==='foe'&&un.podId!=null&&B.podsActive&&B.pods[un.podId]){ const ps=B.pods[un.podId].state;
+        podB=ps==='patrol'?'<span class="stx" style="color:#8a7f6b;left:-5px;right:auto;top:auto;bottom:-4px">◦</span>':'<span class="stx" style="color:#e0593f;left:-5px;right:auto;top:auto;bottom:-4px">!</span>'; }
+      grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''}" data-uid="${un.uid}">${inner}${badge}${crown}${podB}<div class="hp"><div style="width:${Math.round(100*un.hp/un.maxhp)}%"></div></div></div>`;
       if(atk)grid+=`<span class="hitpct">${hc}%</span>`;
     } else if(bd){ grid+=`<div class="body">☠</div>`; }
     grid+='</div>';
