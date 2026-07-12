@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.13</title>
+<title>GRAVEBORNE — alpha v0.14</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -859,6 +859,11 @@ function weeklyTick(){
     spawnAgent('hunters',randomWildHex(),{str:S.story.stage>=6?14:12});
     log('Grey riders again, asking after your banner in the villages.','blight');
   }
+  // the King dies; Vell moves; you are sent for
+  if(S.story&&S.story.stage===8&&S.story.heirWeek&&S.week>=S.story.heirWeek+3){
+    S.story.stage=9;
+    log('The King is dead. Magister Vell has seized the throne room and barred the doors. A rider comes for you at last, half-dead: "Come to Karsk Gate, Commander. There is no one else left to send." Ride to the palace.','wk');
+  }
   // the meeting does not wait
   if(S.story&&S.story.stage===5&&S.story.meetWeek&&S.week>S.story.meetWeek){
     S.story.stage=6; S.story.missedBarrow=true;
@@ -1127,7 +1132,8 @@ function startBattle(contract,squadIds){
   // revenant injection
   const risenHere=S.graves.filter(g=>g.state==='risen'&&g.regionId===region.id);
   let revs=[];
-  if(contract.revGraveId){ revs=[S.graves.find(g=>g.id===contract.revGraveId)]; }
+  if(contract.reckoning){ revs=S.graves.filter(g=>g.state==='risen').slice(0,3); } // the finale: all your unresolved dead
+  else if(contract.revGraveId){ revs=[S.graves.find(g=>g.id===contract.revGraveId)]; }
   else if(risenHere.length&&chance(65)){ revs=[risenHere[0]]; }
   for(const g of revs){ if(g&&g.state==='risen') spawnRevenant(B,g); }
   buildQueue(B);
@@ -1709,6 +1715,9 @@ function endBattle(outcome){
       if(B.storyBeat==='heir'&&S.story&&S.story.stage===7){
         queueModal(()=>heirEpilogue());
       }
+      if(B.storyBeat==='finale'&&S.story&&S.story.stage===9){
+        finaleVictory();
+      }
     }
     if(!B.ambush&&(B.type==='purge'||B.type==='delve'||B.type==='reclaim')&&chance(B.obj==='capture'?45:30)){
       queueModal(()=>relicModal(pick(['ashfire','veindrink','bonespears','ashward'])));
@@ -1911,61 +1920,91 @@ window.SNEAK=function(){ startSneak(); };
 function startSneak(){
   if(S.battle||S.over)return;
   const c=cmdr(); if(!c)return;
-  SNK={w:11,h:7,px:0,py:3,over:false,
-    pillars:[],guards:[
-      {x:4,y:1,wps:[[4,1],[4,5]],wi:1,dx:0,dy:1},
-      {x:7,y:5,wps:[[7,5],[7,1]],wi:1,dx:0,dy:-1},
-      {x:9,y:3,wps:[[9,3],[6,3]],wi:1,dx:-1,dy:0},
+  const W=460,H=300;
+  SNK={live:true,over:false,W,H,
+    player:{x:26,y:H/2}, target:null, pspeed:2.1,
+    exit:{x:W-24,y:H/2,r:20},
+    pillars:[], guards:[
+      {x:172,y:64,wp:[{x:172,y:64},{x:172,y:H-64}],wi:1,dir:{x:0,y:1},speed:1.05,len:90,ang:0.5},
+      {x:300,y:H-64,wp:[{x:300,y:H-64},{x:300,y:64}],wi:1,dir:{x:0,y:-1},speed:1.2,len:90,ang:0.5},
+      {x:W-120,y:H/2,wp:[{x:W-120,y:H/2},{x:214,y:H/2}],wi:1,dir:{x:-1,y:0},speed:0.95,len:100,ang:0.48},
     ]};
-  const taken=new Set(['0,3','10,3']);
-  SNK.guards.forEach(g=>g.wps.forEach(([x,y])=>taken.add(x+','+y)));
   let guard=0;
-  while(SNK.pillars.length<8&&guard++<80){
-    const x=ri(2,8),y=ri(0,6),k=x+','+y;
-    if(!taken.has(k)){taken.add(k);SNK.pillars.push({x,y});}
+  while(SNK.pillars.length<6&&guard++<160){
+    const x=ri(120,W-80), y=ri(38,H-38);
+    if(SNK.guards.some(g=>Math.hypot(g.x-x,g.y-y)<46))continue;
+    if(SNK.pillars.some(p=>Math.hypot(p.x-x,p.y-y)<60))continue;
+    if(Math.hypot(SNK.exit.x-x,SNK.exit.y-y)<50)continue;
+    SNK.pillars.push({x,y,r:15});
   }
-  log('Night. The Commander goes over the palace wall alone.');
-  render();
+  log('Night. The Commander goes over the palace wall alone. This time, the guards do not wait their turn.');
+  render(); snkLoop();
 }
-function snkPillar(x,y){return SNK.pillars.some(p=>p.x===x&&p.y===y);}
-function snkVision(){
-  const v=new Set();
+function snkBlocked(x,y){ return SNK.pillars.some(p=>Math.hypot(p.x-x,p.y-y)<p.r+7); }
+function snkSightBlocked(g,p){
+  return SNK.pillars.some(pil=>{
+    const dx=p.x-g.x,dy=p.y-g.y,L2=dx*dx+dy*dy||1;
+    const t=((pil.x-g.x)*dx+(pil.y-g.y)*dy)/L2;
+    if(t<0||t>1)return false;
+    return Math.hypot(pil.x-(g.x+dx*t),pil.y-(g.y+dy*t))<pil.r+4;
+  });
+}
+function snkSeen(){
   for(const g of SNK.guards){
-    for(let i=1;i<=3;i++){
-      const x=g.x+g.dx*i,y=g.y+g.dy*i;
-      if(x<0||y<0||x>=SNK.w||y>=SNK.h)break;
-      if(snkPillar(x,y))break;
-      v.add(x+','+y);
+    const dx=SNK.player.x-g.x, dy=SNK.player.y-g.y, dist=Math.hypot(dx,dy);
+    if(dist<15)return g;
+    if(dist>g.len)continue;
+    const ga=Math.atan2(g.dir.y,g.dir.x), pa=Math.atan2(dy,dx);
+    let diff=Math.abs(pa-ga); if(diff>Math.PI)diff=2*Math.PI-diff;
+    if(diff<g.ang && !snkSightBlocked(g,SNK.player))return g;
+  }
+  return null;
+}
+function snkStep(){
+  const S1=SNK;
+  for(const g of S1.guards){
+    const tgt=g.wp[g.wi], dx=tgt.x-g.x, dy=tgt.y-g.y, d=Math.hypot(dx,dy);
+    if(d<g.speed+0.5){ g.wi=(g.wi+1)%g.wp.length; }
+    else { g.dir={x:dx/d,y:dy/d}; g.x+=g.dir.x*g.speed; g.y+=g.dir.y*g.speed; }
+  }
+  if(S1.target){
+    const dx=S1.target.x-S1.player.x, dy=S1.target.y-S1.player.y, d=Math.hypot(dx,dy);
+    if(d<2){ S1.target=null; }
+    else {
+      const step=Math.min(S1.pspeed,d), nx=S1.player.x+dx/d*step, ny=S1.player.y+dy/d*step;
+      if(!snkBlocked(nx,S1.player.y))S1.player.x=clamp(nx,10,S1.W-10);
+      if(!snkBlocked(S1.player.x,ny))S1.player.y=clamp(ny,10,S1.H-10);
     }
-    const dg=g.dx===0?[[1,g.dy],[-1,g.dy]]:[[g.dx,1],[g.dx,-1]];
-    for(const d of dg){ const x=g.x+d[0],y=g.y+d[1];
-      if(x>=0&&y>=0&&x<SNK.w&&y<SNK.h&&!snkPillar(x,y))v.add(x+','+y); }
   }
-  return v;
+  if(Math.hypot(S1.player.x-S1.exit.x,S1.player.y-S1.exit.y)<S1.exit.r){ sneakSuccess(); return true; }
+  if(snkSeen()){ sneakCaught(); return true; }
+  return false;
 }
-function snkAfterMove(){
-  if(SNK.px===SNK.w-1&&SNK.py===3){ sneakSuccess(); return; }
-  for(const g of SNK.guards){
-    const t=g.wps[g.wi];
-    if(g.x===t[0]&&g.y===t[1])g.wi=(g.wi+1)%g.wps.length;
-    const n=g.wps[g.wi];
-    const dx=Math.sign(n[0]-g.x),dy=Math.sign(n[1]-g.y);
-    if(dx||dy){g.dx=dx;g.dy=dy;g.x+=dx;g.y+=dy;}
-  }
-  const seen=snkVision().has(SNK.px+','+SNK.py)||SNK.guards.some(g=>g.x===SNK.px&&g.y===SNK.py);
-  if(seen){ sneakCaught(); return; }
-  render();
+function snkLoop(){
+  if(!SNK||SNK.over||!SNK.live)return;
+  if(!activeModal){ if(snkStep())return; snkPaint(); }
+  requestAnimationFrame(snkLoop);
 }
-window.SNKCLICK=function(x,y){
-  if(!SNK||SNK.over||activeModal)return;
-  const d=Math.abs(x-SNK.px)+Math.abs(y-SNK.py);
-  if(d<1||d>2)return;
-  if(snkPillar(x,y)||SNK.guards.some(g=>g.x===x&&g.y===y))return;
-  SNK.px=x;SNK.py=y;
-  snkAfterMove();
+function snkPaint(){
+  const set=(id,a,v)=>{const e=document.getElementById(id); if(e)e.setAttribute(a,v);};
+  if(!document.getElementById('snkSvg'))return;
+  set('snkP','cx',SNK.player.x.toFixed(1)); set('snkP','cy',SNK.player.y.toFixed(1));
+  set('snkPd','cx',SNK.player.x.toFixed(1)); set('snkPd','cy',SNK.player.y.toFixed(1));
+  SNK.guards.forEach((g,i)=>{
+    set('snkG'+i,'cx',g.x.toFixed(1)); set('snkG'+i,'cy',g.y.toFixed(1));
+    const a=Math.atan2(g.dir.y,g.dir.x);
+    const p1x=g.x+Math.cos(a-g.ang)*g.len, p1y=g.y+Math.sin(a-g.ang)*g.len;
+    const p2x=g.x+Math.cos(a+g.ang)*g.len, p2y=g.y+Math.sin(a+g.ang)*g.len;
+    set('snkC'+i,'points',`${g.x.toFixed(1)},${g.y.toFixed(1)} ${p1x.toFixed(1)},${p1y.toFixed(1)} ${p2x.toFixed(1)},${p2y.toFixed(1)}`);
+  });
+}
+window.SNKTAP=function(e){
+  if(!SNK||SNK.over)return;
+  const svg=e.currentTarget, r=svg.getBoundingClientRect();
+  const cx=(e.touches&&e.touches[0]?e.touches[0].clientX:e.clientX), cy=(e.touches&&e.touches[0]?e.touches[0].clientY:e.clientY);
+  SNK.target={x:(cx-r.left)/r.width*SNK.W, y:(cy-r.top)/r.height*SNK.H};
 };
-window.SNKWAIT=function(){ if(!SNK||SNK.over||activeModal)return; snkAfterMove(); };
-window.SNKABORT=function(){ SNK=null; log('The Commander slips back over the wall. Another night, then.'); render(); };
+window.SNKABORT=function(){ if(!SNK)return; SNK.live=false; SNK=null; log('The Commander slips back over the wall. Another night, then.'); render(); };
 function sneakCaught(){
   SNK=null;
   const fine=Math.min(S.coin,10); S.coin-=fine;
@@ -2028,6 +2067,7 @@ function satchelScene(){
     [{label:'Burn everything but the names',cls:'primary',fn:()=>closeModal()}]);
   log('The Magister’s Blade is dead; his letters are yours. Somewhere in Karsk Gate, a precise, unhurried man writes your company’s name.','blight');
 }
+window.FINALE=function(){ startFinale(); };
 window.PALACE3=function(){
   if(!S.story||S.story.stage!==6)return;
   const missed=!!S.story.missedBarrow;
@@ -2077,12 +2117,33 @@ function heirEpilogue(){
   const txt=h==='aldric'?'Fordstead’s road holds. Aldric’s captains drink to a mercenary banner for the first time in living memory — and a prince now owes you a wall.'
     :h==='maren'?'The archive’s seals crack open like an egg. Vell’s correspondence rides to Maren by three separate couriers — and by morning the Collegium is answering questions it cannot survive.'
     :'Casmir takes the evidence with two fingers, like something wet. “Wise,” he says. The coin is very good. Somewhere, the Folk bury their dead alone.';
+  S.story.heirWeek=S.week;
   showModal('The Heir’s Debt',
     `<p>${txt}</p>
      <div class="callout">“The King has asked for the bedside candles. Whatever is decided in that room, the March will bleed for it.”</div>
-     <p class="hint">+3 renown. Act III part 1 is closed. The deathbed — and the finale — arrive in a future build.</p>`,
+     <p class="hint">+3 renown. The King is dying. When he passes, Magister Vell will move — and you will be sent for. Watch the log.</p>`,
     [{label:'The company endures',cls:'primary',fn:()=>closeModal()}]);
   log('Act III part 1 closes: an heir is chosen, a debt is owed, and the candles at the King’s bedside are lit.','wk');
+}
+/* ---- ACT III FINALE: the deathbed & the reckoning ---- */
+function startFinale(){
+  if(!S.story||S.story.stage!==9)return;
+  const risen=S.graves.filter(g=>g.state==='risen');
+  showModal('The Throne of Karsk',
+    `<p>The King is three days dead. In the throne room, Magister Vell stands over the empty seat with the calm of a man who has already won an argument no one else knew they were having.</p>
+     <p>“You mistake me for a traitor. I am the only loyalist left. The kingdom dies in war within two generations — I have read the numbers. Better a still, painless world than a burning one. Your ${S.story.heir==='maren'?'princess':S.story.heir==='aldric'?'prince':'Casmir'} cannot stop the arithmetic. Neither can you.”</p>
+     ${risen.length?`<div class="callout">Behind him, in your old colors: ${risen.slice(0,3).map(g=>esc(g.name)).join(', ')}. The dead you never laid to rest. He kept them for exactly this.</div>`:`<p class="hint">Your graveyard is quiet. Every soldier you lost, you laid to rest — and Vell stands with only his own dead to hide behind.</p>`}
+     <p class="hint">⚑ Cut Off the Head — kill <b>Magister Vell</b>. Your unresolved dead fight for him.</p>`,
+    [{label:'End the argument',cls:'danger',fn:()=>{closeModal(); pickSquad(sq=>startBattle({
+        id:nid(),type:'putdown',cname:'The Throne of Karsk',regionId:3,pay:0,danger:3,obj:'assassinate',story:'finale',
+        comp:['acolyte','acolyte','graveguard','graveguard'],leader:'graveguard',leaderName:'Magister Vell',leaderStyle:'bruiser',
+        weatherLock:'ashhaze',layout:'pass',reckoning:true},sq));}},
+     {label:'Not yet — steel the company',fn:()=>closeModal()}]);
+}
+function finaleVictory(){
+  S.story.stage=10; S.victory=true; S.over=true;
+  log('Magister Vell is dead. The hand that fed the Blight is off the board. The March will remember your banner.','wk');
+  save();
 }
 function checkBarrow(){
   if(!S.story||S.story.stage!==5||!S.story.meetHex||S.battle)return false;
@@ -2131,33 +2192,22 @@ function demandEvent(s){
      {label:`Excise it — surgeon’s knife (50c, −2 max HP, graft removed)${atSettlement()===null?' — needs a settlement':''}`,cls:'pick',disabled:atSettlement()===null||S.coin<50,fn:()=>{S.coin-=50;s.maxhp=Math.max(6,s.maxhp-2);s.hp=Math.min(s.hp,s.maxhp);s.feats=s.feats.filter(f=>!FEATS[f].ash);s.corr=0;s.whispered=false;s.demanded=false;log(`The surgeon earns every coin. ${s.name} keeps her soul and loses the fire.`,'bad');closeModal();}}]);
 }
 function renderSneak(){
-  const vis=snkVision();
-  const SS=clamp(Math.floor((Math.min(window.innerWidth,900)-16)/SNK.w),26,44);
-  let grid=`<div id="grid" style="--ss:${SS}px;grid-template-columns:repeat(${SNK.w},${SS}px)">`;
-  for(let y=0;y<SNK.h;y++)for(let x=0;x<SNK.w;x++){
-    const pil=snkPillar(x,y);
-    const g=SNK.guards.find(g=>g.x===x&&g.y===y);
-    const isv=vis.has(x+','+y);
-    const exit=x===SNK.w-1&&y===3;
-    const d=Math.abs(x-SNK.px)+Math.abs(y-SNK.py);
-    const can=!pil&&!g&&d>=1&&d<=2;
-    grid+=`<div class="stile ${pil?'pillar':''} ${isv?'vis':''} ${exit?'exitd':''} ${can?'canmove':''}" onclick="SNKCLICK(${x},${y})" title="${pil?'pillar — blocks their sight':isv?'torchlight — a guard watches this tile':exit?'the door to her chambers':''}">`;
-    if(pil)grid+='<span class="glyph" style="color:#5c5545">▓</span>';
-    if(exit)grid+='<span class="glyph" style="color:#c9a227">➤</span>';
-    if(g){ const arrow=g.dx===1?'→':g.dx===-1?'←':g.dy===1?'↓':'↑';
-      grid+=`<span class="glyph" style="color:#d98074;font-weight:bold">♟${arrow}</span>`; }
-    if(SNK.px===x&&SNK.py===y){ const c=cmdr(); grid+=`<span class="glyph">${c?faceSvg(c.face,{size:Math.round(SS*0.7)}):'☺'}</span>`; }
-    grid+='</div>';
-  }
-  grid+='</div>';
-  return `<div id="battleTop"><h1>🕯 The Palace of Karsk Gate</h1><span class="hint">move up to 2 tiles, then the watch moves</span>
+  const S1=SNK;
+  const cones=S1.guards.map((g,i)=>`<polygon id="snkC${i}" points="" fill="rgba(212,60,44,.20)" stroke="rgba(212,60,44,.42)" stroke-width="1"/>`).join('');
+  const pil=S1.pillars.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="#39332a" stroke="#17130e" stroke-width="2"/><circle cx="${p.x}" cy="${p.y}" r="${(p.r*0.5).toFixed(0)}" fill="none" stroke="#4c4436" stroke-width="1"/>`).join('');
+  const guards=S1.guards.map((g,i)=>`<circle id="snkG${i}" cx="${g.x}" cy="${g.y}" r="9" fill="#a3653b" stroke="#12100c" stroke-width="2"/>`).join('');
+  const exit=`<g><rect x="${S1.exit.x-10}" y="${S1.exit.y-18}" width="20" height="36" rx="3" fill="#3a2e12" stroke="#c9a227" stroke-width="2"/><text x="${S1.exit.x}" y="${S1.exit.y+5}" style="font-size:16px;fill:#c9a227;text-anchor:middle" pointer-events="none">➤</text></g>`;
+  return `<div id="battleTop"><h1>🕯 The Palace of Karsk Gate</h1><span class="hint">tap where to move · dodge the torchlight · reach the gold door</span>
       <span style="flex:1"></span>
-      <button onclick="SNKWAIT()">Hold still</button>
       <button class="danger" onclick="SNKABORT()">Slip away</button></div>
-    <div id="battleWrap">${grid}
-      <div class="col" id="sidePanel"><h2>The only rule</h2>
-        <div class="card"><div class="hint">Stay out of the red torchlight. Pillars ▓ block their sight. Guards ♟ walk their rounds — the arrow is where they look. Reach the gold door ➤.</div></div>
-      </div></div>`;
+    <div style="padding:10px;max-width:700px;margin:0 auto">
+      <svg id="snkSvg" viewBox="0 0 ${S1.W} ${S1.H}" onclick="SNKTAP(event)" ontouchstart="SNKTAP(event)" style="width:100%;display:block;background:#131009;border:1px solid var(--line);border-radius:4px;cursor:crosshair;touch-action:none">
+        ${cones}${pil}${exit}${guards}
+        <circle id="snkPd" cx="${S1.player.x}" cy="${S1.player.y}" r="13" fill="none" stroke="rgba(201,162,39,.35)" stroke-width="1"/>
+        <circle id="snkP" cx="${S1.player.x}" cy="${S1.player.y}" r="8" fill="#12100c" stroke="#c9a227" stroke-width="2.5"/>
+      </svg>
+      <div class="hint" style="margin-top:6px">The guards walk their rounds and turn to look — their red cones are what sees you. Pillars break their line of sight. Reach the ➤ gold door.<br><span style="opacity:.75">Move: tap a spot, or WASD / arrow keys. Esc to slip away.</span></div>
+    </div>`;
 }
 /* ============================== MODALS ============================== */
 function queueModal(fn){ modalQ.push(fn); pumpModals(); }
@@ -2229,6 +2279,14 @@ function mobileTabBar(){
   },true);
   let rz; window.addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(S)render(); },150); });
   document.addEventListener('keydown',e=>{
+    if(SNK&&SNK.live&&!SNK.over&&!activeModal){
+      const kk=e.key.toLowerCase(); let dx=0,dy=0;
+      if(kk==='arrowup'||kk==='w')dy=-1; else if(kk==='arrowdown'||kk==='s')dy=1;
+      else if(kk==='arrowleft'||kk==='a')dx=-1; else if(kk==='arrowright'||kk==='d')dx=1;
+      else if(kk==='escape'){ SNKABORT(); return; }
+      if(dx||dy){ e.preventDefault(); SNK.target={x:clamp(SNK.player.x+dx*70,10,SNK.W-10),y:clamp(SNK.player.y+dy*70,10,SNK.H-10)}; }
+      return;
+    }
     if(activeModal||!S||!S.battle)return;
     const B=S.battle, u=curUnit(B); if(!u||u.kind!=='pc')return;
     const k=e.key.toLowerCase();
@@ -2241,7 +2299,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.13</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.14</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2408,7 +2466,9 @@ function renderCompany(){
         ${S.story&&S.story.stage===6&&setl===3&&cmdr()?`<button class="storybtn" onclick="PALACE3()">🕯 The Palace — three heirs, one ledger. Choose whose hands.</button>`:''}
         ${S.story&&S.story.stage===6&&setl!==3?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: ${S.story.missedBarrow?'the meeting happened without witnesses — what you still hold must reach':'the Envoy’s ledger must reach'} <b>the palace at Karsk Gate</b>. The King is dying, and three heirs are listening.</div>`:''}
         ${S.story&&S.story.stage===7?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: the heir’s price — <b>${S.story.heir==='aldric'?'The Ford Must Hold':S.story.heir==='maren'?'The Collegium Archive':'The Quiet Handoff'}</b>, the purple mark on the map.</div>`:''}
-        ${S.story&&S.story.stage>=8?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: the heir owes you a debt, and the candles at the King’s bedside are lit. The finale awaits a future build.</div>`:''}
+        ${S.story&&S.story.stage===8?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: the heir owes you a debt, and the candles at the King’s bedside are lit. When he passes, Vell will move — rest and let the weeks turn.</div>`:''}
+        ${S.story&&S.story.stage===9&&setl===3&&cmdr()?`<button class="storybtn" style="border-color:var(--blood);color:#d98074" onclick="FINALE()">⚔ The Throne of Karsk — Vell has the throne room. End it.</button>`:''}
+        ${S.story&&S.story.stage===9&&setl!==3?`<div class="hint" style="margin-top:5px;color:#d98074">Story: the King is dead and Vell holds the throne room. Ride to <b>Karsk Gate</b>. There is no one else left to send.</div>`:''}
         ${(S.deserters||[]).map((d,i)=>atSettlement()===d.town?`<button class="storybtn" style="border-color:#5ab3a0;color:#8fbfb0" onclick="BUYBACK(${i})">🍺 ${esc(d.name)} drinks here — buy back their oath (${40+d.level*10}c)</button>`:'').join('')}
       </div>
       ${selectedPanel()}
@@ -2631,6 +2691,7 @@ window.TILE=function(x,y){
 };
 window.DEFEND=defend; window.ENDT=endUnitTurn; window.RETREAT=retreat; window.MEDIC=useAbility;
 function renderGameOver(){
+  if(S.victory)return renderVictory();
   const walking=S.graves.filter(g=>g.state==='risen');
   return header()+`<div id="main"><div class="col" style="flex:1">
     <h1>This is how the company died.</h1>
@@ -2639,6 +2700,35 @@ function renderGameOver(){
     ${S.chronicle.map(c=>`<p class="bg">${esc(c)}</p>`).join('')||'<p class="hint">A short story.</p>'}
     ${walking.length?`<h2>Still walking</h2><p class="bond">${walking.map(g=>esc(g.name)).join(', ')} — unresolved, improving, wearing your colors. Someone else’s problem now.</p>`:''}
     <p style="margin-top:14px;font-style:italic">You fought everyone you failed to protect. In the end, that was everyone.</p>
+    <button class="primary" onclick="NEWGAME()">Raise a new banner</button>
+  </div></div>`;
+}
+function renderVictory(){
+  const h=S.story.heir;
+  const heirLine=h==='aldric'?'<b>Prince Aldric</b> takes the throne in armor, and rules the way he fought — a wall against the dark, and little mercy for what the dark has already touched. The March has a soldier-king now. It will need one.'
+    :h==='maren'?'<b>Princess Maren</b> takes the throne she was never meant to have, the ledger that damned Vell folded into her first decree. She remembers who came through her window. A mercenary company has a friend in the high seat, for as long as friendship survives a crown.'
+    :'<b>Prince Casmir</b> takes the throne, and the Conclave’s brokers are seen at court within the month. The Blight has not stopped — it has been <i>negotiated with</i>. You are paid, and paid well, and you try not to think about the terms.';
+  const walking=S.graves.filter(g=>g.state==='risen');
+  const rested=S.graves.filter(g=>g.state==='rest').length;
+  const grafted=S.roster.filter(s=>(s.feats||[]).some(f=>FEATS[f]&&FEATS[f].ash)).length;
+  const corr=S.roster.reduce((a,s)=>a+(s.corr||0),0);
+  const identity=grafted>=2||corr>=6?'You did not win this clean. Half your company answers to grafts and whispers now — you fought the Blight with the Blight, and the Cindered Faith has a long memory.'
+    :grafted?'A relic-grafted few carried the company past what steel alone could do. You will answer for them, someday.'
+    :'You held to steel and coin and the Undercrown’s honest iron. Slower, harder, cleaner — and no one at your fire flinches from the firelight.';
+  const reck=walking.length
+    ? `${walking.length} of your dead still walk, unresolved, wearing your colors — <b>${walking.map(g=>esc(g.name)).join(', ')}</b>. You put the Magister down, but you never put <i>them</i> down. Some nights, on the road, you still hear your own build coming.`
+    : rested?`Every soldier you lost, you laid to rest. Your graveyard is quiet, and it stays quiet. That is the rarest victory this land allows.`
+    :'You lost almost no one — or you never let anyone matter enough to lose. History will not know the difference.';
+  return header()+`<div id="main"><div class="col" style="flex:1">
+    <h1 style="color:#c9a227">The Argument Ends.</h1>
+    <p>Week ${S.week}. Renown ${S.renown}. Magister Vell is dead, and the hand that fed the Blight is off the board.</p>
+    <h2>The Throne</h2><p>${heirLine}</p>
+    <h2>The Company You Became</h2><p>${identity}</p>
+    <h2>The Reckoning</h2><p class="bond">${reck}</p>
+    <h2>Chronicle</h2>
+    ${S.chronicle.slice(-8).map(c=>`<p class="bg">${esc(c)}</p>`).join('')||'<p class="hint">A short, bloody story.</p>'}
+    <p style="margin-top:14px;font-style:italic">The Blight is not ended. It never ends. But for one season, on one banner, you fought everyone you failed to protect — and you were still standing when the smoke cleared.</p>
+    <p class="hint">— GRAVEBORNE, Act III. Thank you for playing the alpha. —</p>
     <button class="primary" onclick="NEWGAME()">Raise a new banner</button>
   </div></div>`;
 }
