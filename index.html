@@ -1,0 +1,2419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRAVEBORNE — alpha v0.11</title>
+<style>
+  :root{
+    --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
+    --gold:#c9a227; --blood:#a33b2e; --blight:#7a4fa3; --green:#5f7a3a; --steel:#7d93a3;
+    --line:#3a3226;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1100px 700px at 28% -8%,#191510,var(--bg) 62%) fixed,var(--bg);color:var(--ink);font:14px/1.45 Georgia,'Times New Roman',serif}
+  h1,h2,h3{font-family:Georgia,serif;letter-spacing:.07em;margin:.2em 0}
+  h1{font-size:20px;color:var(--gold);text-shadow:0 1px 0 #000}
+  h2{font-size:14px;color:var(--gold);text-transform:uppercase}
+  h2::before{content:'◆';color:#8a6f2a;font-size:8px;vertical-align:2px;margin-right:6px}
+  h3{font-size:14px;color:var(--ink)}
+  button{background:linear-gradient(#332a1c,#241f15);color:var(--ink);border:1px solid var(--line);padding:5px 10px;cursor:pointer;font:13px Georgia,serif;border-radius:2px;text-shadow:0 1px 0 #000}
+  button:hover:not(:disabled){border-color:var(--gold);color:var(--gold);box-shadow:0 0 7px rgba(201,162,39,.25)}
+  button:disabled{opacity:.4;cursor:default}
+  button.primary{border-color:#8a6f2a;color:#e8d9a0;background:linear-gradient(#4c3c14,#332a10)}
+  button.danger{border-color:var(--blood);color:#d98074}
+  .col{box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 3px 10px rgba(0,0,0,.45)}
+  #modal{box-shadow:0 0 50px rgba(0,0,0,.85),inset 0 0 0 1px #2a2318;border-radius:5px}
+  .lgi{opacity:.55;margin-right:5px}
+  .tile.alt{filter:brightness(1.07)}
+  .body{font-size:17px;color:#cfc4ac;text-shadow:0 0 4px #000;transform:rotate(-14deg)}
+  @keyframes torch{0%,100%{box-shadow:inset 0 0 0 1px rgba(212,60,44,.3),inset 0 0 14px rgba(212,80,44,.25)}50%{box-shadow:inset 0 0 0 1px rgba(212,60,44,.5),inset 0 0 22px rgba(212,90,44,.4)}}
+  .stile.vis{animation:torch 1.5s infinite}
+  .fxarrow::after{content:'';position:absolute;right:-4px;top:-3px;border-left:8px solid #d8cdb8;border-top:4px solid transparent;border-bottom:4px solid transparent}
+  .decor{position:absolute;inset:0;pointer-events:none}
+  @keyframes bpulse{0%,100%{opacity:.55}50%{opacity:.95}}
+  .bpool{animation:bpulse 2.6s infinite}
+  .objtile{box-shadow:inset 0 0 0 3px rgba(201,162,39,.55);background-image:repeating-linear-gradient(-45deg,rgba(201,162,39,.12) 0 6px,transparent 6px 12px)}
+  .unit.ally{background:#8a7a5a}
+  .unit.fogged{background:#3a3d44;color:#aab3c0;font-size:19px;font-weight:bold}
+  .fogveil{position:absolute;inset:0;pointer-events:none;z-index:15;background:repeating-linear-gradient(105deg,rgba(165,170,182,.05) 0 26px,rgba(165,170,182,.12) 26px 52px);animation:fogdrift 16s linear infinite}
+  @keyframes fogdrift{to{background-position:210px 0}}
+  #header{display:flex;gap:18px;align-items:baseline;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #header .stat{color:var(--dim)} #header .stat b{color:var(--ink)}
+  #main{display:flex;gap:10px;padding:10px;align-items:flex-start;flex-wrap:wrap}
+  .col{background:var(--panel);border:1px solid var(--line);padding:10px;border-radius:3px}
+  #rosterCol{flex:1 1 280px;min-width:280px} #mapCol{flex:2 1 480px;min-width:460px} #sideCol{flex:1 1 280px;min-width:270px}
+  .hx{font-size:10px;fill:#6b6353;text-anchor:middle;pointer-events:none}
+  .hxT{fill:#d8cdb8;font-size:11px;font-weight:bold}
+  .hxC{font-size:9px;fill:#141109;text-anchor:middle;font-weight:bold;pointer-events:none}
+  /* tooltips */
+  .tt{border-bottom:1px dotted #6b6353;cursor:help;position:relative}
+  .tt:hover::after{content:attr(data-tip);position:absolute;left:0;bottom:135%;background:#0d0b08;border:1px solid var(--gold);color:var(--ink);padding:6px 9px;font-size:12px;width:230px;z-index:60;white-space:normal;line-height:1.4;border-radius:3px;font-style:normal;font-weight:normal;text-transform:none;letter-spacing:0}
+  /* portraits & cards */
+  .card{display:block;transition:border-color .15s}
+  .card:hover{border-color:#55483a}
+  .scard{display:flex;gap:9px}
+  .scard .face{flex:0 0 46px}
+  .scard .sbody{flex:1;min-width:0}
+  .face svg{display:block;border:1px solid var(--line);border-radius:3px;background:#161310}
+  .face.revf svg{border-color:#4a3a5a;box-shadow:0 0 8px rgba(122,79,163,.5)}
+  .cmdr{color:var(--gold);border:1px solid var(--gold);border-radius:2px;padding:0 5px;font-size:11px}
+  .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-size:12.5px;color:var(--steel);margin:4px 0}
+  .statup{color:#9ab86f;font-weight:bold}
+  /* sneak minigame */
+  .stile{width:var(--ss,44px);height:var(--ss,44px);background:#211d16;position:relative;cursor:pointer}
+  .stile.vis{background:#3a2020;box-shadow:inset 0 0 0 1px rgba(212,60,44,.35)}
+  .stile.pillar{background:#39332a;cursor:default}
+  .stile.exitd{background:#2c2a1a;box-shadow:inset 0 0 0 2px rgba(201,162,39,.5)}
+  .stile.canmove{outline:2px solid rgba(201,162,39,.4);outline-offset:-2px}
+  .stile .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px}
+  .storybtn{display:block;width:100%;margin-top:6px;border-color:var(--gold);color:var(--gold);text-align:left}
+  h2{border-bottom:1px solid var(--line);padding-bottom:3px}
+  #log{scrollbar-width:thin}
+  .card{background:var(--panel2);border:1px solid var(--line);padding:8px;margin:8px 0;border-radius:3px}
+  .card .nm{color:var(--gold);font-weight:bold}
+  .bg{color:var(--dim);font-style:italic;font-size:12.5px}
+  .statline{font-size:12.5px;color:var(--steel)}
+  .featline{font-size:12px;color:#a3927a}
+  .bond{font-size:12px;color:#b08bc9}
+  .hpbar{height:5px;background:#3a201c;margin:4px 0;border-radius:2px}
+  .hpbar>div{height:100%;background:var(--blood);border-radius:2px}
+  .pay{color:var(--gold)} .skull{color:var(--blood)}
+  .pressure{height:8px;background:#221d15;border:1px solid var(--line);border-radius:2px;margin:3px 0 8px}
+  .pressure>div{height:100%;background:linear-gradient(90deg,#5a4a7a,var(--blight));border-radius:2px}
+  .swallowed{color:var(--blight);font-weight:bold}
+  #log{margin:0 10px 10px;background:var(--panel);border:1px solid var(--line);padding:8px 12px;height:150px;overflow-y:auto;font-size:12.5px;border-radius:3px}
+  #log .wk{color:var(--gold)} #log .bad{color:#d98074} #log .blight{color:#b08bc9} #log .good{color:#9ab86f}
+  #log p{margin:2px 0}
+  /* battle */
+  #battleTop{display:flex;gap:14px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  #battleWrap{display:flex;gap:10px;padding:10px;align-items:flex-start;flex-wrap:wrap}
+  #grid{display:grid;gap:1px;background:#000;border:1px solid var(--line)}
+  .tile{width:var(--ts,46px);height:var(--ts,46px);background:#26221a;position:relative;cursor:pointer;font-size:11px}
+  .tile.castable{outline:2px solid rgba(122,79,163,.8);outline-offset:-2px}
+  .repbar{height:7px;background:#221d15;border:1px solid var(--line);border-radius:2px;position:relative;margin:2px 0 7px}
+  .repbar>div{position:absolute;top:0;bottom:0}
+  .traitchip{color:#c98a5a}
+  .corrchip{color:#b08bc9}
+  .tile.plain{background:#2a251c}.tile.forest{background:#232c1c}.tile.rock{background:#3b372f;cursor:default}
+  .tile.blight{background:#2c2135}
+  .tile.moveable{outline:2px solid rgba(201,162,39,.45);outline-offset:-2px}
+  .tile.attackable{outline:2px solid rgba(163,59,46,.7);outline-offset:-2px}
+  .tile .terr{position:absolute;top:1px;left:3px;color:#5c5545;font-size:10px}
+  .unit{position:absolute;inset:4px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:15px;border:2px solid transparent;color:#0e0c09}
+  .unit.pc{background:var(--steel)} .unit.foe{background:#a3653b} .unit.undead{background:#6b7a5a}
+  .unit.rev{background:var(--blight);color:#efe6f7;box-shadow:0 0 10px rgba(122,79,163,.8)}
+  .unit.current{border-color:var(--gold)}
+  .unit .hp{position:absolute;bottom:-2px;left:2px;right:2px;height:3px;background:#3a201c}
+  .unit .hp>div{height:100%;background:var(--blood)}
+  .body{position:absolute;inset:12px;display:flex;align-items:center;justify-content:center;color:#cbb;font-size:14px}
+  #sidePanel{flex:0 0 250px}
+  .qitem{padding:2px 6px;border-left:3px solid transparent;font-size:12.5px;color:var(--dim)}
+  .qitem.cur{border-color:var(--gold);color:var(--ink)}
+  .qitem.rev{color:#b08bc9}
+  #grid{position:relative}
+  .tile.threat{box-shadow:inset 0 0 0 2px rgba(224,89,63,.4);background-image:repeating-linear-gradient(45deg,rgba(163,59,46,.14) 0 4px,transparent 4px 8px)}
+  .unit.foe.current,.unit.undead.current,.unit.rev.current{border-color:#e0593f}
+  .unit .stx{position:absolute;top:-7px;right:-5px;color:#e0593f;font-size:12px;text-shadow:0 0 3px #000}
+  .hitpct{position:absolute;top:1px;right:2px;font-size:10px;color:var(--gold);text-shadow:0 0 3px #000;pointer-events:none;font-weight:bold}
+  @keyframes fxup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-24px)}}
+  .fxfloat{position:absolute;z-index:20;font-weight:bold;font-size:13px;pointer-events:none;animation:fxup .8s ease-out forwards;text-shadow:0 0 4px #000}
+  @keyframes hitflash{0%{box-shadow:0 0 0 3px rgba(212,60,44,.95),0 0 16px rgba(212,60,44,.9)}100%{box-shadow:none}}
+  .unit.hitflash{animation:hitflash .45s ease-out}
+  @keyframes dodgejig{0%{transform:translateX(0)}30%{transform:translateX(6px)}60%{transform:translateX(-4px)}100%{transform:translateX(0)}}
+  .unit.dodge{animation:dodgejig .4s ease-out}
+  .fxarrow{position:absolute;z-index:19;width:16px;height:2px;background:#d8cdb8;pointer-events:none;box-shadow:0 0 3px #000;transition:left .18s linear,top .18s linear}
+  .wline{font-size:12.5px;color:#c9b48a;margin:2px 0}
+  .pips{color:var(--gold);font-size:12.5px}
+  .road{stroke:#4a4234;stroke-width:2}
+  .roadDead{stroke:#4a3a5a;stroke-width:2;stroke-dasharray:3 3}
+  .mapLbl{fill:#8a7f6b;font-size:9px;text-anchor:middle;font-family:Georgia,serif}
+  .mapRev,.mapCamp{font-size:9px}
+  /* modal */
+  #modalBack{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;z-index:50}
+  #modal{background:var(--panel);border:1px solid var(--gold);max-width:520px;width:92%;padding:16px 18px;border-radius:4px;max-height:84vh;overflow-y:auto}
+  #modal .callout{font-style:italic;color:#c9a9e0;font-size:15px;margin:10px 0;border-left:3px solid var(--blight);padding-left:10px}
+  #modal .btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .pick{display:block;width:100%;text-align:left;margin:5px 0}
+  .hint{color:var(--dim);font-size:12px}
+  .tag{display:inline-block;border:1px solid var(--line);padding:0 5px;border-radius:2px;font-size:11px;color:var(--dim);margin-right:4px}
+  .revtag{color:#b08bc9;border-color:#4a3a5a}
+  .footer{color:#5c5545;font-size:11.5px;text-align:center;padding:6px 0 14px;font-style:italic}
+  .mobileonly{display:none}
+  #mtabs{display:none}
+  #tiptoast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);max-width:88%;background:#0d0b08;border:1px solid var(--gold);color:var(--ink);padding:9px 13px;border-radius:4px;font-size:13px;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s;box-shadow:0 4px 16px rgba(0,0,0,.6)}
+  #tiptoast.show{opacity:1}
+  @media (max-width:760px){
+    body{font-size:15px}
+    #header{padding:7px 10px;gap:9px 12px;font-size:13px}
+    #header h1{font-size:18px}
+    #mtabs{display:flex;position:sticky;top:0;z-index:30;background:var(--panel);border-bottom:1px solid var(--line)}
+    #mtabs button{flex:1;border:0;border-radius:0;border-bottom:2px solid transparent;background:transparent;padding:11px 4px;font-size:13px}
+    #mtabs button.on{color:var(--gold);border-bottom-color:var(--gold)}
+    #main{flex-direction:column;padding:8px;gap:8px}
+    #main .col{min-width:0;width:100%;flex:1 1 auto}
+    #main[data-mtab="map"] #rosterCol,#main[data-mtab="map"] #sideCol{display:none}
+    #main[data-mtab="company"] #mapCol,#main[data-mtab="company"] #sideCol{display:none}
+    #main[data-mtab="camp"] #rosterCol,#main[data-mtab="camp"] #mapCol{display:none}
+    .mobileonly{display:block}
+    button{padding:8px 11px}
+    #battleWrap{padding:6px;gap:6px}
+    #sidePanel{flex:1 1 100%}
+    #battleTop{padding:7px 10px;gap:8px 12px}
+    #battleTop h1{font-size:16px}
+    .scard .face{flex:0 0 40px}
+    #log{margin:0 8px 10px;height:118px}
+    #modal{padding:13px 14px}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+/* ============================== UTILITIES ============================== */
+const ri=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const pick=a=>a[ri(0,a.length-1)];
+const chance=p=>Math.random()*100<p;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let uid=1; const nid=()=>uid++;
+
+/* ============================== DATA ============================== */
+const NAMES=['Vasska','Oren','Maerin','Kellan','Sarra','Doric','Ilyse','Brant','Hedda','Corvin','Ysolt','Fenn','Alard','Mireth','Josua','Petra','Ruvan','Tamsin','Garrick','Liesel','Oswin','Brenna','Halvar','Nyra'];
+const BACKSTORIES=[
+ {tag:'Karsk deserter', line:'Deserted the 3rd Levy after the burning of Vesshold.', hook:'never answered for Vesshold',
+  callouts:['You lit the torch with me at Vesshold, {b}. Come and burn.','Vesshold remembers, {b}. So do I.']},
+ {tag:'Thornwood exile', line:'Cast out of the Compact for showing mercy to refugees.', hook:'still owes the family she saved',
+  callouts:['The forest was right about you, {b}.','Mercy bought me this, {b}. Come collect yours.']},
+ {tag:'failed apprentice', line:'Left the Conclave before the final rite. Still hears the Blight whisper.', hook:'never finished the rite',
+  callouts:['The whisper was true, {b}. Listen.','I finished the rite after all, {b}.']},
+ {tag:'gravedigger', line:'Buried three hundred at Barrowfen and kept every name.', hook:'promised the dead their names',
+  callouts:['Who buries the gravedigger, {b}?','Say my name back to me, {b}. You owe me that.']},
+ {tag:'debt-runner', line:'Owes the Undercrown more coin than the company has ever seen.', hook:'the debt outlives her',
+  callouts:['My debt is yours now, {b}.','The Undercrown always collects, {b}. So do I.']},
+ {tag:'plague survivor', line:'Sole survivor of the quarantine at Old Wesh. Won’t say how.', hook:'what happened at Old Wesh',
+  callouts:['Now you know how I survived Old Wesh, {b}.','You never asked what I did, {b}. Ask me now.']},
+ {tag:'oathbreaker', line:'Swore to bring her brother home from the Blight-line. Came back alone.', hook:'the brother is still out there',
+  callouts:['Did you find him, {b}? I did.','My brother waits with me now, {b}.']},
+ {tag:'temple ward', line:'Raised by the Cindered Faith. Knows exactly what they do to the strange.', hook:'the Faith still hunts her',
+  callouts:['The Faith was right to fear this, {b}.','Light the pyre, {b}. It’s what you were taught.']},
+ {tag:'poacher', line:'Fed a starving village from the Thornwood for two winters.', hook:'the village still starves',
+  callouts:['Who feeds them now, {b}?','The forest fed me back, {b}.']},
+ {tag:'heir’s blade', line:'Killed for one of the three heirs. Won’t name which.', hook:'the heir knows her face',
+  callouts:['The heir sends regards, {b}.','You never asked whose blood, {b}. It’s yours next.']},
+ {tag:'cartwright', line:'Built half the wagons in the caravan. Calls them her children.', hook:'one wagon left unfinished',
+  callouts:['Mind the wheels, {b}. They’ll turn without me.','I built your home, {b}. Now I’ll unmake it.']},
+ {tag:'bell-ringer', line:'Rang the plague bell at Karsk Gate until her hands bled.', hook:'the bell never stopped',
+  callouts:['Hear the bell, {b}? It rings for you.','I rang for all of them, {b}. Who rings for me?']},
+];
+const FEATS={
+ fleet:{n:'Fleet',d:'+1 movement'},
+ duelist:{n:'Duelist',d:'+10 hit in melee'},
+ deadeye:{n:'Deadeye',d:'+10 hit ranged, +1 range'},
+ executioner:{n:'Executioner',d:'+2 damage vs wounded targets (<50% HP)'},
+ shieldwall:{n:'Shieldwall',d:'+1 armor while adjacent to an ally'},
+ berserker:{n:'Berserker',d:'+2 damage while below half HP'},
+ stalwart:{n:'Stalwart',d:'+15 resolve'},
+ bonecarver:{n:'Bonecarver',d:'+3 damage vs the dead'},
+ medic:{n:'Field Medic',d:'Ability: heal adjacent ally 5 HP (once per battle)'},
+ vengeful:{n:'Vengeful',d:'+20 hit, +2 dmg vs revenants of your bonded; immune to their callouts'},
+ bulwark:{n:'Bulwark',d:'+1 armor'},
+ reaper:{n:'Reaper',d:'Each kill: +5 hit for rest of battle (stacks)'},
+ ashfire:{n:'Ashfire Graft',d:'ASH. Ability: hurl blightfire — range 4, 4–7 damage, ignores armor. Each cast feeds the graft (+1 corruption).',ash:true},
+ veindrink:{n:'Veindrinker Graft',d:'ASH. Melee hits drink 2 HP back. Each kill feeds the graft (+1 corruption).',ash:true},
+};
+const TRAITS={
+ scarred:{n:'Scarred',d:'+3 resolve, and the face remembers. Survived a battle at death’s edge.',good:true},
+ coldblooded:{n:'Cold-Blooded',d:'+5 hit, permanently. Three kills in one battle and the hands stopped shaking.',good:true},
+ packbound:{n:'Pack-Bound',d:'+5 hit while adjacent to an ally. Learned that the wall holds.',good:true},
+ nervous:{n:'Nervous',d:'−4 resolve. Some battles never quite end.',good:false},
+ blightmarked:{n:'Blight-Marked',d:'+2 damage vs the dead, −3 resolve. It whispers back now.',good:false},
+ grieving:{n:'Grieving',d:'−5 resolve until their bonded dead is laid to rest.',good:false},
+};
+const WEAPONS={
+ shortsword:{n:'Shortsword',lo:2,hi:4,rng:1,hitB:0},
+ spear:{n:'Spear',lo:2,hi:4,rng:1,hitB:5},
+ axe:{n:'War Axe',lo:3,hi:6,rng:1,hitB:-5},
+ halberd:{n:'Halberd',lo:4,hi:7,rng:1,hitB:-10},
+ bow:{n:'Hunting Bow',lo:2,hi:4,rng:5,hitB:0},
+ warbow:{n:'War Bow',lo:3,hi:5,rng:5,hitB:0},
+};
+const ARMORS=[{n:'None',v:0,cost:0},{n:'Gambeson',v:1,cost:25},{n:'Mail Shirt',v:2,cost:60}];
+const ENEMIES={
+ brigand:{n:'Brigand',hp:8,skl:3,spd:4,w:'shortsword',arm:0,undead:false,xp:3},
+ archer:{n:'Brigand Archer',hp:6,skl:3,spd:4,w:'bow',arm:0,undead:false,xp:3},
+ deserter:{n:'Deserter',hp:11,skl:4,spd:4,w:'axe',arm:1,undead:false,xp:4},
+ hound:{n:'Blight-hound',hp:7,skl:4,spd:6,w:'shortsword',arm:0,undead:true,xp:3},
+ husk:{n:'Husk',hp:14,skl:2,spd:2,w:'axe',arm:1,undead:true,xp:4},
+ acolyte:{n:'Conclave Acolyte',hp:7,skl:4,spd:3,w:'bow',arm:0,undead:false,xp:4},
+ graveguard:{n:'Graveguard',hp:16,skl:4,spd:3,w:'halberd',arm:2,undead:true,xp:6},
+};
+const CONTRACT_TYPES={
+ patrol:{n:'Road Patrol',employer:'Karsk',desc:'Clear brigands from the {r} road.',pool:['brigand','brigand','archer','deserter'],base:40},
+ purge:{n:'Purge the Risen',employer:'Karsk',desc:'Put down the dead walking in {r}.',pool:['husk','husk','hound','acolyte'],base:55},
+ hunt:{n:'Hound Cull',employer:'Village elders',desc:'Blight-hounds are taking children in {r}.',pool:['hound','hound','hound','husk'],base:45},
+ hold:{n:'Hold the Line',employer:'Karsk',desc:'Hold a Blight-line crossing in {r}.',pool:['husk','hound','acolyte','graveguard','brigand'],base:70},
+ delve:{n:'Ruin Delve',employer:'Undercrown broker',desc:'Salvage the ruins of swallowed {r}.',pool:['husk','husk','graveguard','acolyte','hound'],base:95},
+ bounty:{n:'Put-Down Bounty',employer:'Karsk',desc:'A revenant in your old colors walks {r}. They want it gone. So do you.',pool:['husk','acolyte'],base:80},
+ putdown:{n:'The Confrontation',employer:'The company',desc:'One of yours walks {r}. End it.',pool:['husk','acolyte'],base:0},
+};
+const OBJECTIVES={
+ slay:{n:'No Survivors',d:'Kill every enemy on the field.'},
+ protect:{n:'Protect the Charges',d:'They must live. If every charge falls, the contract fails — whatever else you kill.'},
+ survive:{n:'Hold the Line',d:'Survive six rounds. More will come — they always do.'},
+ escort:{n:'Escort the Wagon',d:'The wagon crosses on its own each round. Keep the road clear, keep it whole.'},
+ capture:{n:'Seize the Ground',d:'Hold the marked ground at round’s end, twice. It matters to someone.'},
+ assassinate:{n:'Cut Off the Head',d:'Kill the marked leader ♛. The rest will scatter without them.'},
+ burn:{n:'Burn the Nest',d:'Destroy the Blight-nest. It will not stop birthing until it burns.'},
+};
+function rollObjective(type){
+  if(type==='patrol'){const r=ri(1,100); return r<=40?'escort':r<=60?'assassinate':'slay';}
+  if(type==='purge'){const r=ri(1,100); return r<=30?'capture':r<=55?'burn':'slay';}
+  if(type==='hold')return chance(50)?'survive':'protect';
+  if(type==='delve')return 'capture';
+  return 'slay';
+}
+const REGION_DEFS=[
+ {n:'Vessel’s March', p:25, s:'March',     town:'Vessel',      q:2,  r:5},
+ {n:'The Fords of Karsk', p:15, s:'Fords', town:'Fordstead',   q:7,  r:4},
+ {n:'Barrowfen', p:55, s:'Barrowfen',      town:'Barrow',      q:13, r:5},
+ {n:'Karsk Gate', p:8,  s:'K. Gate',       town:'Karsk Gate',  q:7,  r:1},
+ {n:'Old Wesh', p:62, s:'Old Wesh',        town:'Wesh',        q:3,  r:9},
+ {n:'Thornwood Verge', p:35, s:'Verge',    town:'Thornhollow', q:11, r:9},
+];
+const EDGES=[[0,1],[1,2],[1,3],[0,4],[4,5],[2,5]];
+function neighbors(i){return EDGES.filter(e=>e.includes(i)).map(e=>e[0]===i?e[1]:e[0]);}
+
+/* ---- hex world (flat-top, odd-q offset) ---- */
+const COLS=16,ROWS=11,HXS=20;
+const hexKey=(q,r)=>q+','+r;
+function hex(q,r){return S.hexes[hexKey(q,r)];}
+function hexNbrs(q,r){
+  const even=q%2===0;
+  const d=even?[[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]]:[[1,1],[1,0],[0,-1],[-1,0],[-1,1],[0,1]];
+  return d.map(([dq,dr])=>hex(q+dq,r+dr)).filter(Boolean);
+}
+function hexDist(a,b){
+  const cube=h=>{const x=h.q,z=h.r-(h.q-(h.q&1))/2;return{x,z,y:-x-z};};
+  const A=cube(a),B2=cube(b);
+  return Math.max(Math.abs(A.x-B2.x),Math.abs(A.y-B2.y),Math.abs(A.z-B2.z));
+}
+function moveCost(h){
+  if(!h||h.t==='mountain')return Infinity;
+  let c=h.road?1:(h.t==='plains'?1:h.t==='marsh'?3:2);
+  if(h.blighted)c+=1;
+  return c;
+}
+function hexPath(a,b){
+  const start=hexKey(a.q,a.r),goal=hexKey(b.q,b.r);
+  if(moveCost(hex(b.q,b.r))===Infinity)return null;
+  const dist={};dist[start]=0;
+  const prev={},open=[{k:start,d:0}],seen=new Set();
+  while(open.length){
+    open.sort((x,y)=>x.d-y.d);
+    const cur=open.shift();
+    if(seen.has(cur.k))continue; seen.add(cur.k);
+    if(cur.k===goal)break;
+    const [q,r]=cur.k.split(',').map(Number);
+    for(const nb of hexNbrs(q,r)){
+      const c=moveCost(nb); if(c===Infinity)continue;
+      const k2=hexKey(nb.q,nb.r), nd=cur.d+c;
+      if(dist[k2]===undefined||nd<dist[k2]){dist[k2]=nd;prev[k2]=cur.k;open.push({k:k2,d:nd});}
+    }
+  }
+  if(dist[goal]===undefined)return null;
+  const path=[]; let k=goal;
+  while(k){ const [q,r]=k.split(',').map(Number); path.unshift({q,r}); if(k===start)break; k=prev[k]; }
+  return path;
+}
+function pathCost(p){let c=0;for(let i=1;i<p.length;i++)c+=moveCost(hex(p[i].q,p[i].r));return c;}
+function travelDays(p){return Math.max(1,Math.ceil(pathCost(p)/3));}
+function genWorld(){
+  S.hexes={};
+  for(let q=0;q<COLS;q++)for(let r=0;r<ROWS;r++)S.hexes[hexKey(q,r)]={q,r,t:'plains',region:0,road:false,blighted:false,feat:null,setl:null};
+  const blob=(t,size)=>{
+    const h=hex(ri(0,COLS-1),ri(0,ROWS-1)); if(!h)return;
+    const grown=[h]; h.t=t;
+    for(let i=0;i<size;i++){ const base=pick(grown); const nbs=hexNbrs(base.q,base.r); if(!nbs.length)continue;
+      const nb=pick(nbs); if(nb&&nb.setl===null){nb.t=t;grown.push(nb);} }
+  };
+  for(let i=0;i<4;i++)blob('forest',ri(4,7));
+  for(let i=0;i<3;i++)blob('hills',ri(3,6));
+  for(let i=0;i<2;i++)blob('marsh',ri(3,5));
+  for(let i=0;i<2;i++)blob('mountain',ri(2,4));
+  REGION_DEFS.forEach((d,i)=>{ const h=hex(d.q,d.r); h.t='plains'; h.setl=i; h.feat=null; });
+  for(const k in S.hexes){ const h=S.hexes[k];
+    let best=0,bd=1e9;
+    REGION_DEFS.forEach((d,i)=>{ const dd=hexDist(h,{q:d.q,r:d.r}); if(dd<bd){bd=dd;best=i;} });
+    h.region=best;
+  }
+  for(const [a,b] of EDGES){
+    const p=hexPath({q:REGION_DEFS[a].q,r:REGION_DEFS[a].r},{q:REGION_DEFS[b].q,r:REGION_DEFS[b].r});
+    if(p)p.forEach(({q,r})=>{const h=hex(q,r); if(h.t==='mountain')h.t='hills'; h.road=true;});
+  }
+  const featPool=['ruin','ruin','ruin','shrine','barrow','barrow','battlefield','watchtower'];
+  for(const f of featPool){
+    for(let tries=0;tries<40;tries++){
+      const h=hex(ri(0,COLS-1),ri(0,ROWS-1));
+      if(h&&h.setl===null&&!h.feat&&!h.road&&h.t!=='mountain'){h.feat=f;break;}
+    }
+  }
+  blightCreep();
+}
+function blightCreep(){
+  for(let i=0;i<S.regions.length;i++){
+    const r=S.regions[i];
+    const mine=Object.values(S.hexes).filter(h=>h.region===i);
+    const target=r.swallowed?mine.length:Math.min(mine.length,Math.floor(r.pressure/12));
+    let count=mine.filter(h=>h.blighted).length;
+    let guard=0;
+    while(count<target&&guard++<80){
+      const frontier=mine.filter(h=>!h.blighted&&(count===0||hexNbrs(h.q,h.r).some(n=>n.blighted)));
+      if(!frontier.length)break;
+      pick(frontier).blighted=true; count++;
+    }
+  }
+}
+const FEAT_INFO={
+  ruin:'Ruins of the old kingdom — delve contracts are drawn to places like this.',
+  shrine:'A wayside shrine. The dead buried within a day of it rest a little easier.',
+  barrow:'Barrow mounds. Old dead, older than the Blight. They are quiet. For now.',
+  battlefield:'An old battlefield. The ground remembers.',
+  watchtower:'A crumbling watchtower. From here the roads can be watched.',
+};
+function hexDesc(h){
+  if(h.setl!==null)return REGION_DEFS[h.setl].town+' (settlement)';
+  if(h.feat)return h.feat+' in '+S.regions[h.region].name;
+  return h.t+' in '+S.regions[h.region].name;
+}
+const BOND_TYPES={ 'shield-kin':'stood back to back once too often', rival:'can’t decide which of them is better', debt:'one owes the other a life' };
+
+/* ============================== FACES & ICONS ============================== */
+const SKINS=['#c9a184','#a9825f','#8a6a4f','#e0b89a'];
+const HAIRC=['#2b2118','#54381f','#6b4a2a','#8a8578','#40404a'];
+function makeFace(){return{skin:ri(0,3),hair:ri(0,5),hc:ri(0,4),eyes:ri(0,2),mouth:ri(0,2),extra:ri(0,9)};}
+function faceSvg(f,o){
+  o=o||{}; const size=o.size||46; const rev=!!o.revenant;
+  if(!f)f={skin:0,hair:0,hc:0,eyes:0,mouth:0,extra:0};
+  const skin=rev?'#98a396':SKINS[f.skin], hc=rev?'#575060':HAIRC[f.hc];
+  const eyeC=rev?'#b08bc9':'#17120d';
+  let s='';
+  s+=`<rect x="41" y="76" width="18" height="14" fill="${skin}" stroke="#171310" stroke-width="2"/>`;
+  s+=`<ellipse cx="50" cy="56" rx="25" ry="29" fill="${skin}" stroke="#171310" stroke-width="2.5"/>`;
+  s+=`<path d="M31 62 Q38 77 49 81 Q36 76 29 64 Z" fill="rgba(0,0,0,.15)"/>`;
+  const HAIR=[
+    `<path d="M25 52 Q27 22 50 21 Q73 22 75 52 L75 42 Q69 29 50 29 Q31 29 25 42 Z" fill="${hc}"/>`,
+    `<path d="M25 52 Q25 19 50 19 Q75 19 75 52 L71 80 L65 78 L69 46 Q64 30 50 30 Q36 30 31 46 L35 78 L29 80 Z" fill="${hc}"/>`,
+    `<path d="M28 40 Q36 18 62 22 L75 40 Q64 27 48 28 Q35 29 28 40 Z" fill="${hc}"/>`,
+    '',
+    `<path d="M26 48 Q28 22 50 22 Q72 22 74 48 Q65 32 50 32 Q35 32 26 48 Z" fill="${hc}"/><rect x="43" y="13" width="14" height="10" rx="4" fill="${hc}"/>`,
+    `<path d="M26 46 Q30 21 50 21 Q70 21 74 46 L74 54 Q67 35 50 35 Q33 35 26 54 Z" fill="${hc}"/><path d="M38 79 Q50 90 62 79 L62 90 Q50 99 38 90 Z" fill="${hc}"/>`,
+  ];
+  s+=HAIR[f.hair%HAIR.length];
+  const EYES=[
+    `<circle cx="41" cy="54" r="2.6" fill="${eyeC}"/><circle cx="59" cy="54" r="2.6" fill="${eyeC}"/>`,
+    `<rect x="37.5" y="52.5" width="7" height="3" fill="${eyeC}"/><rect x="55.5" y="52.5" width="7" height="3" fill="${eyeC}"/>`,
+    `<path d="M37 55 q4 -4 8 0" stroke="${eyeC}" stroke-width="2.4" fill="none"/><path d="M55 55 q4 -4 8 0" stroke="${eyeC}" stroke-width="2.4" fill="none"/>`,
+  ];
+  s+=EYES[f.eyes%EYES.length];
+  s+=`<path d="M36 47 l10 -2 M54 45 l10 2" stroke="#171310" stroke-width="2" fill="none"/>`;
+  const MOUTH=[
+    `<path d="M42 72 h16" stroke="#171310" stroke-width="2.2"/>`,
+    `<path d="M42 74 q8 -5 16 0" stroke="#171310" stroke-width="2.2" fill="none"/>`,
+    `<path d="M42 71 q8 5 16 0" stroke="#171310" stroke-width="2.2" fill="none"/>`,
+  ];
+  s+=MOUTH[f.mouth%MOUTH.length];
+  if(f.extra===4)s+=`<path d="M33 44 L44 66" stroke="#8a3b2e" stroke-width="2.4"/>`;
+  if(f.extra===5)s+=`<rect x="52" y="49" width="14" height="9" rx="2" fill="#17120d"/><path d="M28 46 L74 52" stroke="#17120d" stroke-width="2.6"/>`;
+  if(f.extra===6)s+=`<rect x="30" y="58" width="40" height="5" fill="rgba(90,40,30,.55)"/>`;
+  if(f.extra===7)s+=`<path d="M22 60 Q22 12 50 12 Q78 12 78 60 L70 56 Q70 24 50 24 Q30 24 30 56 Z" fill="#241f17" stroke="#171310" stroke-width="1.5"/>`;
+  if(rev){
+    s+=`<path d="M43 34 L46 46 M60 38 L57 50 M50 66 L52 78" stroke="#7a4fa3" stroke-width="1.6" opacity=".8"/>`;
+    s+=`<circle cx="41" cy="54" r="4.2" fill="none" stroke="#b08bc9" stroke-width="1.2" opacity=".7"/><circle cx="59" cy="54" r="4.2" fill="none" stroke="#b08bc9" stroke-width="1.2" opacity=".7"/>`;
+  }
+  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${s}</svg>`;
+}
+function enemyFace(key,size){
+  size=size||32;
+  const F=(fill)=>`<ellipse cx="50" cy="58" rx="23" ry="26" fill="${fill}" stroke="#12100c" stroke-width="2.5"/>`;
+  let s='';
+  switch(key){
+    case 'brigand':
+      s=F('#a9825f')+`<path d="M27 46 Q30 26 50 26 Q70 26 73 46 L73 52 L27 52 Z" fill="#4a3b28" stroke="#12100c" stroke-width="2"/>
+        <rect x="36" y="54" width="8" height="3.5" fill="#17120d"/><rect x="56" y="54" width="8" height="3.5" fill="#17120d"/>
+        <path d="M41 74 q9 -4 18 1" stroke="#17120d" stroke-width="2.2" fill="none"/>
+        <path d="M34 68 l4 2 M62 70 l4 -1" stroke="#5c4a35" stroke-width="1.5"/>`; break;
+    case 'archer':
+      s=F('#8a7157')+`<path d="M50 8 Q80 24 78 66 Q64 58 50 58 Q36 58 22 66 Q20 24 50 8 Z" fill="#33291c" stroke="#12100c" stroke-width="2"/>
+        <ellipse cx="50" cy="60" rx="16" ry="14" fill="rgba(0,0,0,.35)"/>
+        <circle cx="43" cy="58" r="2.4" fill="#e8d9a0"/><circle cx="57" cy="58" r="2.4" fill="#e8d9a0"/>`; break;
+    case 'deserter':
+      s=F('#a9825f')+`<path d="M26 48 Q28 22 50 22 Q72 22 74 48 Z" fill="#5a5a60" stroke="#12100c" stroke-width="2"/>
+        <rect x="22" y="46" width="56" height="5" rx="2" fill="#4a4a50" stroke="#12100c" stroke-width="1.5"/>
+        <rect x="37" y="56" width="7" height="3.5" fill="#17120d"/><rect x="56" y="56" width="7" height="3.5" fill="#17120d"/>
+        <path d="M58 62 L66 76" stroke="#8a3b2e" stroke-width="2.4"/>
+        <path d="M42 75 h16" stroke="#17120d" stroke-width="2.2"/>`; break;
+    case 'hound':
+      s=`<path d="M30 40 Q50 26 70 40 L78 62 Q66 84 50 84 Q34 84 22 62 Z" fill="#5a6350" stroke="#12100c" stroke-width="2.5"/>
+        <path d="M38 84 L50 96 L62 84 Z" fill="#4a5342" stroke="#12100c" stroke-width="2"/>
+        <path d="M40 88 l4 5 M50 90 l0 6 M60 88 l-4 5" stroke="#d8cdb8" stroke-width="2"/>
+        <circle cx="40" cy="54" r="3.5" fill="#b08bc9"/><circle cx="60" cy="54" r="3.5" fill="#b08bc9"/>
+        <path d="M26 38 L34 24 L40 38 Z M74 38 L66 24 L60 38 Z" fill="#5a6350" stroke="#12100c" stroke-width="2"/>`; break;
+    case 'husk':
+      s=F('#8a9384')+`<circle cx="41" cy="54" r="5" fill="#0d0b08"/><circle cx="59" cy="54" r="5" fill="#0d0b08"/>
+        <circle cx="41" cy="54" r="1.6" fill="#b08bc9"/><circle cx="59" cy="54" r="1.6" fill="#b08bc9"/>
+        <path d="M44 70 l3 4 l3 -4 l3 4 l3 -4" stroke="#17120d" stroke-width="2" fill="none"/>
+        <path d="M60 36 L67 48 M35 42 L40 50" stroke="#6b7a5e" stroke-width="2"/>`; break;
+    case 'acolyte':
+      s=`<path d="M50 6 Q84 22 80 78 L20 78 Q16 22 50 6 Z" fill="#2a2333" stroke="#12100c" stroke-width="2.5"/>
+        <ellipse cx="50" cy="58" rx="17" ry="17" fill="#0d0b10"/>
+        <circle cx="43" cy="56" r="2.6" fill="#b08bc9"/><circle cx="57" cy="56" r="2.6" fill="#b08bc9"/>
+        <circle cx="50" cy="80" r="3.5" fill="#7a4fa3" stroke="#12100c"/>`; break;
+    case 'graveguard':
+      s=`<path d="M28 30 Q50 18 72 30 L74 74 Q50 86 26 74 Z" fill="#4a4a52" stroke="#12100c" stroke-width="2.5"/>
+        <rect x="34" y="46" width="32" height="6" rx="3" fill="#0d0b08"/>
+        <rect x="36" y="47.5" width="12" height="3" fill="#7a4fa3" opacity=".85"/><rect x="52" y="47.5" width="12" height="3" fill="#7a4fa3" opacity=".85"/>
+        <path d="M50 30 L50 74 M34 60 h32" stroke="#3a3a40" stroke-width="2"/>
+        <circle cx="31" cy="36" r="1.5" fill="#2a2a30"/><circle cx="69" cy="36" r="1.5" fill="#2a2a30"/>`; break;
+    default: return enemyFace('brigand',size);
+  }
+  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${s}</svg>`;
+}
+function nestSvg(size){return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><path d="M50 92 Q28 72 35 42 Q40 16 50 8 Q60 16 65 42 Q72 72 50 92 Z" fill="#3a2a4a" stroke="#17130e" stroke-width="3"/><path d="M42 62 Q50 52 58 62 M40 42 Q50 34 60 42" stroke="#7a4fa3" stroke-width="2.5" fill="none"/><circle cx="50" cy="72" r="5.5" fill="#9a6fc9"><animate attributeName="opacity" values="1;.35;1" dur="2.2s" repeatCount="indefinite"/></circle><path d="M28 90 L38 80 M72 90 L62 80" stroke="#cfc4ac" stroke-width="2.5"/></svg>`;}
+function wagonSvg(size){return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><rect x="16" y="36" width="68" height="26" rx="5" fill="#6b4f33" stroke="#17130e" stroke-width="3"/><path d="M16 36 Q50 16 84 36" fill="#8a7157" stroke="#17130e" stroke-width="3"/><circle cx="32" cy="70" r="11" fill="#4a3b28" stroke="#17130e" stroke-width="3"/><circle cx="68" cy="70" r="11" fill="#4a3b28" stroke="#17130e" stroke-width="3"/><path d="M32 70 l0 -7 M32 70 l6 4 M32 70 l-6 4 M68 70 l0 -7 M68 70 l6 4 M68 70 l-6 4" stroke="#2b2118" stroke-width="2"/></svg>`;}
+const WPN_ICON={shortsword:'🗡',spear:'⸙',axe:'🪓',halberd:'⚔',bow:'🏹',warbow:'🏹'};
+function wpnTip(key,mod){
+  const w=WEAPONS[key];
+  return `${w.n}${mod?' +'+mod:''}: ${w.lo+(mod||0)}–${w.hi+(mod||0)} damage · range ${w.rng}${w.hitB?` · ${w.hitB>0?'+':''}${w.hitB} hit`:''}${w.rng>1?' · fires over any distance in range':' · strikes adjacent'}`;
+}
+function armorTip(a){ return `${ARMORS[a].n}: absorbs ${ARMORS[a].v} damage from every hit${a<2?'':' — heavy and proud'}`; }
+const STAT_TIPS={
+  skl:'Skill: +3% to hit per point.',
+  spd:'Speed: turn order, movement (4 tiles at SPD 5+), and +2% harder to hit per point.',
+  res:'Resolve: resists panic when allies fall and the callouts of your own dead.',
+  hp:'Hit points. At zero, she falls — and what falls unrecovered comes back.',
+};
+function featChips(feats){ return feats.map(f=>`<span class="tt" data-tip="${esc(FEATS[f].d)}">${FEATS[f].n}</span>`).join(' · ')||'—'; }
+
+/* ============================== STATE ============================== */
+let S=null;
+let modalQ=[]; let activeModal=null;
+let fx=[]; // transient combat effects, never saved
+let sel=null; // selected map hex key, never saved
+let TSCUR=46; // current battle tile size (responsive)
+let mobileTab='map'; // which column shows on narrow screens
+function newGame(){
+  uid=1;
+  S={week:1,day:0,coin:100,prov:15,renown:0,over:false,actOne:false,
+     roster:[],hirePool:[],contracts:[],graves:[],regions:[],log:[],battle:null,chronicle:[],
+     bondCounts:{},usedBg:[],usedNames:[],agents:[],hexes:null,caravan:null};
+  S.regions=REGION_DEFS.map((d,i)=>({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-8,8)),swallowed:false}));
+  genWorld();
+  S.caravan={q:REGION_DEFS[1].q,r:REGION_DEFS[1].r};
+  for(let i=0;i<3;i++) S.roster.push(makeSoldier());
+  // The founding grave: the company already has one debt walking. Guarantees the
+  // signature loop fires by week ~3 regardless of play style (inherited-revenant prologue).
+  const fd=makeSoldier();
+  S.graves.push({id:nid(),soldierId:fd.id,name:fd.name,bg:fd.bg,
+    snap:{maxhp:fd.maxhp,skl:fd.skl,spd:fd.spd,weapon:fd.weapon,wMod:1,armor:fd.armor,feats:['duelist'],level:2},
+    bonds:[S.roster[0].id],state:'lost',regionId:0,weekDied:0,iter:0,hook:bgOf(fd).hook,seed:true});
+  S.roster[0].commander=true;
+  S.story={stage:0};
+  S.rep={karsk:0,folk:0,conclave:0};
+  refreshHirePool(); genContracts(); seedAgents();
+  log(`Week 1 — The company raises its banner at Fordstead. Coin ${S.coin}, provisions ${S.prov}.`,'wk');
+  queueModal(()=>introScene());
+  log(`The ledger opens with a debt: ${fd.name}, lost before the banner rose. Her body was never recovered. ${S.roster[0].name} doesn’t talk about it.`,'blight');
+  log('The Blight is patient. Territory dies slowly, then all at once. Watch the pressure.','blight');
+  save(); render();
+}
+function makeSoldier(){
+  const name=pick(NAMES.filter(n=>!S.usedNames.includes(n)))||pick(NAMES)+' II';
+  S.usedNames.push(name);
+  let bgIdx=ri(0,BACKSTORIES.length-1);
+  if(S.usedBg.length<BACKSTORIES.length){ while(S.usedBg.includes(bgIdx)) bgIdx=ri(0,BACKSTORIES.length-1); }
+  S.usedBg.push(bgIdx);
+  const w=pick(['shortsword','shortsword','spear','axe','bow']);
+  const maxhp=ri(10,14);
+  return {id:nid(),name,bg:bgIdx,hp:maxhp,maxhp,skl:ri(2,5),spd:ri(3,5),res:ri(30,45),
+          weapon:w,wMod:0,wName:null,armor:ri(0,1),feats:[],xp:0,level:1,bonds:[],battles:0,
+          rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0};
+}
+function addTrait(s,id){
+  if(s.traits.includes(id)||s.traits.length>=3)return false;
+  s.traits.push(id);
+  if(id==='scarred'){s.res+=3; if(s.face.extra<4)s.face.extra=4;}
+  if(id==='nervous')s.res=Math.max(10,s.res-4);
+  if(id==='blightmarked')s.res=Math.max(10,s.res-3);
+  if(id==='grieving')s.res=Math.max(10,s.res-5);
+  log(`${s.name} carries it out of the fight: ${TRAITS[id].n} — ${TRAITS[id].d}`,TRAITS[id].good?'good':'bad');
+  return true;
+}
+function clearGrieving(s){ if(s.traits.includes('grieving')){ s.traits=s.traits.filter(t=>t!=='grieving'); s.res+=5; } }
+function addCorruption(s,amt){
+  s.corr=(s.corr||0)+amt;
+  if(s.corr===4){ s.res=Math.max(10,s.res-5); log(`${s.name}’s graft has started whispering (−5 resolve). She answers it, sometimes.`,'blight'); }
+  if(s.corr===7){ s.res=Math.max(10,s.res-5); if(s.face.extra<4)s.face.extra=6; log(`${s.name} is more Ash than soldier now (−5 resolve). Her revenant will be something to see.`,'blight'); }
+}
+S===null; // init below after fns
+function soldierById(id){return S.roster.find(s=>s.id===id);}
+function bgOf(s){return BACKSTORIES[s.bg];}
+function refreshHirePool(){ S.hirePool=[makeSoldier(),makeSoldier()]; S.hirePool.forEach(h=>h.hp=h.maxhp); }
+function log(msg,cls){ S.log.unshift({msg,cls:cls||'',week:S.week}); if(S.log.length>140)S.log.pop(); }
+
+/* ============================== SAVE / LOAD ============================== */
+function save(){ if(S.battle) return; try{ localStorage.setItem('graveborne_v01',JSON.stringify({S,uid})); }catch(e){} }
+function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01')); if(d&&d.S&&!d.S.battle){S=d.S;uid=d.uid;
+  S.regions.forEach(r=>{ if(r.swallowed&&r.salvage===undefined) r.salvage=6; }); // pre-salvage saves
+  // pre-world-map saves: add the day clock and the wider March
+  if(S.day===undefined) S.day=(S.week-1)*7;
+  while(S.regions.length<REGION_DEFS.length){
+    const i=S.regions.length, d2=REGION_DEFS[i];
+    S.regions.push({id:i,name:d2.n,pressure:Math.max(3,d2.p+ri(-6,6)),swallowed:false});
+  }
+  // pre-hex saves: raise the terrain, place the caravan, wake the wilds
+  if(!S.hexes){
+    S.agents=S.agents||[];
+    genWorld();
+    const at=(S.at!==undefined?S.at:1);
+    S.caravan={q:REGION_DEFS[at].q,r:REGION_DEFS[at].r};
+    S.contracts=[]; genContracts(); seedAgents();
+    for(const g of S.graves){ if(g.state==='risen'){ const h=randomHexInRegion(g.regionId); if(h)spawnAgent('revenant',h,{graveId:g.id,str:10}); } }
+    S.log.unshift({msg:'The March resolves into hills, roads, and things that move on them. The maps got better.',cls:'wk',week:S.week});
+    save(); // lock the generated world in, or every refresh re-rolls the terrain
+  }
+  // pre-v0.4 saves: faces, the commander, the story
+  let touched=false;
+  for(const arr of [S.roster,S.hirePool]) for(const p of arr){ if(!p.face){p.face=makeFace();touched=true;} }
+  for(const g of S.graves){ if(!g.face){g.face=makeFace();touched=true;} }
+  if(!S.roster.some(p=>p.commander)&&S.roster.length){ S.roster[0].commander=true; touched=true;
+    S.log.unshift({msg:`${S.roster[0].name} takes up the banner as Commander. Someone has to carry the story.`,cls:'wk',week:S.week}); }
+  if(!S.story){ S.story={stage:1}; touched=true;
+    S.log.unshift({msg:'Rumor: in Karsk Gate, the princess Maren pays for discreet swords. The court does not receive the nameless — but palaces have more doors than the front one.',cls:'wk',week:S.week}); }
+  // pre-v0.5 saves: traits, corruption, faction standing
+  for(const arr of [S.roster,S.hirePool]) for(const p of arr){ if(!p.traits){p.traits=[];p.corr=0;touched=true;} }
+  if(!S.rep){ S.rep={karsk:0,folk:0,conclave:0}; touched=true; }
+  // pre-v0.9 saves already at stage 5: schedule the barrow meeting
+  if(S.story&&S.story.stage===5&&!S.story.meetWeek){
+    const bs=Object.values(S.hexes).filter(h=>h.feat==='barrow');
+    const bh=bs.length?pick(bs):randomWildHex();
+    if(bh){ if(!bh.feat)bh.feat='barrow'; S.story.meetWeek=S.week+3; S.story.meetHex={q:bh.q,r:bh.r}; touched=true; }
+  }
+  if(touched)save();
+  return true;} }catch(e){} return false; }
+
+/* ============================== STRATEGY LAYER ============================== */
+function dangerOf(region){ return region.swallowed?3:(region.pressure>=70?3:region.pressure>=40?2:1); }
+function genContracts(){
+  // top-up semantics: contracts persist until fought or expired, so travel can't orphan them
+  S.contracts=S.contracts.filter(c=>(c.expires||99)>S.week&&!(S.regions[c.regionId].swallowed&&c.type!=='delve'));
+  for(const r of S.regions){
+    if(S.contracts.some(c=>c.regionId===r.id))continue;
+    let type;
+    if(r.swallowed){ if((r.salvage||0)<=0)continue; type='delve'; }
+    else type=pick(r.pressure>=45?['purge','hold','patrol','hunt']:['patrol','hunt','purge']);
+    const ct=CONTRACT_TYPES[type];
+    const danger=dangerOf(r);
+    let pay=Math.round((ct.base+danger*15)*(1+r.pressure/150));
+    if(type==='delve') pay=Math.round(pay*(0.35+0.11*(r.salvage||0))); // ruins deplete
+    const anchor=contractAnchor(r.id,type);
+    if(!anchor)continue;
+    const p=hexPath(S.caravan,anchor);
+    pay+=(p?travelDays(p):1)*6;                                        // distance pays
+    const rk=ct.employer==='Karsk'?'karsk':ct.employer==='Village elders'?'folk':null;
+    if(rk&&S.rep){ if(S.rep[rk]>=25)pay=Math.round(pay*1.15); else if(S.rep[rk]<=-25)pay=Math.round(pay*0.75); }
+    S.contracts.push({id:nid(),type,regionId:r.id,pay,danger,q:anchor.q,r:anchor.r,expires:S.week+2,obj:rollObjective(type)});
+  }
+}
+function contractAnchor(regionId,type){
+  const mine=Object.values(S.hexes).filter(h=>h.region===regionId&&h.t!=='mountain'&&h.setl===null);
+  if(type==='delve'){const ruins=mine.filter(h=>h.feat==='ruin'); if(ruins.length)return pick(ruins);}
+  if(type==='patrol'){const roads=mine.filter(h=>h.road); if(roads.length)return pick(roads);}
+  return mine.length?pick(mine):null;
+}
+function dayTickCore(){
+  S.day++;
+  const foe=agentsDaily();
+  if(S.day%7===0)weeklyTick();
+  return foe;
+}
+function advanceDays(n){
+  if(S.over)return;
+  for(let i=0;i<n;i++){
+    const foe=dayTickCore();
+    if(S.over)break;
+    if(foe){ interceptEncounter(foe,'They came to the camp at dawn.'); return; }
+  }
+  save(); render();
+  checkBarrow();
+}
+/* ---- roving agents ---- */
+function spawnAgent(kind,h,extra){ if(!h)return; S.agents.push(Object.assign({id:nid(),kind,q:h.q,r:h.r,str:8},extra||{})); }
+function randomHexInRegion(i){ const m=Object.values(S.hexes).filter(h=>h.region===i&&moveCost(h)!==Infinity&&h.setl===null); return m.length?pick(m):null; }
+function randomWildHex(){ const m=Object.values(S.hexes).filter(h=>moveCost(h)!==Infinity&&h.setl===null&&!h.road); return m.length?pick(m):null; }
+function seedAgents(){
+  spawnAgent('army',{q:REGION_DEFS[3].q,r:REGION_DEFS[3].r},{str:14});
+  for(let i=0;i<2;i++)spawnAgent('brigands',randomWildHex(),{str:6+ri(0,4)});
+  const hot=S.regions.find(r=>r.pressure>=60);
+  if(hot)spawnAgent('horde',randomHexInRegion(hot.id),{str:9});
+}
+function stepToward(a,target){
+  const p=hexPath({q:a.q,r:a.r},target);
+  if(p&&p.length>1){a.q=p[1].q;a.r=p[1].r;}
+}
+function regionNameAt(a){const h=hex(a.q,a.r);return h?S.regions[h.region].name:'the March';}
+function nearestSettlementHex(a){ let best=null,bd=1e9; REGION_DEFS.forEach(d=>{const dd=hexDist(a,{q:d.q,r:d.r}); if(dd<bd){bd=dd;best={q:d.q,r:d.r};}}); return best; }
+function agentsDaily(){
+  let intercept=null;
+  for(const a of S.agents.slice()){
+    if(a.kind==='army'){
+      a.leg=a.leg||0;
+      const stops=a.stops||[3,1,0,1];
+      const tgt=REGION_DEFS[stops[a.leg%stops.length]];
+      if(a.q===tgt.q&&a.r===tgt.r)a.leg++; else stepToward(a,{q:tgt.q,r:tgt.r});
+    } else if(a.kind==='horde'){
+      const tgt=nearestSettlementHex(a);
+      if(a.q===tgt.q&&a.r===tgt.r){
+        const h=hex(a.q,a.r); const reg=S.regions[h.region];
+        reg.pressure+=10; if(reg.pressure>=100)swallowRegion(reg);
+        log(`A Blight horde falls on ${REGION_DEFS[h.setl!==null?h.setl:h.region].town}. Pressure surges in ${reg.name}.`,'blight');
+        S.agents=S.agents.filter(x=>x!==a);
+        continue;
+      } else stepToward(a,tgt);
+    } else if(a.kind==='brigands'||a.kind==='hunters'){
+      const rad=a.kind==='hunters'?4:3;
+      if(hexDist(a,S.caravan)<=rad)stepToward(a,S.caravan);
+      else { const opts=hexNbrs(a.q,a.r).filter(h=>moveCost(h)!==Infinity); const nb=opts.length?pick(opts):null; if(nb){a.q=nb.q;a.r=nb.r;} }
+    } else if(a.kind==='revenant'){
+      const g=S.graves.find(g=>g.id===a.graveId);
+      if(!g||g.state!=='risen'){ S.agents=S.agents.filter(x=>x!==a); continue; }
+      const opts=hexNbrs(a.q,a.r).filter(h=>moveCost(h)!==Infinity&&(h.region===g.regionId||chance(25)));
+      const nb=opts.length?pick(opts):null; if(nb){a.q=nb.q;a.r=nb.r;}
+    }
+    if(['brigands','horde','revenant','hunters'].includes(a.kind)&&a.q===S.caravan.q&&a.r===S.caravan.r) intercept=a;
+  }
+  const army=S.agents.find(a=>a.kind==='army');
+  if(army){
+    const foe=S.agents.find(a=>a!==army&&(a.kind==='brigands'||a.kind==='horde')&&hexDist(a,army)<=1);
+    if(foe){
+      if(army.str+ri(1,6)>=foe.str+ri(1,6)){
+        S.agents=S.agents.filter(x=>x!==foe); army.str=Math.max(6,army.str-2);
+        log(`Rumor: a Karsk column ran down ${foe.kind==='horde'?'a Blight horde':'brigands'} near ${regionNameAt(foe)}.`);
+      } else {
+        S.agents=S.agents.filter(x=>x!==army);
+        log('Rumor: a Karsk column was overrun on the road. The king will send another. Eventually.','bad');
+      }
+    }
+  }
+  return intercept;
+}
+function agentContract(a){
+  const h=hex(a.q,a.r); const r=S.regions[h?h.region:0];
+  const danger=dangerOf(r);
+  if(a.kind==='horde')return{id:nid(),type:'purge',regionId:r.id,pay:0,danger,ambush:true,agentId:a.id,obj:'slay'};
+  if(a.kind==='hunters')return{id:nid(),type:'purge',regionId:r.id,pay:0,danger:3,ambush:true,agentId:a.id,obj:'slay',
+    comp:['acolyte','acolyte','archer','graveguard'],cname:'The Magister’s Hunters'};
+  if(a.kind==='revenant'){const g=S.graves.find(g=>g.id===a.graveId);
+    return{id:nid(),type:'putdown',regionId:r.id,pay:60+20*(g&&g.iter||0),danger,agentId:a.id,revGraveId:a.graveId,obj:'slay'};}
+  // brigands hit the caravan itself — the wagons are on the field, and they know it
+  return{id:nid(),type:'patrol',regionId:r.id,pay:0,danger,ambush:true,agentId:a.id,obj:'protect',caravanRaid:true};
+}
+function interceptEncounter(a,flavor){
+  save(); render();
+  if(a.kind==='revenant'){
+    const g=S.graves.find(g=>g.id===a.graveId);
+    queueModal(()=>showModal(`${g.name}, Returned`,
+      `<p>${flavor||'On the road ahead:'} a figure in your old colors, waiting. She knew you’d come this way.</p><p class="hint">Put her down: ${60+20*(g.iter||0)}c and a story closed. Or turn away.</p>`,
+      [{label:'Face her',cls:'danger',fn:()=>{closeModal(); pickSquad(sq=>startBattle(agentContract(a),sq));}},
+       {label:'Turn away',fn:()=>{closeModal(); log(`You leave ${g.name} to her ground. She’ll keep.`,'blight');}}]));
+  } else {
+    const desc=a.kind==='horde'?'A Blight horde is on the caravan. No pay for this one — just survival.'
+      :a.kind==='hunters'?'Grey riders, Collegium steel. They are not here to rob you. They are here to erase you.'
+      :'A brigand warband is on the caravan — and the wagons are what they came for. Lose them and the provisions go with them.';
+    queueModal(()=>showModal('Intercepted!',
+      `<p>${flavor||''} ${desc}</p>`,
+      [{label:'Stand and fight',cls:'danger',fn:()=>{closeModal(); pickSquad(sq=>startBattle(agentContract(a),sq));}}]));
+  }
+  pumpModals();
+}
+/* ---- travel ---- */
+function travelTo(q,r,contractId){
+  if(S.battle||S.over)return;
+  const dest=hex(q,r);
+  if(!dest||moveCost(dest)===Infinity){ log('No road leads there.'); render(); return; }
+  const path=hexPath(S.caravan,{q,r});
+  if(!path||path.length<2){
+    if(contractId){ const c=S.contracts.find(x=>x.id===contractId); if(c)pickSquad(sq=>startBattle(c,sq)); }
+    return;
+  }
+  const dys=travelDays(path);
+  log(`The caravan sets out — ${dys} day${dys>1?'s':''} of road.`);
+  let i=1;
+  while(i<path.length&&!S.over){
+    const foe=dayTickCore();
+    if(S.over)break;
+    if(foe){ interceptEncounter(foe,'The camp is hit at first light.'); return; }
+    let budget=3;
+    while(i<path.length){
+      const nh=hex(path[i].q,path[i].r);
+      const c2=moveCost(nh);
+      if(c2>budget&&budget<3)break;
+      budget-=c2;
+      S.caravan={q:nh.q,r:nh.r}; i++;
+      const amb=S.agents.find(a=>['brigands','horde','revenant','hunters'].includes(a.kind)&&a.q===S.caravan.q&&a.r===S.caravan.r);
+      if(amb){ interceptEncounter(amb,'The road was watched.'); return; }
+      if(budget<=0)break;
+    }
+  }
+  if(S.over){save();render();return;}
+  sel=null;
+  if(contractId){
+    const c=S.contracts.find(x=>x.id===contractId);
+    if(!c){ log('You arrive to find the job gone — the war moved faster than the caravan.','bad'); }
+    else queueModal(()=>showModal('On the ground',
+      `<p>${esc(CONTRACT_TYPES[c.type].desc.replace('{r}',S.regions[c.regionId].name))}</p>
+       <p style="color:#c9b48a">⚑ <b>${OBJECTIVES[c.obj||'slay'].n}</b> — ${esc(OBJECTIVES[c.obj||'slay'].d)}</p>
+       <p class="hint"><span class="pay">${c.pay}c</span> on completion. Danger ${'☠'.repeat(c.danger)}.</p>`,
+      [{label:'Muster and fight',cls:'primary',fn:()=>{closeModal(); pickSquad(sq=>startBattle(c,sq));}},
+       {label:'Not today',fn:()=>closeModal()}]));
+  } else {
+    log(`The caravan makes camp: ${hexDesc(hex(S.caravan.q,S.caravan.r))}.`);
+  }
+  save(); render(); pumpModals();
+  checkBarrow();
+}
+function weeklyTick(){
+  if(S.over)return;
+  S.week++;
+  const wages=S.roster.length*3;
+  S.coin-=wages;
+  const eaten=Math.min(S.prov,S.roster.length);
+  S.prov-=S.roster.length;
+  let starved=false;
+  if(S.prov<0){ S.prov=0; starved=true; }
+  log(`Week ${S.week} — wages ${wages}c${starved?'; the larder is empty':''}.`,'wk');
+  if(S.coin<0){ S.coin=0; S.roster.forEach(s=>s.res=Math.max(10,s.res-3)); log('The company goes unpaid. Resolve suffers.','bad'); }
+  // desertion check when unpaid/starving
+  if(starved){ S.roster.forEach(s=>{ s.hp=Math.max(1,s.hp-2); }); log('Hunger gnaws the line. Everyone weakens.','bad');
+    if(S.roster.length&&chance(25)){ const d=pick(S.roster); removeFromRoster(d); log(`${d.name} deserts in the night, taking their gear and their unfinished story.`,'bad'); }
+  } else { S.roster.forEach(s=>{ s.hp=Math.min(s.maxhp,s.hp+3); }); }
+  // blight pressure spreads along the roads — the front advances by corridor
+  for(const r of S.regions){
+    if(r.swallowed) continue;
+    r.pressure+=ri(1,4);
+    for(const nb of neighbors(r.id)){
+      const n2=S.regions[nb];
+      if(n2.swallowed) r.pressure+=ri(2,5);
+      else if(n2.pressure>=70) r.pressure+=1;
+    }
+    if(r.pressure>=100){ swallowRegion(r); }
+  }
+  // graves: lost bodies rise
+  for(const g of S.graves){
+    if(g.state==='lost'&&S.week>g.weekDied&&(g.seed?S.week>=3:chance(40))){ rise(g,'The Conclave found her where you left her.'); }
+    if(g.state==='buried'&&S.regions[g.regionId].swallowed){ rise(g,'The Blight took the graves with the ground.'); }
+    if(g.state==='sold'&&S.week>=g.weekDied+2){ g.iter=Math.min(3,(g.iter||0)+1); rise(g,'The Conclave honors its purchases.'); }
+    if(g.state==='risen'&&(S.week-g.weekRisen)>0&&(S.week-g.weekRisen)%3===0&&(g.iter||0)<3){
+      g.iter=(g.iter||0)+1;
+      log(`Rumor: ${g.name}’s revenant grows stranger. The Conclave has been improving her.`,'blight');
+    }
+  }
+  // the wilds restock
+  if(S.agents.filter(a=>a.kind==='brigands').length<3&&chance(50))spawnAgent('brigands',randomWildHex(),{str:6+ri(0,4)});
+  const hotRegions=S.regions.filter(r=>r.swallowed||r.pressure>=60);
+  if(S.agents.filter(a=>a.kind==='horde').length<2&&hotRegions.length&&chance(60)){
+    const h=randomHexInRegion(pick(hotRegions).id);
+    if(h){spawnAgent('horde',h,{str:9}); log(`Rumor: something large moves in ${S.regions[hex(h.q,h.r).region].name}, heading for lights and voices.`,'blight');}
+  }
+  const armyCap=(S.story&&S.story.heir==='aldric')?2:1;
+  if(S.agents.filter(a=>a.kind==='army').length<armyCap&&chance(50))
+    spawnAgent('army',{q:REGION_DEFS[3].q,r:REGION_DEFS[3].r},{str:S.story&&S.story.heir==='aldric'?16:14,stops:S.agents.some(a=>a.kind==='army')?[5,2,1]:null});
+  if(S.story&&S.story.heir==='maren'&&S.story.stage>=7){ S.coin+=10; }
+  if(S.story&&S.story.stage>=5&&S.agents.filter(a=>a.kind==='hunters').length<(S.story.stage>=6?2:1)&&chance(25)){
+    spawnAgent('hunters',randomWildHex(),{str:S.story.stage>=6?14:12});
+    log('Grey riders again, asking after your banner in the villages.','blight');
+  }
+  // the meeting does not wait
+  if(S.story&&S.story.stage===5&&S.story.meetWeek&&S.week>S.story.meetWeek){
+    S.story.stage=6; S.story.missedBarrow=true;
+    S.agents.filter(a=>a.kind==='hunters').forEach(a=>a.str=14);
+    spawnAgent('hunters',randomWildHex(),{str:14});
+    log('The week of the meeting passes. Whatever was traded under the barrow, no one witnessed it — and the Hunters ride in force now. Some doors close.','bad');
+  }
+  // the grafts start negotiating
+  for(const s of S.roster){
+    if(!s.feats||!s.feats.some(f=>FEATS[f]&&FEATS[f].ash))continue;
+    if((s.corr||0)>=7&&!s.demanded&&chance(30)){ queueModal(()=>demandEvent(s)); break; }
+    if((s.corr||0)>=4&&!s.whispered&&chance(25)){ queueModal(()=>whisperEvent(s)); break; }
+  }
+  blightCreep();
+  refreshHirePool(); genContracts();
+  checkGameOver();
+}
+function rise(g,flavor){
+  if(g.state==='risen')return;
+  g.state='risen'; g.weekRisen=S.week; g.iter=g.iter||0;
+  log(`${flavor} ${g.name} walks again in ${S.regions[g.regionId].name} — wearing everything you taught her.`,'blight');
+  if(!S.agents.some(a=>a.kind==='revenant'&&a.graveId===g.id))
+    spawnAgent('revenant',randomHexInRegion(g.regionId),{graveId:g.id,str:10});
+}
+function swallowRegion(r){
+  r.pressure=100; r.swallowed=true; r.salvage=6;
+  Object.values(S.hexes).forEach(h=>{ if(h.region===r.id)h.blighted=true; });
+  log(`THE SWALLOWING — ${r.name} is gone. The Blight holds it now. Only ruin-delves remain there.`,'blight');
+  for(const g of S.graves){ if(g.regionId===r.id&&g.state==='buried'){ rise(g,'The Blight took the graves with the ground.'); } }
+}
+function removeFromRoster(s){ S.roster=S.roster.filter(x=>x.id!==s.id); }
+function repAdd(key,amt){
+  if(!S.rep)return;
+  S.rep[key]=clamp((S.rep[key]||0)+amt,-60,60);
+  if(Math.abs(amt)>=2)log(`Standing with ${key==='karsk'?'Karsk':key==='folk'?'the Folk':'the Conclave'} ${amt>0?'rises':'falls'} (${S.rep[key]>0?'+':''}${S.rep[key]}).`,amt>0?'good':'bad');
+}
+function hireCost(h){
+  let c=h.cost;
+  if(S.rep){ if(S.rep.folk>=25)c=Math.round(c*0.8); else if(S.rep.folk<=-25)c=Math.round(c*1.25); }
+  return c;
+}
+function caravanHex(){ return hex(S.caravan.q,S.caravan.r); }
+function atSettlement(){ const h=caravanHex(); return h&&h.setl!==null?h.setl:null; }
+function provCost(){ return atSettlement()===3?6:10; } // Karsk Gate feeds its own
+function buyProv(){ if(atSettlement()===null)return; const c=provCost(); if(S.coin>=c){S.coin-=c;S.prov+=5;log(`Bought 5 provisions for ${c}c${atSettlement()===3?' — Karsk Gate prices':''}.`);save();render();} }
+function armorCost(a){ const c=ARMORS[a].cost; return (S.story&&S.story.heir==='aldric')?Math.round(c*0.8):c; }
+function buyArmor(id){ const s=soldierById(id); if(!s)return; const next=ARMORS[s.armor+1]; if(!next)return;
+  const c=armorCost(s.armor+1);
+  if(S.coin>=c){ S.coin-=c; s.armor++; log(`${s.name} fitted with ${next.n}${S.story&&S.story.heir==='aldric'?' — quartermaster’s rates':''}.`); save(); render(); } }
+function hire(idx){
+  const h=S.hirePool[idx]; if(!h)return;
+  if(atSettlement()===null){ log('Hiring happens in settlements. Reach a town first.','bad'); render(); return; }
+  if(S.roster.length>=6){ log('The caravan holds six. No more.','bad'); render(); return; }
+  const cost=hireCost(h);
+  if(S.coin<cost) return;
+  S.coin-=cost; S.hirePool.splice(idx,1); S.roster.push(h);
+  log(`${h.name} signs on — ${bgOf(h).line}`,'good');
+  save(); render();
+}
+function checkGameOver(){
+  if(S.regions.every(r=>r.swallowed)){
+    S.over=true;
+    log('There is nowhere left to stand. The March belongs to the Blight.','bad');
+    return;
+  }
+  // Hires cost 20-35 and the pool refreshes weekly; with an empty roster coin
+  // cannot decrease, so the run is only dead when the cheapest possible hire is out of reach.
+  if(S.roster.length===0&&S.coin<20){
+    S.over=true;
+    log('The banner falls. No one is left to carry it.','bad');
+  }
+}
+
+/* ============================== XP / LEVELS ============================== */
+const XP_LVL=[0,6,14,24,36,999];
+function grantXp(s,amt){
+  s.xp+=amt;
+  while(s.level<5&&s.xp>=XP_LVL[s.level]){
+    s.level++;
+    const stat=pick(['maxhp','skl','spd','res']);
+    if(stat==='maxhp'){s.maxhp+=2;s.hp+=2;
+      if(S.battle){const bu=S.battle.units.find(x=>x.kind==='pc'&&x.ref===s.id); if(bu){bu.maxhp+=2;bu.hp+=2;}}
+    } else if(stat==='res'){s.res+=5;} else {s[stat]+=1;}
+    const opts=Object.keys(FEATS).filter(f=>!s.feats.includes(f));
+    const three=[];
+    while(three.length<3&&opts.length){ const f=opts.splice(ri(0,opts.length-1),1)[0]; three.push(f); }
+    s.pendingFeats=s.pendingFeats||[]; s.pendingFeats.push({opts:three,stat});
+    queueModal(()=>featModal(s,three,stat));
+  }
+}
+function featModal(s,opts,stat){
+  const up=k=>stat===k?' statup':'';
+  const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
+      <p style="margin:0"><b>${esc(s.name)}</b>${s.commander?' <span class="cmdr">Commander</span>':''} reaches <b>level ${s.level}</b>.</p>
+      <div class="statgrid">
+        <span class="${up('maxhp')}"><span class="tt" data-tip="${esc(STAT_TIPS.hp)}">HP</span> ${s.hp}/${s.maxhp}${stat==='maxhp'?' (+2)':''}</span>
+        <span class="${up('skl')}"><span class="tt" data-tip="${esc(STAT_TIPS.skl)}">SKL</span> ${s.skl}${stat==='skl'?' (+1)':''}</span>
+        <span class="${up('spd')}"><span class="tt" data-tip="${esc(STAT_TIPS.spd)}">SPD</span> ${s.spd}${stat==='spd'?' (+1)':''}</span>
+        <span class="${up('res')}"><span class="tt" data-tip="${esc(STAT_TIPS.res)}">RES</span> ${s.res}${stat==='res'?' (+5)':''}</span>
+      </div>
+      <div class="wline">${WPN_ICON[s.weapon]||'⚔'} <span class="tt" data-tip="${esc(wpnTip(s.weapon,s.wMod))}">${esc(s.wName||WEAPONS[s.weapon].n)}${s.wMod?' +'+s.wMod:''}</span> · 🛡 <span class="tt" data-tip="${esc(armorTip(s.armor))}">${ARMORS[s.armor].n}</span></div>
+      <div class="featline">✦ ${featChips(s.feats)}</div>
+    </div></div>
+    <p class="hint" style="margin-top:8px">Choose a feat — remember: whatever you build, the Blight can give back.</p>`;
+  showModal('Veterancy',body,opts.map(f=>({label:`${FEATS[f].n} — ${FEATS[f].d}`,cls:'pick',fn:()=>{
+    s.feats.push(f);
+    if(s.pendingFeats&&s.pendingFeats.length)s.pendingFeats.shift();
+    if(S.battle){const bu=S.battle.units.find(x=>x.kind==='pc'&&x.ref===s.id); if(bu)bu.feats.push(f);}
+    log(`${s.name} learns ${FEATS[f].n}.`,'good');closeModal();}})));
+}
+
+/* ============================== BATTLE ============================== */
+const GW=13,GH=8;
+function startBattle(contract,squadIds){
+  const region=S.regions[contract.regionId];
+  const ct=CONTRACT_TYPES[contract.type];
+  const B={contractId:contract.id,type:contract.type,regionId:region.id,round:1,units:[],bodies:[],tiles:[],
+           queue:[],qi:0,sel:null,over:false,outcome:null,revGraveIds:[],log:[],ambush:!!contract.ambush,
+           pay:contract.pay,agentId:contract.agentId||null,
+           obj:contract.obj||'slay',objRounds:6,capProgress:0,objFailed:false,objTile:null,weather:null,
+           poolKeys:CONTRACT_TYPES[contract.type].pool,caravanRaid:!!contract.caravanRaid,wagonsLost:0,
+           cname:contract.cname||null,storyBeat:contract.story||null,leaderUid:null,nestUid:null};
+  // terrain keyed to the caravan's hex — you fight on the ground you're standing on
+  const bhex=hex(S.caravan.q,S.caravan.r)||{t:'plains',blighted:false};
+  B.weather=contract.weatherLock!==undefined?contract.weatherLock
+           :bhex.blighted?(chance(40)?'ashhaze':null)
+           :(['hills','marsh','mountain'].includes(bhex.t)?(chance(45)?'fog':null)
+           :(chance(12)?'fog':null));
+  const pForest=bhex.t==='forest'?24:10;
+  const pRock=(bhex.t==='hills'||bhex.t==='mountain')?15:7;
+  const pBlight=(bhex.blighted||bhex.t==='marsh')?14:(region.pressure>=50?8:0);
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+    let t='plain';
+    if(x>1&&x<GW-2){
+      const rd=Math.random()*100;
+      if(rd<pForest)t='forest'; else if(rd<pForest+pRock)t='rock'; else if(rd<pForest+pRock+pBlight)t='blight';
+    }
+    B.tiles.push({x,y,t});
+  }
+  // scenario dressing — the map tells the mission's story
+  const clearTile=(x,y)=>{const tl=tileAt(B,x,y); if(tl&&tl.t==='rock')tl.t='plain';};
+  if(contract.layout==='pass'||['hills','mountain'].includes(bhex.t)&&(B.obj==='slay'||B.obj==='escort'||B.obj==='assassinate')){
+    for(let x=3;x<=GW-4;x++){ // a mountain pass: walls funnel the fight
+      if(chance(75))tileAt(B,x,0).t='rock';
+      if(chance(50))tileAt(B,x,1).t='rock';
+      if(chance(75))tileAt(B,x,GH-1).t='rock';
+      if(chance(50))tileAt(B,x,GH-2).t='rock';
+    }
+  }
+  if(B.obj==='escort'){
+    for(let x=0;x<GW;x++){clearTile(x,3);clearTile(x,4);}
+    spawnProp(B,'wagon',1,4);
+  }
+  if(B.obj==='protect'){
+    if(B.caravanRaid){ spawnProp(B,'wagon',2,3); spawnProp(B,'wagon',3,5); }
+    else { spawnProp(B,'villager',4,3); spawnProp(B,'villager',5,5); tileAt(B,4,2).t='rock'; tileAt(B,5,6).t='rock'; }
+  }
+  if(B.obj==='capture'){
+    const ox=GW-4, oy=ri(2,GH-3);
+    B.objTile={x:ox,y:oy}; clearTile(ox,oy);
+    [[ox-1,oy-1],[ox+1,oy+1],[ox+1,oy-1]].forEach(p2=>{const tl=tileAt(B,p2[0],p2[1]); if(tl&&chance(60))tl.t='rock';});
+  }
+  // player units
+  squadIds.forEach((id,i)=>{
+    const s=soldierById(id);
+    B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,
+      weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:i%2,y:1+Math.floor(i/2)*2,
+      moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
+  });
+  // enemies — flank deployments when there's something to protect; authored comps for set-pieces
+  const danger=contract.danger;
+  const flank=(B.obj==='escort'||B.obj==='protect');
+  if(contract.comp){
+    contract.comp.forEach(k=>spawnEnemy(B,k,danger,flank));
+  } else {
+    const count=clamp(2+danger+(contract.type==='hold'?1:0),3,7);
+    for(let i=0;i<count;i++)spawnEnemy(B,pick(ct.pool),danger,flank);
+  }
+  if(B.obj==='assassinate'){
+    let lead=contract.leader?B.units.find(z=>z.kind==='foe'&&z.ekey===contract.leader):null;
+    if(!lead)lead=B.units.filter(z=>z.kind==='foe').sort((a,b)=>b.maxhp-a.maxhp)[0];
+    if(lead){ B.leaderUid=lead.uid; lead.name=contract.leaderName||(lead.name+' Captain');
+      lead.hp+=4; lead.maxhp+=4; lead.wMod=(lead.wMod||0)+1; lead.xpv=(lead.xpv||4)+4; }
+  }
+  if(B.obj==='burn'){
+    const nx=GW-3, ny=ri(2,GH-3);
+    const tl=tileAt(B,nx,ny); if(tl)tl.t='blight';
+    const nest={uid:nid(),kind:'foe',prop:true,ekey:'nest',name:'Blight-nest',hp:12,maxhp:12,skl:0,spd:0,res:99,
+      weapon:'shortsword',wMod:0,arm:1,feats:[],traits:[],undead:true,x:nx,y:ny,moved:true,acted:true,
+      shakenBy:null,rattled:0,reaper:0,xpv:6,graveId:null,fled:false};
+    B.units.push(nest); B.nestUid=nest.uid;
+  }
+  // revenant injection
+  const risenHere=S.graves.filter(g=>g.state==='risen'&&g.regionId===region.id);
+  let revs=[];
+  if(contract.revGraveId){ revs=[S.graves.find(g=>g.id===contract.revGraveId)]; }
+  else if(risenHere.length&&chance(65)){ revs=[risenHere[0]]; }
+  for(const g of revs){ if(g&&g.state==='risen') spawnRevenant(B,g); }
+  buildQueue(B);
+  S.battle=B;
+  log(`Contract taken: ${ct.n} in ${region.name}.`);
+  // callout modals at battle start
+  for(const gId of B.revGraveIds){
+    const g=S.graves.find(x=>x.id===gId);
+    queueModal(()=>calloutModal(B,g));
+  }
+  render(); pumpModals(); maybeAI();
+}
+function spawnEnemy(B,key,danger,flank){
+  const e=ENEMIES[key];
+  const u={uid:nid(),kind:'foe',ekey:key,name:e.n,hp:e.hp+danger,maxhp:e.hp+danger,skl:e.skl,spd:e.spd,res:35,
+    weapon:e.w,wMod:danger>=3?1:0,arm:e.arm,feats:[],traits:[],undead:e.undead,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:e.xp,graveId:null};
+  placeFoe(B,u,flank); B.units.push(u);
+}
+function placeFoe(B,u,flank){
+  if(flank){
+    for(let tries=0;tries<60;tries++){
+      const y=chance(50)?ri(0,1):ri(GH-2,GH-1);
+      const x=ri(4,GW-2);
+      const tl=tileAt(B,x,y);
+      if(tl&&tl.t!=='rock'&&!unitAt(B,x,y)){u.x=x;u.y=y;return;}
+    }
+  }
+  placeRight(B,u);
+}
+function spawnProp(B,kind,x,y){
+  const wagon=kind==='wagon';
+  const tl=tileAt(B,x,y); if(tl)tl.t='plain';
+  const old=unitAt(B,x,y); if(old)return;
+  B.units.push({uid:nid(),kind:'ally',prop:wagon,name:wagon?'Wagon':'Villager',hp:wagon?10:4,maxhp:wagon?10:4,
+    skl:0,spd:0,res:99,weapon:'shortsword',wMod:0,arm:wagon?1:0,feats:[],traits:[],undead:false,x,y,
+    moved:true,acted:true,shakenBy:null,rattled:0,reaper:0,fled:false,graveId:null,face:wagon?null:makeFace()});
+}
+function spawnRevenant(B,g){
+  const it=(g.iter||0)+(g.snap.ashPromised?1:0); // the Ash keeps its side of the bargain
+  const u={uid:nid(),kind:'foe',ekey:'revenant',name:g.name+', Returned',hp:g.snap.maxhp+4+it*2,maxhp:g.snap.maxhp+4+it*2,
+    skl:g.snap.skl+1,spd:g.snap.spd,res:99,weapon:g.snap.weapon,wMod:(g.snap.wMod||0)+it,arm:g.snap.armor,
+    dmgBonus:g.snap.dmgBonus||0,traits:[],
+    feats:g.snap.feats.slice(),undead:true,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:8+it*2,graveId:g.id};
+  placeRight(B,u); B.units.push(u); B.revGraveIds.push(g.id);
+}
+function placeRight(B,u){
+  for(let tries=0;tries<60;tries++){
+    const x=ri(GW-3,GW-1),y=ri(0,GH-1);
+    if(tileAt(B,x,y).t!=='rock'&&!unitAt(B,x,y)){u.x=x;u.y=y;return;}
+  }
+  u.x=GW-1;u.y=0;
+}
+function tileAt(B,x,y){return B.tiles[y*GW+x];}
+function unitAt(B,x,y){return B.units.find(u=>u.hp>0&&!u.fled&&u.x===x&&u.y===y);}
+function bodyAt(B,x,y){return B.bodies.find(b=>b.x===x&&b.y===y);}
+function buildQueue(B){
+  B.queue=B.units.filter(u=>u.hp>0&&!u.fled&&u.kind!=='ally'&&!u.prop).sort((a,b)=>b.spd-a.spd||a.uid-b.uid).map(u=>u.uid);
+  B.qi=0;
+  B.units.forEach(u=>{u.moved=false;u.acted=false;});
+}
+function curUnit(B){ const id=B.queue[B.qi]; return B.units.find(u=>u.uid===id&&u.hp>0&&!u.fled); }
+function nextTurn(){
+  const B=S.battle; if(!B||B.over)return;
+  B.inspect=null;
+  B.qi++;
+  if(B.qi>=B.queue.length){ B.round++; buildQueue(B); blightTick(B); if(!B.over)objTick(B); }
+  if(B.over)return;
+  const u=curUnit(B);
+  if(!u){ if(!B.over) nextTurn(); return; }
+  u.defending=false;
+  render(); maybeAI();
+}
+function blightTick(B){
+  for(const u of B.units){
+    if(u.hp<=0||u.fled)continue;
+    if(tileAt(B,u.x,u.y).t==='blight'&&!u.undead){ u.hp-=2; u.blightBit=true; blog(B,`${u.name} is seared by blighted ground (2).`);
+      if(u.hp<=0) applyDeath(B,u); }
+  }
+  checkEnd(B);
+}
+function blog(B,msg){ B.log.unshift(msg); if(B.log.length>40)B.log.pop(); }
+function reachable(B,u){
+  let mov=u.spd>=5?4:3;
+  if(u.feats.includes('fleet'))mov+=1;
+  const seen={}; const out=[]; const q=[{x:u.x,y:u.y,d:0}];
+  seen[u.x+','+u.y]=true;
+  while(q.length){
+    const c=q.shift();
+    if(c.d>=mov)continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const x=c.x+dx,y=c.y+dy;
+      if(x<0||y<0||x>=GW||y>=GH)continue;
+      const k=x+','+y;
+      if(seen[k])continue;
+      if(tileAt(B,x,y).t==='rock')continue;
+      if(unitAt(B,x,y))continue;
+      seen[k]=true; out.push({x,y}); q.push({x,y,d:c.d+1});
+    }
+  }
+  return out;
+}
+function distC(a,b){return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y));}
+function adjacent(a,b){return Math.abs(a.x-b.x)+Math.abs(a.y-b.y)===1;}
+function hasLOS(B,a,b){
+  let x0=a.x,y0=a.y;
+  const x1=b.x,y1=b.y;
+  const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;
+  let err=dx-dy,guard=0;
+  while(!(x0===x1&&y0===y1)&&guard++<40){
+    const e2=2*err;
+    if(e2>-dy){err-=dy;x0+=sx;}
+    if(e2<dx){err+=dx;y0+=sy;}
+    if(x0===x1&&y0===y1)break;
+    if(tileAt(B,x0,y0).t==='rock')return false;
+    const blocker=unitAt(B,x0,y0);
+    if(blocker&&blocker.prop)return false; // wagons block sightlines
+  }
+  return true;
+}
+function adjAllies(B,u){return B.units.filter(x=>x!==u&&x.kind===u.kind&&x.hp>0&&!x.fled&&adjacent(x,u)).length;}
+function coverAt(B,t){
+  return [[1,0],[-1,0],[0,1],[0,-1]].some(d=>{
+    const tl=tileAt(B,t.x+d[0],t.y+d[1]);
+    if(tl&&tl.t==='rock')return true;
+    const un=unitAt(B,t.x+d[0],t.y+d[1]);
+    return !!(un&&un.prop);
+  });
+}
+function objTick(B){
+  if(B.over)return;
+  if(B.obj==='escort'){
+    const w=B.units.find(u=>u.kind==='ally'&&u.prop&&u.hp>0);
+    if(w){
+      const t=tileAt(B,w.x+1,w.y);
+      if(t&&t.t!=='rock'&&!unitAt(B,w.x+1,w.y)){ w.x++; blog(B,'The wagon creaks forward.'); }
+      else blog(B,'The wagon waits — the road ahead is blocked.');
+      if(w.x>=GW-1){ blog(B,'The wagon is through. Contract fulfilled.'); endBattle('victory'); return; }
+    }
+  }
+  if(B.obj==='survive'){
+    if(B.round>B.objRounds){ blog(B,'The line held. What’s left of them melts back into the dark.'); endBattle('victory'); return; }
+    if(B.round===3||B.round===5){
+      for(let i=0;i<2;i++)spawnEnemy(B,pick(B.poolKeys),1,false);
+      buildQueue(B);
+      blog(B,'More of them, out of the dark.');
+    }
+  }
+  if(B.obj==='burn'&&B.nestUid){
+    const nest=B.units.find(x=>x.uid===B.nestUid);
+    const mobiles=B.units.filter(u=>u.kind==='foe'&&u.hp>0&&!u.fled&&!u.prop).length;
+    if(nest&&nest.hp>0&&mobiles<7){
+      const sp=spawnEnemy(B,pick(['husk','hound']),1,false);
+      const born=B.units[B.units.length-1];
+      born.x=clamp(nest.x+ri(-1,1),0,GW-1); born.y=clamp(nest.y+ri(-1,1),0,GH-1);
+      if(unitAt(B,born.x,born.y)!==born){born.x=nest.x;born.y=Math.max(0,nest.y-1);}
+      buildQueue(B);
+      blog(B,'The nest disgorges another.');
+    }
+  }
+  if(B.obj==='capture'&&B.objTile){
+    const holder=B.units.find(u=>u.kind==='pc'&&u.hp>0&&!u.fled&&u.x===B.objTile.x&&u.y===B.objTile.y);
+    if(holder){ B.capProgress++; blog(B,`${holder.name} holds the ground (${B.capProgress}/2).`);
+      if(B.capProgress>=2){ blog(B,'The ground is yours. Contract fulfilled.'); endBattle('victory'); return; } }
+  }
+}
+function wOf(u){const w=WEAPONS[u.weapon];return {n:w.n,lo:w.lo+(u.wMod||0),hi:w.hi+(u.wMod||0),rng:w.rng+((u.feats.includes('deadeye')&&w.rng>1)?1:0),hitB:w.hitB};}
+function attackTargets(B,u){
+  const w=wOf(u);
+  // bows: no point-blank, need line of sight, and weather cuts the shot
+  const rng=(B.weather&&w.rng>1)?Math.min(w.rng,3):w.rng;
+  return B.units.filter(t=>t.hp>0&&!t.fled&&isEnemy(u,t)&&(w.rng===1?adjacent(u,t):(distC(u,t)<=rng&&distC(u,t)>=2&&hasLOS(B,u,t))));
+}
+function isEnemy(a,b){return (a.kind==='foe')!==(b.kind==='foe');}
+function hitChance(B,att,def){
+  const w=wOf(att);
+  let h=65+att.skl*3-def.spd*2+w.hitB;
+  if(w.rng===1&&att.feats.includes('duelist'))h+=10;
+  if(w.rng>1&&att.feats.includes('deadeye'))h+=10;
+  if(tileAt(B,def.x,def.y).t==='forest')h-=15;
+  if(def.defending)h-=10;
+  if(att.shakenBy)h-=10;
+  h-=att.rattled*5;
+  h+=att.reaper*5;
+  // bond adjacency
+  if(att.kind==='pc'){
+    const s=soldierById(att.ref);
+    if(s&&s.bonds.some(b=>{ const pu=B.units.find(x=>x.kind==='pc'&&x.ref===b.id&&x.hp>0&&!x.fled); return pu&&adjacent(att,pu); })) h+=5;
+  }
+  // vengeful vs bonded revenant
+  if(def.graveId&&att.kind==='pc'&&att.feats.includes('vengeful')&&isBondedToGrave(att,def.graveId))h+=20;
+  if((att.traits||[]).includes('coldblooded'))h+=5;
+  if((att.traits||[]).includes('packbound')){
+    const ally=B.units.find(x=>x!==att&&x.kind===att.kind&&x.hp>0&&!x.fled&&adjacent(x,att));
+    if(ally)h+=5;
+  }
+  return clamp(h,20,95);
+}
+function isBondedToGrave(u,graveId){
+  const g=S.graves.find(x=>x.id===graveId); if(!g)return false;
+  const s=soldierById(u.ref); if(!s)return false;
+  return g.bonds.includes(s.id);
+}
+function dmgOf(B,att,def){
+  const w=wOf(att);
+  let d=ri(w.lo,w.hi)+(att.dmgBonus||0);
+  if(att.feats.includes('executioner')&&def.hp<def.maxhp/2)d+=2;
+  if(att.feats.includes('berserker')&&att.hp<att.maxhp/2)d+=2;
+  if(att.feats.includes('bonecarver')&&def.undead)d+=3;
+  if((att.traits||[]).includes('blightmarked')&&def.undead)d+=2;
+  if(def.graveId&&att.kind==='pc'&&att.feats.includes('vengeful')&&isBondedToGrave(att,def.graveId))d+=2;
+  let arm=def.arm;
+  if(def.defending)arm+=2;
+  if(def.feats.includes('bulwark'))arm+=1;
+  if(def.feats.includes('shieldwall')){
+    const ally=B.units.find(x=>x!==def&&x.kind===def.kind&&x.hp>0&&!x.fled&&adjacent(x,def));
+    if(ally)arm+=1;
+  }
+  return Math.max(1,d-arm);
+}
+function doAttack(B,att,def){
+  const h=hitChance(B,att,def);
+  const w=wOf(att);
+  if(w.rng>1) fx.push({type:'arrow',fx:att.x,fy:att.y,tx:def.x,ty:def.y});
+  if(ri(1,100)<=h){
+    const d=dmgOf(B,att,def);
+    def.hp-=d;
+    fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:'-'+d,color:'#e0593f'});
+    blog(B,`${att.name} hits ${def.name} for ${d} (${h}%).`);
+    if(w.rng===1&&att.feats.includes('veindrink')&&att.hp>0){
+      att.hp=Math.min(att.maxhp,att.hp+2);
+      fx.push({type:'float',x:att.x,y:att.y,txt:'+2',color:'#b08bc9'});
+      if(att.kind==='pc'){const ps=soldierById(att.ref); if(ps)ps.hp=att.hp;}
+    }
+    if(def.hp>0&&def.hp<=3&&def.kind==='pc')def.nearDeath=true;
+    if(def.hp<=0){ applyDeath(B,def); if(att.feats.includes('reaper'))att.reaper++;
+      att.bkills=(att.bkills||0)+1;
+      if(att.kind==='pc'){const s=soldierById(att.ref); if(s){s.kills++; grantXp(s,def.xpv||3);
+        if(att.feats.includes('veindrink'))addCorruption(s,1);}} }
+  } else {
+    fx.push({type:'dodge',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:def.defending?'blocked':'dodged',color:'#7d93a3'});
+    blog(B,`${att.name} misses ${def.name} (${h}%).`);
+  }
+  att.acted=true;
+}
+function applyDeath(B,u){
+  u.hp=0;
+  fx.push({type:'float',x:u.x,y:u.y,txt:'☠',color:'#d8cdb8'});
+  if(u.kind==='ally'){
+    blog(B,u.prop?'☠ The wagon splinters apart — cargo, road-hope, and all.':`☠ ${u.name} is cut down before anyone can reach them.`);
+    if(u.prop)B.wagonsLost=(B.wagonsLost||0)+1;
+    checkEnd(B);
+    return;
+  }
+  if(u.kind==='pc'){
+    const s=soldierById(u.ref);
+    blog(B,`☠ ${s?s.name:u.name} FALLS.`);
+    B.bodies.push({soldierId:u.ref,name:u.name,x:u.x,y:u.y});
+    if(s){ killSoldier(s); }
+    // resolve checks for the living
+    for(const w of B.units){
+      if(w.kind!=='pc'||w.hp<=0||w.fled)continue;
+      const ws=soldierById(w.ref);
+      let res=w.res+(w.feats.includes('stalwart')?15:0)+(ws&&ws.gravetempered?10:0);
+      if(ri(1,100)>res+30){ w.rattled=Math.min(2,w.rattled+1); blog(B,`${w.name} is rattled by the death.`); }
+    }
+  } else if(u.graveId){
+    const g=S.graves.find(x=>x.id===u.graveId);
+    blog(B,`${u.name} is laid to rest. It’s over.`);
+    layToRest(B,g);
+  } else if(B.leaderUid===u.uid){
+    blog(B,`♛ ${u.name} falls — and the fight falls out of the rest of them.`);
+    B.units.forEach(z=>{ if(z.kind==='foe'&&z.hp>0&&!z.prop)z.fled=true; });
+    blog(B,'They scatter into the dark.');
+  } else if(u.prop&&B.nestUid===u.uid){
+    blog(B,'The nest collapses in on itself with a sound like a held breath let go.');
+  } else {
+    blog(B,`${u.name} is slain.`);
+  }
+  checkEnd(B);
+}
+function killSoldier(s){
+  s.alive=false;
+  removeFromRoster(s);
+  const snap={maxhp:s.maxhp,skl:s.skl,spd:s.spd,weapon:s.weapon,wMod:s.wMod,armor:s.armor,feats:s.feats.slice(),level:s.level,
+              dmgBonus:s.dmgBonus||0,ashPromised:!!s.ashPromised,corr:s.corr||0};
+  const bonds=s.bonds.map(b=>b.id);
+  S.graves.push({id:nid(),soldierId:s.id,name:s.name,bg:s.bg,snap,bonds,state:'field',regionId:S.battle?S.battle.regionId:0,
+                 weekDied:S.week,iter:0,hook:s.ashPromised?'a promise to the Ash, unkept':bgOf(s).hook,face:s.face});
+  if(s.commander)log('The Commander has fallen. The banner has no voice now — the story waits for one.','bad');
+  S.chronicle.push(`Week ${S.week}: ${s.name} (${bgOf(s).tag}) fell — ${bgOf(s).hook}.`);
+  // bonded survivors take it hard — and carry it until she rests
+  for(const bid of bonds){ const b=soldierById(bid); if(b){ b.res=Math.max(10,b.res-3); addTrait(b,'grieving'); } }
+}
+function layToRest(B,g){
+  g.state='rest';
+  S.agents=S.agents.filter(a=>!(a.kind==='revenant'&&a.graveId===g.id));
+  // clear shaken on everyone shaken by her
+  for(const u of B.units){ if(u.shakenBy===g.id)u.shakenBy=null; }
+  // gravetempered for bonded partner present
+  const partner=B.units.find(u=>u.kind==='pc'&&u.hp>0&&!u.fled&&g.bonds.includes(u.ref));
+  if(partner){ const s=soldierById(partner.ref); if(s&&!s.gravetempered){ s.gravetempered=true; s.res+=10;
+    blog(B,`${s.name} watched it end. Gravetempered: +10 resolve, permanently.`); } }
+  for(const bid of g.bonds){ const b=soldierById(bid); if(b)clearGrieving(b); }
+  // gear echo — unless you sold her; the Conclave's grafts crumble with her
+  if(!g.wasSold) queueModal(()=>gearEchoModal(g));
+  else blog(B,'Her gear crumbles with the grafts. Sold things stay sold.');
+  log(`${g.name} has been laid to rest. One story closed.`,'good');
+}
+function gearEchoModal(g){
+  const alive=S.roster.filter(s=>s.alive);
+  if(!alive.length){closeModal();return;}
+  const w=WEAPONS[g.snap.weapon];
+  const body=`<p>You pry <b>${esc(g.name)}’s ${w.n}</b> from her hands. It is cold in a way steel shouldn’t be — and better than it was.</p><p class="hint">Grave-cold: +1 damage. Give it to:</p>`;
+  showModal('Gear Echo',body,alive.map(s=>({label:`${s.name} (${WEAPONS[s.weapon].n}${s.wMod?'+'+s.wMod:''})`,cls:'pick',fn:()=>{
+    s.weapon=g.snap.weapon; s.wMod=Math.min((g.snap.wMod||0)+1,2); s.wName=`${g.name}’s ${w.n}`;
+    log(`${s.name} now carries ${g.name}’s ${w.n} (grave-cold, +${s.wMod} dmg).`,'blight'); closeModal(); }})).concat([{label:'Leave it with her',fn:()=>{closeModal();}}]));
+}
+function calloutModal(B,g){
+  const partnerUnit=B.units.find(u=>u.kind==='pc'&&g.bonds.includes(u.ref));
+  const bgd=BACKSTORIES[g.bg];
+  let line, effect='';
+  if(partnerUnit){
+    const pname=partnerUnit.name;
+    line=pick(bgd.callouts).replace('{b}',pname);
+    if(partnerUnit.feats.includes('vengeful')){
+      effect=`<p class="hint">${esc(pname)} does not flinch. (Vengeful: immune, +20 hit / +2 dmg against her.)</p>`;
+    } else {
+      partnerUnit.shakenBy=g.id;
+      effect=`<p class="hint">${esc(pname)} is SHAKEN (−10 hit) until ${esc(g.name)} is laid to rest.</p>`;
+    }
+  } else {
+    line=pick(bgd.callouts).replace('{b}','little company');
+    const benched=g.bonds.map(id=>soldierById(id)).find(Boolean);
+    if(benched){ benched.res=Math.max(10,benched.res-2);
+      effect=`<p class="hint">${esc(benched.name)} stayed in camp. Word of this will reach them anyway (−2 resolve).</p>`; }
+  }
+  const it=g.iter?`<p class="hint">The Conclave has improved her ${g.iter} time${g.iter>1?'s':''}. Her old kit is still legible under the grafts.</p>`:'';
+  return showModal(`${g.name}, Returned`,
+    `<div class="face revf" style="float:right;margin-left:8px">${faceSvg(g.face,{size:60,revenant:true})}</div>
+     <p>Across the field, a figure in your old colors. Level ${g.snap.level}. ${esc(FEATS[g.snap.feats[0]]?FEATS[g.snap.feats[0]].n:'')}${g.snap.feats.length>1?' + '+(g.snap.feats.length-1)+' more':''} — the build is yours. The face is hers. Barely.</p><div class="callout">“${esc(line)}”</div>${effect}${it}`,
+    [{label:'Steel yourselves',fn:()=>closeModal()}]);
+}
+function tryMove(x,y){
+  const B=S.battle; const u=curUnit(B);
+  if(!u||u.kind!=='pc')return;
+  if(u.moved&&u.acted)return;
+  if(!reachable(B,u).some(t=>t.x===x&&t.y===y))return;
+  const dash=u.moved; // second move spends the action
+  u.x=x;u.y=y;
+  if(dash){ u.acted=true; blog(B,`${u.name} dashes.`); } else u.moved=true;
+  B.cast=false;
+  render();
+  if(u.moved&&u.acted) endUnitTurn();
+}
+function tryAttack(targetUid){
+  const B=S.battle; const u=curUnit(B);
+  if(!u||u.kind!=='pc'||u.acted)return;
+  const t=B.units.find(z=>z.uid===targetUid);
+  if(!t||!attackTargets(B,u).includes(t))return;
+  doAttack(B,u,t);
+  if(!B.over){ render(); if(u.acted&&u.moved) endUnitTurn(); }
+}
+function endUnitTurn(){ const B=S.battle; if(!B||B.over)return; nextTurn(); }
+function defend(){ const B=S.battle; const u=curUnit(B); if(!u||u.kind!=='pc'||u.acted)return;
+  u.defending=true; u.rattled=Math.max(0,u.rattled-1); u.acted=true;u.moved=true;
+  blog(B,`${u.name} braces — −10 to be hit, +2 armor, nerves steadied, until their next turn.`); nextTurn(); }
+function useAbility(){
+  const B=S.battle; const u=curUnit(B);
+  if(!u||u.kind!=='pc'||u.acted)return;
+  if(u.feats.includes('ashfire')){ B.cast=!B.cast; render(); return; }
+  if(!u.feats.includes('medic')||u.medicUsed)return;
+  const ally=B.units.find(t=>t.kind==='pc'&&t!==u&&t.hp>0&&!t.fled&&adjacent(u,t)&&t.hp<t.maxhp);
+  if(!ally){blog(B,'No wounded ally adjacent.');render();return;}
+  ally.hp=Math.min(ally.maxhp,ally.hp+5);
+  const as=soldierById(ally.ref); if(as)as.hp=ally.hp;
+  u.medicUsed=true;u.acted=true;
+  fx.push({type:'float',x:ally.x,y:ally.y,txt:'+5',color:'#9ab86f'});
+  blog(B,`${u.name} binds ${ally.name}’s wounds (+5).`);
+  render();
+  if(u.moved) endUnitTurn();
+}
+function doCast(B,att,def){
+  const h=clamp(75+att.skl*3-def.spd*2,30,95);
+  fx.push({type:'arrow',fx:att.x,fy:att.y,tx:def.x,ty:def.y});
+  if(ri(1,100)<=h){
+    const d=ri(4,7);
+    def.hp-=d;
+    fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:'-'+d,color:'#b08bc9'});
+    blog(B,`${att.name}’s ashfire sears ${def.name} for ${d} — armor means nothing to it.`);
+    if(def.hp<=0){ applyDeath(B,def); if(att.feats.includes('reaper'))att.reaper++;
+      att.bkills=(att.bkills||0)+1;
+      if(att.kind==='pc'){const s=soldierById(att.ref); if(s){s.kills++; grantXp(s,def.xpv||3);}} }
+  } else {
+    fx.push({type:'float',x:def.x,y:def.y,txt:'guttered',color:'#7a5f95'});
+    blog(B,`${att.name}’s ashfire gutters out (${h}%).`);
+  }
+  att.acted=true; B.cast=false;
+  if(att.kind==='pc'){const s=soldierById(att.ref); if(s)addCorruption(s,1);}
+}
+function retreat(){
+  const B=S.battle; if(!B||B.over||activeModal)return;
+  const cu=curUnit(B); if(!cu||cu.kind!=='pc')return;
+  const carried=[],lost=[];
+  for(const b of B.bodies){
+    const near=B.units.some(u=>u.kind==='pc'&&u.hp>0&&!u.fled&&(adjacent(u,b)||(u.x===b.x&&u.y===b.y)));
+    if(near)carried.push(b);else lost.push(b);
+  }
+  showModal('Sound the retreat?',
+    `<p>You will forfeit the pay.</p><p>${carried.length?`Bodies within reach — <b>carried out</b>: ${carried.map(b=>esc(b.name)).join(', ')}.`:''}</p>
+     <p class="hint">${lost.length?`Left behind for the Blight: <b>${lost.map(b=>esc(b.name)).join(', ')}</b>. What you leave on the field is what comes back.`:'No one gets left behind today.'}</p>`,
+    [{label:'Retreat',cls:'danger',fn:()=>{closeModal();endBattle('retreat');}},{label:'Keep fighting',fn:()=>closeModal()}]);
+}
+function checkEnd(B){
+  if(B.over)return;
+  const foes=B.units.filter(u=>u.kind==='foe'&&u.hp>0&&!u.fled);
+  const pcs=B.units.filter(u=>u.kind==='pc'&&u.hp>0&&!u.fled);
+  const allies=B.units.filter(u=>u.kind==='ally'&&u.hp>0);
+  if((B.obj==='protect'||B.obj==='escort')&&!allies.length&&!B.objFailed){
+    B.objFailed=true;
+    blog(B,'The charges are dead. The contract died with them — only the killing is left.');
+  }
+  if(B.obj==='burn'){
+    const nest=B.units.find(x=>x.uid===B.nestUid);
+    if(!nest||nest.hp<=0){ endBattle('victory'); return; }
+    if(!pcs.length){ endBattle('defeat'); }
+    return; // the nest keeps birthing — clearing the field is not winning
+  }
+  if(!foes.length){ endBattle('victory'); }
+  else if(!pcs.length){ endBattle('defeat'); }
+}
+function endBattle(outcome){
+  const B=S.battle; if(!B||B.over)return;
+  B.over=true;B.outcome=outcome;
+  const contract=S.contracts.find(c=>c.id===B.contractId);
+  const region=S.regions[B.regionId];
+  // survivors sync + xp + battles count
+  const deployed=[];
+  for(const u of B.units){
+    if(u.kind!=='pc')continue;
+    const s=soldierById(u.ref);
+    if(s){ s.hp=Math.max(0,u.hp);
+      if(u.hp>0){
+        deployed.push(s); s.battles++; grantXp(s,outcome==='victory'?2:(B.round>1?1:0));
+        // battle leaves marks — one per fight, good or bad
+        if(B.round>1){
+          if(u.hp<=3||u.nearDeath)addTrait(s,'scarred');
+          else if((u.bkills||0)>=3)addTrait(s,'coldblooded');
+          else if(u.rattled>=2)addTrait(s,'nervous');
+          else if(u.blightBit)addTrait(s,'blightmarked');
+          else if(s.battles>=3&&!s.traits.includes('packbound')&&chance(15))addTrait(s,'packbound');
+        }
+      }
+    }
+  }
+  // bonds form between co-survivors (not on a turn-1 walk-away)
+  const earned=(outcome==='victory'||B.round>1);
+  if(earned) for(let i=0;i<deployed.length;i++)for(let j=i+1;j<deployed.length;j++){
+    const a=deployed[i],b=deployed[j];
+    const key=[a.id,b.id].sort().join('-');
+    S.bondCounts[key]=(S.bondCounts[key]||0)+1;
+    if(S.bondCounts[key]>=2&&!a.bonds.some(x=>x.id===b.id)&&chance(50)){
+      const type=pick(Object.keys(BOND_TYPES));
+      a.bonds.push({id:b.id,type}); b.bonds.push({id:a.id,type});
+      log(`${a.name} and ${b.name} are bound now — ${BOND_TYPES[type]}. (+5 hit adjacent. And a debt the Blight can collect.)`,'blight');
+    }
+  }
+  // bodies
+  if(outcome==='victory'){
+    for(const b of B.bodies){ const g=graveOfSoldier(b.soldierId); if(g&&g.state==='field'){ g.state='recovered'; queueModal(()=>ritesModal(g)); } }
+    if(B.ambush){ log('The road is cleared. The column moves on.','good'); repAdd('folk',B.type==='purge'?3:2); }
+    else if(B.objFailed){
+      log('The field is yours; the contract is not. The charges died, and the pay died with them.','bad');
+      const emp=CONTRACT_TYPES[B.type].employer;
+      if(emp==='Karsk')repAdd('karsk',-3); else if(emp==='Village elders')repAdd('folk',-3);
+    }
+    else {
+      let bonus=0;
+      const survCharges=B.units.filter(u=>u.kind==='ally'&&u.hp>0).length;
+      if(B.obj==='protect')bonus=survCharges*8;
+      else if(B.obj==='escort')bonus=15;
+      else if(B.obj==='survive')bonus=10;
+      S.coin+=(B.pay||0)+bonus; S.renown++;
+      log(`Contract complete. +${(B.pay||0)+bonus}c${bonus?` (${bonus}c objective bonus)`:''}. Renown ${S.renown}.`,'good');
+      const emp=CONTRACT_TYPES[B.type].employer;
+      if(emp==='Karsk')repAdd('karsk',4);
+      else if(emp==='Village elders')repAdd('folk',5);
+      else if(emp==='Undercrown broker'){repAdd('karsk',1);repAdd('folk',1);}
+      else if(emp==='The company'){repAdd('folk',2);repAdd('karsk',2);}
+      if(B.storyBeat==='courier'&&S.story&&S.story.stage===4){
+        S.story.stage=5;
+        queueModal(()=>satchelScene());
+      }
+      if(B.storyBeat==='barrow'&&S.story&&S.story.stage===5){
+        queueModal(()=>ledgerScene());
+      }
+      if(B.storyBeat==='heir'&&S.story&&S.story.stage===7){
+        queueModal(()=>heirEpilogue());
+      }
+    }
+    if(!B.ambush&&(B.type==='purge'||B.type==='delve')&&chance(B.obj==='capture'?45:30)){
+      queueModal(()=>relicModal(pick(['ashfire','veindrink'])));
+    }
+    if(S.story&&S.story.stage===2&&(B.type==='purge'||B.type==='delve')&&chance(35)){
+      S.story.stage=3;
+      queueModal(()=>showModal('Sealed Correspondence',
+        `<p>On an acolyte’s body: letters, half-burned, sealed with the Collegium’s own mark. The hand is precise, scholarly, unhurried — a man who believes he is saving the world.</p><p class="hint">Proof for the princess. +1 renown. Bring them to <b>Maren at Karsk Gate</b> — she is expecting you this time.</p>`,
+        [{label:'Wrap them in oilcloth',cls:'primary',fn:()=>{S.renown++;closeModal();}}]));
+    }
+    if(B.type==='delve'){ region.salvage=Math.max(0,(region.salvage||0)-1);
+      if(!region.salvage) log(`${region.name} is picked clean. Nothing is left there worth dying for.`,'bad'); }
+    if(!region.swallowed&&region.pressure>0&&(B.type==='purge'||B.type==='hold')){ region.pressure=Math.max(5,region.pressure-6); log(`Your work slows the Blight in ${region.name} (−6 pressure).`,'good'); }
+    if(chance(30)){ const w=pick(['spear','axe','warbow','halberd']); queueModal(()=>lootModal(w)); }
+  } else {
+    for(const b of B.bodies){
+      const g=graveOfSoldier(b.soldierId); if(!g||g.state!=='field')continue;
+      const carried=outcome==='retreat'&&B.units.some(u=>u.kind==='pc'&&u.hp>0&&(adjacent(u,b)||(u.x===b.x&&u.y===b.y)));
+      if(carried){ g.state='recovered'; queueModal(()=>ritesModal(g)); }
+      else { g.state='lost'; log(`${g.name}’s body was left in ${region.name}. The Conclave pays attention to such things.`,'bad'); }
+    }
+    log(outcome==='retreat'?'The company retreats, bloodied.':'The squad is wiped out. The bodies stay where they fell.','bad');
+    if(!B.ambush){ const emp=CONTRACT_TYPES[B.type].employer;
+      if(emp==='Karsk')repAdd('karsk',-2); else if(emp==='Village elders')repAdd('folk',-2); }
+  }
+  if(B.wagonsLost&&B.caravanRaid){
+    S.prov=Math.max(0,S.prov-5*B.wagonsLost);
+    log(`${B.wagonsLost} wagon${B.wagonsLost>1?'s':''} lost — provisions spill into the mud (−${5*B.wagonsLost}).`,'bad');
+  }
+  if(S.renown>=12&&!S.actOne){ S.actOne=true; queueModal(()=>showModal('Act I — Proven',
+    `<p>Twelve contracts. The company has a name now, and a graveyard.</p><p class="hint">This is where alpha v0.1 ends its authored arc — play on. The war doesn’t stop because the demo does.</p>`,
+    [{label:'Play on',fn:()=>closeModal()}])); }
+  S.battle=null;
+  // a fought contract is consumed — won, lost, or fled
+  S.contracts=S.contracts.filter(c=>c.id!==B.contractId);
+  // a beaten map agent is gone from the map
+  if(B.agentId&&outcome==='victory')S.agents=S.agents.filter(a=>a.id!==B.agentId);
+  checkGameOver();
+  save(); render(); pumpModals();
+}
+function graveOfSoldier(id){ return S.graves.find(g=>g.soldierId===id&&['field','recovered'].includes(g.state)); }
+function relicModal(kind){
+  const f=FEATS[kind];
+  const eligible=S.roster.filter(s=>!s.feats.includes('ashfire')&&!s.feats.includes('veindrink'));
+  const sellP=25+(S.rep&&S.rep.conclave>=25?10:0)+(S.story&&S.story.heir==='casmir'?10:0);
+  showModal('Ash Relic',
+    `<p>In the wreckage: a relic, warm to the touch and faintly humming. <b>${f.n}</b>.</p>
+     <p class="hint">${esc(f.d)}</p>
+     <p class="hint">Grafting is surgery. It does not come out. And what dies grafted comes back grafted.</p>`,
+    eligible.map(s=>({label:`Graft into ${s.name} (Lv ${s.level}, RES ${s.res})`,cls:'pick',fn:()=>{
+      s.feats.push(kind);
+      log(`${s.name} takes the ${f.n}. The scar glows faintly in the dark.`,'blight');
+      closeModal(); }}))
+    .concat([{label:`Sell to a broker (+${sellP}c)`,fn:()=>{S.coin+=sellP;repAdd('conclave',2);closeModal();}}]));
+}
+function lootModal(wkey){
+  const w=WEAPONS[wkey];
+  const alive=S.roster;
+  if(!alive.length){closeModal();return;}
+  showModal('Salvage',`<p>Among the dead: a serviceable <b>${w.n}</b> (${w.lo}–${w.hi}${w.rng>1?', range '+w.rng:''}).</p>`,
+    alive.map(s=>({label:`Give to ${s.name} (${WEAPONS[s.weapon].n}${s.wMod?'+'+s.wMod:''})`,cls:'pick',fn:()=>{s.weapon=wkey;s.wMod=0;s.wName=null;closeModal();render();}}))
+    .concat([{label:'Sell (+12c)',fn:()=>{S.coin+=12;closeModal();render();}}]));
+}
+function ritesModal(g){
+  const bonded=g.bonds.map(id=>soldierById(id)).filter(Boolean);
+  const canBury=S.coin>=12;
+  return showModal(`Rites for ${g.name}`,
+    `<div class="scard"><div class="face">${faceSvg(g.face,{size:50})}</div><div class="sbody">
+     <p style="margin-top:0">${esc(g.name)} — ${esc(BACKSTORIES[g.bg].line)}</p><p class="hint">Unfinished: ${esc(g.hook)}.</p>
+     <p>The body is yours to answer for.</p></div></div>`,
+    [
+      {label:`Bury (12c) — ${S.regions[g.regionId].swallowed?'in ground the Blight already holds — she will not stay down':'safe, unless the ground itself is taken'}`,fn:()=>{ if(S.coin<12)return; S.coin-=12; g.state='buried'; repAdd('folk',1);
+        log(`${g.name} is buried in ${S.regions[g.regionId].name}.`);
+        if(S.regions[g.regionId].swallowed){ rise(g,'You buried her in ground the Blight already holds.'); }
+        closeModal(); }, disabled:!canBury, cls:'pick'},
+      {label:`Burn — denies the Blight forever; the company watches (−2 resolve, everyone)${bonded.length?`; ${bonded.map(b=>b.name).join(' & ')} take it harder (−3 more)`:''}`,fn:()=>{ g.state='burned';
+        S.roster.forEach(r=>{r.res=Math.max(10,r.res-2);});
+        bonded.forEach(b=>{b.res=Math.max(10,b.res-3);});
+        log(`${g.name} burns. Whatever she left unfinished stays that way. The company watches in silence.`,'bad'); closeModal(); }, cls:'pick'},
+      {label:`Sell to the Conclave (+${(S.rep&&S.rep.conclave>=25?40:30)+(S.story&&S.story.heir==='casmir'?10:0)}c) — they will send her back improved, and the company will know what you did`,cls:'pick',fn:()=>{ g.state='sold'; g.wasSold=true; S.coin+=(S.rep&&S.rep.conclave>=25?40:30)+(S.story&&S.story.heir==='casmir'?10:0);
+        S.roster.forEach(r=>{r.res=Math.max(10,r.res-2);});
+        repAdd('conclave',6); repAdd('folk',-3); repAdd('karsk',-2);
+        log(`You sell ${g.name}’s body to a Conclave broker. The coin spends the same. The company counts it anyway (−2 resolve, everyone).`,'blight'); closeModal(); }},
+    ]);
+}
+/* ---- enemy AI ---- */
+function maybeAI(){
+  const B=S.battle; if(!B||B.over)return;
+  if(activeModal){ setTimeout(maybeAI,300); return; }
+  const u=curUnit(B);
+  if(!u){ nextTurn(); return; }
+  if(u.kind!=='foe')return;
+  setTimeout(()=>{ aiAct(u); },520);
+}
+function aiAct(u){
+  const B=S.battle; if(!B||B.over||curUnit(B)!==u){ if(B&&!B.over)render(); return; }
+  if(activeModal){ setTimeout(()=>aiAct(u),300); return; }
+  const w=wOf(u);
+  const pcs=B.units.filter(t=>t.kind==='pc'&&t.hp>0&&!t.fled);
+  const charges=B.units.filter(t=>t.kind==='ally'&&t.hp>0);
+  if(!pcs.length&&!charges.length){ checkEnd(B); return; }
+  const near=(a,b)=>(Math.abs(a.x-u.x)+Math.abs(a.y-u.y))-(Math.abs(b.x-u.x)+Math.abs(b.y-u.y));
+  let target=null;
+  if(u.graveId){
+    // the revenant reads the field: charges first, then the bonded, then the isolated
+    const g=S.graves.find(x=>x.id===u.graveId);
+    if((B.obj==='protect'||B.obj==='escort')&&charges.length&&chance(65)){
+      target=charges.slice().sort(near)[0];
+      if(!u.spoke){u.spoke=true;blog(B,`${u.name} ignores your line and goes for what you’re paid to keep alive. She always did read a field well.`);}
+    } else {
+      target=pcs.find(t=>g&&g.bonds.includes(t.ref))||null;
+      if(!target&&pcs.length){
+        target=pcs.slice().sort((a,b)=>(adjAllies(B,a)-adjAllies(B,b))||(a.hp-b.hp))[0];
+      }
+    }
+    // wounded, she slips to cover instead of trading blows
+    if(u.hp<u.maxhp*0.4&&pcs.some(t=>adjacent(u,t))){
+      const cov=reachable(B,u).filter(t2=>coverAt(B,t2)&&!pcs.some(p=>Math.abs(p.x-t2.x)+Math.abs(p.y-t2.y)<=1));
+      if(cov.length){const c2=pick(cov);u.x=c2.x;u.y=c2.y;blog(B,`${u.name} slips behind cover, bleeding, patient.`);}
+    }
+  } else if((B.obj==='protect'||B.obj==='escort')&&charges.length&&chance(45)){
+    target=charges.slice().sort(near)[0];
+  }
+  const inRange=attackTargets(B,u);
+  if(!target){
+    const pool=pcs.concat(charges);
+    target=inRange.sort((a,b)=>a.hp-b.hp)[0]||pool.sort(near)[0];
+  }
+  // archers back away from blades at their throat
+  if(w.rng>1&&pcs.some(t=>distC(u,t)<2)){
+    const steps=reachable(B,u);
+    if(steps.length){
+      steps.sort((a,b)=>distC(b,target)-distC(a,target));
+      if(distC(steps[0],target)>distC(u,target)){u.x=steps[0].x;u.y=steps[0].y;}
+    }
+  }
+  // move toward target if can't hit
+  if(!inRange.includes(target)){
+    const steps=reachable(B,u);
+    if(steps.length){
+      steps.sort((a,b)=>(Math.abs(a.x-target.x)+Math.abs(a.y-target.y))-(Math.abs(b.x-target.x)+Math.abs(b.y-target.y)));
+      // ranged units keep distance if already in range
+      const best=steps[0];
+      if(!(w.rng>1&&distC(u,target)<=w.rng)){ u.x=best.x;u.y=best.y; }
+    }
+  }
+  const nowRange=attackTargets(B,u);
+  const hit=nowRange.includes(target)?target:(nowRange.sort((a,b)=>a.hp-b.hp)[0]||null);
+  if(hit) doAttack(B,u,hit);
+  if(!B.over){ render(); nextTurn(); }
+}
+
+/* ============================== STORY: THE COMMANDER & THE PRINCESS ============================== */
+let SNK=null; // sneak minigame state, transient
+const PRINCESS_FACE={skin:3,hair:1,hc:0,eyes:0,mouth:1,extra:0};
+const cmdr=()=>S.roster.find(s=>s.commander);
+function introScene(){
+  const c=cmdr(); if(!c){closeModal();return;}
+  S.story.stage=1;
+  showModal('The Banner and the Debt',
+    `<div class="scard"><div class="face">${faceSvg(c.face,{size:56})}</div><div class="sbody">
+     <p><b>${esc(c.name)}</b> took the banner when the old captain fell — and took the company's debts with it. One of them is still out there, unburied.</p>
+     <p class="hint">Rumor: in <b>Karsk Gate</b>, the princess <b>Maren</b> quietly pays for discreet swords. The court does not receive the nameless — but palaces have more doors than the front one. Reach Karsk Gate and find one.</p>
+     </div></div>`,
+    [{label:'Take up the banner',cls:'primary',fn:()=>closeModal()}]);
+}
+window.SNEAK=function(){ startSneak(); };
+function startSneak(){
+  if(S.battle||S.over)return;
+  const c=cmdr(); if(!c)return;
+  SNK={w:11,h:7,px:0,py:3,over:false,
+    pillars:[],guards:[
+      {x:4,y:1,wps:[[4,1],[4,5]],wi:1,dx:0,dy:1},
+      {x:7,y:5,wps:[[7,5],[7,1]],wi:1,dx:0,dy:-1},
+      {x:9,y:3,wps:[[9,3],[6,3]],wi:1,dx:-1,dy:0},
+    ]};
+  const taken=new Set(['0,3','10,3']);
+  SNK.guards.forEach(g=>g.wps.forEach(([x,y])=>taken.add(x+','+y)));
+  let guard=0;
+  while(SNK.pillars.length<8&&guard++<80){
+    const x=ri(2,8),y=ri(0,6),k=x+','+y;
+    if(!taken.has(k)){taken.add(k);SNK.pillars.push({x,y});}
+  }
+  log('Night. The Commander goes over the palace wall alone.');
+  render();
+}
+function snkPillar(x,y){return SNK.pillars.some(p=>p.x===x&&p.y===y);}
+function snkVision(){
+  const v=new Set();
+  for(const g of SNK.guards){
+    for(let i=1;i<=3;i++){
+      const x=g.x+g.dx*i,y=g.y+g.dy*i;
+      if(x<0||y<0||x>=SNK.w||y>=SNK.h)break;
+      if(snkPillar(x,y))break;
+      v.add(x+','+y);
+    }
+    const dg=g.dx===0?[[1,g.dy],[-1,g.dy]]:[[g.dx,1],[g.dx,-1]];
+    for(const d of dg){ const x=g.x+d[0],y=g.y+d[1];
+      if(x>=0&&y>=0&&x<SNK.w&&y<SNK.h&&!snkPillar(x,y))v.add(x+','+y); }
+  }
+  return v;
+}
+function snkAfterMove(){
+  if(SNK.px===SNK.w-1&&SNK.py===3){ sneakSuccess(); return; }
+  for(const g of SNK.guards){
+    const t=g.wps[g.wi];
+    if(g.x===t[0]&&g.y===t[1])g.wi=(g.wi+1)%g.wps.length;
+    const n=g.wps[g.wi];
+    const dx=Math.sign(n[0]-g.x),dy=Math.sign(n[1]-g.y);
+    if(dx||dy){g.dx=dx;g.dy=dy;g.x+=dx;g.y+=dy;}
+  }
+  const seen=snkVision().has(SNK.px+','+SNK.py)||SNK.guards.some(g=>g.x===SNK.px&&g.y===SNK.py);
+  if(seen){ sneakCaught(); return; }
+  render();
+}
+window.SNKCLICK=function(x,y){
+  if(!SNK||SNK.over||activeModal)return;
+  const d=Math.abs(x-SNK.px)+Math.abs(y-SNK.py);
+  if(d<1||d>2)return;
+  if(snkPillar(x,y)||SNK.guards.some(g=>g.x===x&&g.y===y))return;
+  SNK.px=x;SNK.py=y;
+  snkAfterMove();
+};
+window.SNKWAIT=function(){ if(!SNK||SNK.over||activeModal)return; snkAfterMove(); };
+window.SNKABORT=function(){ SNK=null; log('The Commander slips back over the wall. Another night, then.'); render(); };
+function sneakCaught(){
+  SNK=null;
+  const fine=Math.min(S.coin,10); S.coin-=fine;
+  const c=cmdr(); if(c)c.res=Math.max(10,c.res-2);
+  log(`Caught. A night in the gatehouse cells, ${fine}c in “consideration”, a bruised pride (−2 resolve).`,'bad');
+  showModal('Caught',
+    `<p>A halberd taps the Commander’s shoulder in the dark. A night in the cells, ${fine}c to the watch sergeant, and out the gate at dawn.</p><p class="hint">Two days pass. The guards change. You can try again.</p>`,
+    [{label:'Dawn',fn:()=>{closeModal(); advanceDays(2);}}]);
+}
+function sneakSuccess(){
+  SNK=null;
+  S.story.stage=2; S.coin+=60;
+  save();
+  showModal('The Princess Maren',
+    `<div class="scard"><div class="face">${faceSvg(PRINCESS_FACE,{size:56})}</div><div class="sbody">
+     <p>She does not call the guards. She was, it turns out, expecting someone like you — just not through the window.</p>
+     <p>“The High Magister Vell writes letters he burns after sealing. I have read the ashes. He corresponds with the schism — the order that <i>made</i> the Blight. The crown’s own arch-mage feeds the thing eating the kingdom, and no one at court can be told, because half of them would tell <b>him</b>.”</p>
+     <p>“I need swords with no house and no name to lose. Bring me proof — the Conclave’s letters travel with their acolytes.”</p>
+     <p class="hint">+60c retainer. Objective: win purge or delve contracts — Conclave correspondence may surface.</p>
+     </div></div>`,
+    [{label:'The company serves',cls:'primary',fn:()=>closeModal()}]);
+  log('Audience gained. The princess Maren names the High Magister Vell — the Blight has a patron at court. Bring her proof.','wk');
+}
+window.PALACE2=function(){
+  if(!S.story||S.story.stage!==3)return;
+  showModal('The Princess Maren',
+    `<div class="scard"><div class="face">${faceSvg(PRINCESS_FACE,{size:56})}</div><div class="sbody">
+     <p>No window this time. A side door, a quiet steward, and the letters spread on her table.</p>
+     <p>“This hand. I know this hand.” She is quiet for a long moment. “He moves his correspondence by courier now — a blade of his own, an escort of the faithful, riding the pass road by night and fog. Cut off that hand, Commander. Bring me what it carries.”</p>
+     <p class="hint">A set-piece contract will be posted to your map — the purple mark. Fog, a narrow pass, and a named blade in the middle of it.</p>
+     </div></div>`,
+    [{label:'The company rides',cls:'primary',fn:()=>{closeModal(); postCourierContract();}}]);
+};
+function postCourierContract(){
+  const roads=Object.values(S.hexes).filter(h=>h.road&&h.setl===null&&(h.region===3||h.region===1));
+  const a=roads.length?pick(roads):contractAnchor(1,'patrol');
+  S.contracts.push({id:nid(),type:'patrol',cname:'The Magister’s Courier',regionId:hex(a.q,a.r).region,pay:120,danger:3,
+    q:a.q,r:a.r,expires:S.week+99,obj:'assassinate',story:'courier',
+    comp:['acolyte','acolyte','archer','graveguard'],leader:'graveguard',leaderName:'The Magister’s Blade',
+    weatherLock:'fog',layout:'pass'});
+  S.story.stage=4;
+  log('Posted: The Magister’s Courier — a night road, a fog, a blade with a list. The purple mark on the map.','wk');
+  save(); render();
+}
+function satchelScene(){
+  S.coin+=80; S.renown+=2;
+  spawnAgent('hunters',randomWildHex(),{str:12});
+  // the meeting under the barrow — three weeks hence, and it will not wait for you
+  let barrows=Object.values(S.hexes).filter(h=>h.feat==='barrow');
+  if(!barrows.length){ const h=randomWildHex(); if(h){h.feat='barrow'; barrows=[h];} }
+  const bh=pick(barrows);
+  S.story.meetWeek=S.week+3;
+  S.story.meetHex={q:bh.q,r:bh.r};
+  log(`The satchel names a meeting: under the barrow in ${S.regions[bh.region].name}, week ${S.story.meetWeek}. Be there — hidden, armed — or it happens without witnesses.`,'wk');
+  showModal('The Courier’s Satchel',
+    `<p>Inside: names. Dates. A meeting place under a barrow, three weeks hence. And one line in the Magister’s precise, unhurried hand:</p>
+     <div class="callout">“The mercenaries. Find what they love.”</div>
+     <p>He knows your banner now.</p>
+     <p class="hint">+80c through Maren’s channels, +2 renown. Grey riders — the Magister’s Hunters — now walk the March, and they are looking for you. Act III arrives in a future build.</p>`,
+    [{label:'Burn everything but the names',cls:'primary',fn:()=>closeModal()}]);
+  log('The Magister’s Blade is dead; his letters are yours. Somewhere in Karsk Gate, a precise, unhurried man writes your company’s name.','blight');
+}
+window.PALACE3=function(){
+  if(!S.story||S.story.stage!==6)return;
+  const missed=!!S.story.missedBarrow;
+  showModal('Three Doors in the Palace',
+    `<div class="scard"><div class="face">${faceSvg(PRINCESS_FACE,{size:56})}</div><div class="sbody">
+     <p>${missed?'You come with letters but no ledger — enough to whisper, not enough to shout.':'The ledger sits on the table between you like a drawn blade.'} Maren lays it out plainly: her father will not last the season, and nothing reaches his bed that an heir does not carry.</p>
+     <p>“So choose whose hands, Commander. Mine are one pair of three.”</p></div></div>`,
+    [{label:'PRINCE ALDRIC — the soldier. “Proof wins nothing a wall can’t.” Quest: hold the ford road against the Blight. Perk: a second royal column patrols the March, and armor comes at quartermaster’s rates.',cls:'pick',fn:()=>{closeModal();chooseHeir('aldric');}},
+     {label:'PRINCESS MAREN — the knife in the archive. Quest: seize the Collegium archive and drag Vell into the light. Perk: +15 Karsk standing and a 10c weekly palace stipend.',cls:'pick',fn:()=>{closeModal();chooseHeir('maren');}},
+     {label:'PRINCE CASMIR — the dealmaker. “Stasis is survival, at the right price.” Quest: hand him the evidence, quietly, past the Hunters. Perk: +15 Conclave standing; bodies and relics sell +10c. The Folk will hear of it (−5).',cls:'pick',fn:()=>{closeModal();chooseHeir('casmir');}},
+     {label:'Not yet',fn:()=>closeModal()}]);
+};
+function chooseHeir(h){
+  S.story.heir=h; S.story.stage=7;
+  if(h==='maren')repAdd('karsk',15);
+  if(h==='casmir'){repAdd('conclave',15);repAdd('folk',-5);}
+  if(h==='aldric'){
+    S.agents.filter(a=>a.kind==='army').forEach(a=>a.str=16);
+    spawnAgent('army',{q:REGION_DEFS[1].q,r:REGION_DEFS[1].r},{str:16,stops:[5,2,1]});
+    log('Aldric’s second column takes the southern roads.','good');
+  }
+  postHeirQuest(h);
+}
+function postHeirQuest(h){
+  let c;
+  if(h==='aldric'){
+    const road=Object.values(S.hexes).filter(x=>x.road&&x.region===1&&x.setl===null);
+    const a=road.length?pick(road):contractAnchor(1,'hold');
+    c={id:nid(),type:'hold',cname:'The Ford Must Hold',regionId:1,pay:140,danger:3,q:a.q,r:a.r,expires:S.week+99,
+       obj:'survive',story:'heir',comp:['husk','husk','hound','graveguard','acolyte']};
+  } else if(h==='maren'){
+    const a=contractAnchor(3,'purge')||contractAnchor(1,'purge');
+    c={id:nid(),type:'purge',cname:'The Collegium Archive',regionId:hex(a.q,a.r).region,pay:150,danger:3,q:a.q,r:a.r,expires:S.week+99,
+       obj:'capture',story:'heir',comp:['acolyte','acolyte','archer','graveguard']};
+  } else {
+    const a=contractAnchor(5,'patrol')||contractAnchor(2,'patrol');
+    c={id:nid(),type:'patrol',cname:'The Quiet Handoff',regionId:hex(a.q,a.r).region,pay:200,danger:3,q:a.q,r:a.r,expires:S.week+99,
+       obj:'protect',story:'heir',caravanRaid:true,comp:['acolyte','acolyte','archer','graveguard'],weatherLock:'fog'};
+  }
+  S.contracts.push(c);
+  log(`Posted: ${c.cname} — the heir’s price, in purple on the map.`,'wk');
+  save(); render();
+}
+function heirEpilogue(){
+  S.story.stage=8; S.renown+=3;
+  const h=S.story.heir;
+  const txt=h==='aldric'?'Fordstead’s road holds. Aldric’s captains drink to a mercenary banner for the first time in living memory — and a prince now owes you a wall.'
+    :h==='maren'?'The archive’s seals crack open like an egg. Vell’s correspondence rides to Maren by three separate couriers — and by morning the Collegium is answering questions it cannot survive.'
+    :'Casmir takes the evidence with two fingers, like something wet. “Wise,” he says. The coin is very good. Somewhere, the Folk bury their dead alone.';
+  showModal('The Heir’s Debt',
+    `<p>${txt}</p>
+     <div class="callout">“The King has asked for the bedside candles. Whatever is decided in that room, the March will bleed for it.”</div>
+     <p class="hint">+3 renown. Act III part 1 is closed. The deathbed — and the finale — arrive in a future build.</p>`,
+    [{label:'The company endures',cls:'primary',fn:()=>closeModal()}]);
+  log('Act III part 1 closes: an heir is chosen, a debt is owed, and the candles at the King’s bedside are lit.','wk');
+}
+function checkBarrow(){
+  if(!S.story||S.story.stage!==5||!S.story.meetHex||S.battle)return false;
+  if(S.week!==S.story.meetWeek)return false;
+  if(S.caravan.q!==S.story.meetHex.q||S.caravan.r!==S.story.meetHex.r)return false;
+  queueModal(()=>showModal('Lanterns Under the Barrow',
+    `<p>Below the mound: lantern-light, two parties, one table of stone. A grey rider of the Magister’s — and across from him, robes the color of a bruise. The Conclave sent an Envoy.</p>
+     <p>They are trading names for bodies. Yours is one of the names.</p>
+     <p class="hint">⚑ Cut Off the Head — kill <b>The Grey Envoy</b>. The escort is half the Magister’s, half the grave’s.</p>`,
+    [{label:'Go down into the dark',cls:'danger',fn:()=>{closeModal(); pickSquad(sq=>startBattle({
+        id:nid(),type:'putdown',cname:'The Barrow Meeting',regionId:hex(S.caravan.q,S.caravan.r).region,
+        pay:150,danger:3,obj:'assassinate',story:'barrow',
+        comp:['acolyte','acolyte','husk','husk','graveguard'],leader:'acolyte',leaderName:'The Grey Envoy',
+        weatherLock:'ashhaze',layout:'pass'},sq));}},
+     {label:'Withdraw quietly',fn:()=>{closeModal(); log('You climb back out of the dark. The meeting goes on below. The week is not over yet.','blight');}}]));
+  render(); pumpModals();
+  return true;
+}
+function ledgerScene(){
+  S.story.stage=6; S.coin+=150; S.renown+=3;
+  S.agents.filter(a=>a.kind==='hunters').forEach(a=>a.str=14);
+  showModal('The Envoy’s Ledger',
+    `<p>The Grey Envoy carried a ledger: payments, bodies, dates — the Magister’s hand on one page, the Conclave’s seal on the facing one. Bound together. Undeniable.</p>
+     <div class="callout">“The King must see this. But the King is dying — and three heirs are listening at his door.”</div>
+     <p class="hint">+150c, +3 renown. Act II is closed. The Hunters that remain ride harder now. Act III — the succession, and who inherits the Blight — arrives in a future build.</p>`,
+    [{label:'Wrap it in oilcloth, next to the letters',cls:'primary',fn:()=>closeModal()}]);
+  log('Act II closes: the Envoy is dead and the ledger is yours. The war for the March is about to become a war for the crown.','wk');
+}
+function whisperEvent(s){
+  s.whispered=true;
+  showModal(`${s.name} — The Whisper`,
+    `<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
+     <p>${esc(s.name)} has started answering the graft when it talks. Quietly. At night. It is asking to be <i>used</i>.</p></div></div>`,
+    [{label:'Indulge it — let it feed (+1 SKL, +1 corruption)',cls:'pick',fn:()=>{s.skl++;addCorruption(s,1);log(`${s.name} lets the graft feed. Her hands are steadier. Her eyes are worse.`,'blight');closeModal();}},
+     {label:'Help her fight it (−2 resolve, −1 corruption)',cls:'pick',fn:()=>{s.res=Math.max(10,s.res-2);s.corr=Math.max(0,s.corr-1);log(`${s.name} grits through the whispering. It costs her sleep.`,'good');closeModal();}},
+     {label:`Excise it — surgeon’s knife (30c, −2 max HP, graft removed)${atSettlement()===null?' — needs a settlement':''}`,cls:'pick',disabled:atSettlement()===null||S.coin<30,fn:()=>{S.coin-=30;s.maxhp=Math.max(6,s.maxhp-2);s.hp=Math.min(s.hp,s.maxhp);s.feats=s.feats.filter(f=>!FEATS[f].ash);s.corr=0;s.whispered=false;s.demanded=false;log(`The surgeon takes the graft out of ${s.name}. Some of ${s.name} comes out with it.`,'bad');closeModal();}}]);
+}
+function demandEvent(s){
+  s.demanded=true;
+  showModal(`${s.name} — The Demand`,
+    `<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
+     <p>The graft has stopped whispering and started <i>negotiating</i>. It wants a promise from ${esc(s.name)} — and through her, from you.</p>
+     <p class="hint">Promise it, and she fights like something unchained. But a promise to the Ash is an unfinished story — and you know where unfinished stories go.</p></div></div>`,
+    [{label:'Make the promise (+2 damage, permanently; her revenant will rise stronger)',cls:'pick',fn:()=>{s.dmgBonus=(s.dmgBonus||0)+2; s.ashPromised=true; log(`${s.name} promises. The graft goes warm and quiet, like something fed.`,'blight');closeModal();}},
+     {label:'Refuse for her (4 damage, −3 resolve)',cls:'pick',fn:()=>{s.hp=Math.max(1,s.hp-4);s.res=Math.max(10,s.res-3);log(`${s.name} refuses. The graft takes its answer out of her flesh.`,'bad');closeModal();}},
+     {label:`Excise it — surgeon’s knife (50c, −2 max HP, graft removed)${atSettlement()===null?' — needs a settlement':''}`,cls:'pick',disabled:atSettlement()===null||S.coin<50,fn:()=>{S.coin-=50;s.maxhp=Math.max(6,s.maxhp-2);s.hp=Math.min(s.hp,s.maxhp);s.feats=s.feats.filter(f=>!FEATS[f].ash);s.corr=0;s.whispered=false;s.demanded=false;log(`The surgeon earns every coin. ${s.name} keeps her soul and loses the fire.`,'bad');closeModal();}}]);
+}
+function renderSneak(){
+  const vis=snkVision();
+  const SS=clamp(Math.floor((Math.min(window.innerWidth,900)-16)/SNK.w),26,44);
+  let grid=`<div id="grid" style="--ss:${SS}px;grid-template-columns:repeat(${SNK.w},${SS}px)">`;
+  for(let y=0;y<SNK.h;y++)for(let x=0;x<SNK.w;x++){
+    const pil=snkPillar(x,y);
+    const g=SNK.guards.find(g=>g.x===x&&g.y===y);
+    const isv=vis.has(x+','+y);
+    const exit=x===SNK.w-1&&y===3;
+    const d=Math.abs(x-SNK.px)+Math.abs(y-SNK.py);
+    const can=!pil&&!g&&d>=1&&d<=2;
+    grid+=`<div class="stile ${pil?'pillar':''} ${isv?'vis':''} ${exit?'exitd':''} ${can?'canmove':''}" onclick="SNKCLICK(${x},${y})" title="${pil?'pillar — blocks their sight':isv?'torchlight — a guard watches this tile':exit?'the door to her chambers':''}">`;
+    if(pil)grid+='<span class="glyph" style="color:#5c5545">▓</span>';
+    if(exit)grid+='<span class="glyph" style="color:#c9a227">➤</span>';
+    if(g){ const arrow=g.dx===1?'→':g.dx===-1?'←':g.dy===1?'↓':'↑';
+      grid+=`<span class="glyph" style="color:#d98074;font-weight:bold">♟${arrow}</span>`; }
+    if(SNK.px===x&&SNK.py===y){ const c=cmdr(); grid+=`<span class="glyph">${c?faceSvg(c.face,{size:Math.round(SS*0.7)}):'☺'}</span>`; }
+    grid+='</div>';
+  }
+  grid+='</div>';
+  return `<div id="battleTop"><h1>🕯 The Palace of Karsk Gate</h1><span class="hint">move up to 2 tiles, then the watch moves</span>
+      <span style="flex:1"></span>
+      <button onclick="SNKWAIT()">Hold still</button>
+      <button class="danger" onclick="SNKABORT()">Slip away</button></div>
+    <div id="battleWrap">${grid}
+      <div class="col" id="sidePanel"><h2>The only rule</h2>
+        <div class="card"><div class="hint">Stay out of the red torchlight. Pillars ▓ block their sight. Guards ♟ walk their rounds — the arrow is where they look. Reach the gold door ➤.</div></div>
+      </div></div>`;
+}
+/* ============================== MODALS ============================== */
+function queueModal(fn){ modalQ.push(fn); pumpModals(); }
+function pumpModals(){ if(activeModal||!modalQ.length)return; const fn=modalQ.shift(); fn(); }
+function showModal(title,html,btns){
+  activeModal={title,html,btns};
+  render();
+}
+function closeModal(){ activeModal=null; save(); render(); pumpModals(); if(S.battle)maybeAI(); }
+
+/* ============================== RENDER ============================== */
+function render(){
+  const app=document.getElementById('app');
+  if(!S){app.innerHTML='';return;}
+  let html='';
+  if(S.over) html=renderGameOver();
+  else if(S.battle) html=renderBattle();
+  else if(SNK) html=renderSneak();
+  else html=renderCompany();
+  if(activeModal){
+    html+=`<div id="modalBack"><div id="modal"><h2>${esc(activeModal.title)}</h2>${activeModal.html}
+      <div class="btns">${activeModal.btns.map((b,i)=>`<button class="${b.cls||''}" ${b.disabled?'disabled':''} onclick="MODALBTN(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
+  }
+  app.innerHTML=html;
+  const lg=document.getElementById('log'); if(lg)lg.scrollTop=0;
+  playFx();
+}
+function playFx(){
+  const grid=document.getElementById('grid');
+  if(!grid){fx=[];return;}
+  const px=(x,y)=>({left:x*(TSCUR+1)+4,top:y*(TSCUR+1)+4});
+  for(const e of fx){
+    if(e.type==='flash'||e.type==='dodge'){
+      const el=grid.querySelector(`[data-uid="${e.uid}"]`);
+      if(el){el.classList.add(e.type==='flash'?'hitflash':'dodge'); setTimeout(()=>el.classList.remove('hitflash','dodge'),500);}
+    } else if(e.type==='float'){
+      const p=px(e.x,e.y); const el=document.createElement('div');
+      el.className='fxfloat'; el.textContent=e.txt; el.style.left=(p.left+10)+'px'; el.style.top=p.top+'px'; el.style.color=e.color||'#d8cdb8';
+      grid.appendChild(el); setTimeout(()=>el.remove(),850);
+    } else if(e.type==='arrow'){
+      const a=px(e.fx,e.fy), b=px(e.tx,e.ty);
+      const el=document.createElement('div'); el.className='fxarrow';
+      const ang=Math.atan2(b.top-a.top,b.left-a.left)*180/Math.PI;
+      el.style.transform='rotate('+ang+'deg)';
+      el.style.left=(a.left+14)+'px'; el.style.top=(a.top+20)+'px';
+      grid.appendChild(el);
+      requestAnimationFrame(()=>{ el.style.left=(b.left+14)+'px'; el.style.top=(b.top+20)+'px'; });
+      setTimeout(()=>el.remove(),280);
+    }
+  }
+  fx=[];
+}
+window.MODALBTN=function(i){ const b=activeModal&&activeModal.btns[i]; if(b&&!b.disabled)b.fn(); };
+window.MTAB=function(t){ mobileTab=t; render(); };
+function mobileTabBar(){
+  const t=(id,ic,lb)=>`<button class="${mobileTab===id?'on':''}" onclick="MTAB('${id}')">${ic} ${lb}</button>`;
+  return `<div id="mtabs">${t('map','⚔','March')}${t('company','👥','Company')}${t('camp','📜','Camp')}</div>`;
+}
+// one-time: tap-to-reveal tooltips (touch has no hover) + re-render tactical views on resize
+(function(){
+  const toast=document.createElement('div'); toast.id='tiptoast'; document.body.appendChild(toast);
+  let th;
+  document.addEventListener('click',e=>{
+    const el=e.target.closest&&e.target.closest('[data-tip]');
+    if(!el)return;
+    toast.textContent=el.getAttribute('data-tip');
+    toast.classList.add('show');
+    clearTimeout(th); th=setTimeout(()=>toast.classList.remove('show'),3600);
+  },true);
+  let rz; window.addEventListener('resize',()=>{ clearTimeout(rz); rz=setTimeout(()=>{ if(S)render(); },150); });
+})();
+function header(){
+  const h=caravanHex();
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.11</span>
+    <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
+    <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
+    <span class="stat">Coin <b>${S.coin}</b></span>
+    <span class="stat">Provisions <b>${S.prov}</b></span><span class="stat">Renown <b>${S.renown}</b></span>
+    <span style="flex:1"></span><button onclick="NEWGAME()">New Company</button></div>`;
+}
+function hexPts(cx,cy,s){let p=[];for(let i=0;i<6;i++){const a=Math.PI/180*(60*i);p.push((cx+s*Math.cos(a)).toFixed(1)+','+(cy+s*Math.sin(a)).toFixed(1));}return p.join(' ');}
+function hexCenter(q,r){const s=HXS;return{x:s*1.5*q+s+2,y:s*Math.sqrt(3)*(r+0.5*(q%2))+s+2};}
+function hexTitle(h){
+  const reg=S.regions[h.region];
+  let t=hexDesc(h)+' — '+(reg.swallowed?'SWALLOWED':'pressure '+reg.pressure);
+  if(h.road)t+=' · road';
+  if(h.blighted)t+=' · blighted';
+  const c=S.contracts.find(c=>c.q===h.q&&c.r===h.r);
+  if(c)t+=' · CONTRACT: '+CONTRACT_TYPES[c.type].n+' ('+c.pay+'c)';
+  for(const a of S.agents.filter(a=>a.q===h.q&&a.r===h.r)){
+    t+=' · '+(a.kind==='army'?'Karsk column':a.kind==='horde'?'Blight horde':a.kind==='revenant'?'YOUR DEAD WALKS HERE':'brigands');
+  }
+  return t;
+}
+function hexArt(h,x,y){
+  const P='pointer-events="none"';
+  let a='';
+  if(h.setl!==null){
+    a+=`<g ${P}><rect x="${x-8}" y="${y-2}" width="8" height="7" fill="#5a4a35" stroke="#17130e"/><path d="M${x-9} ${y-2} L${x-4} ${y-8} L${x+1} ${y-2} Z" fill="#7a5a3a" stroke="#17130e"/>
+      <rect x="${x+1}" y="${y}" width="7" height="5" fill="#4c3f2d" stroke="#17130e"/><path d="M${x} ${y} L${x+4.5} ${y-5} L${x+9} ${y} Z" fill="#6b4f33" stroke="#17130e"/></g>`;
+  } else if(h.t==='mountain'){
+    a+=`<g ${P}><path d="M${x-10} ${y+7} L${x-2} ${y-8} L${x+4} ${y+7} Z" fill="#524b3f" stroke="#17130e" stroke-width="1.2"/>
+      <path d="M${x-4.5} ${y-3.5} L${x-2} ${y-8} L${x+0.5} ${y-3.5} Z" fill="#8a8578"/>
+      <path d="M${x+1} ${y+7} L${x+7} ${y-3} L${x+12} ${y+7} Z" fill="#453f35" stroke="#17130e"/></g>`;
+  } else if(h.t==='forest'){
+    a+=`<g ${P}><path d="M${x-7} ${y+6} L${x-3.5} ${y-5} L${x} ${y+6} Z" fill="#31402a" stroke="#141a10"/>
+      <path d="M${x+1} ${y+8} L${x+5} ${y-2} L${x+9} ${y+8} Z" fill="#2a3823" stroke="#141a10"/></g>`;
+  } else if(h.t==='hills'){
+    a+=`<g ${P} stroke="#4c4436" stroke-width="1.6" fill="none"><path d="M${x-9} ${y+4} q4.5 -7 9 0"/><path d="M${x+1} ${y+7} q4 -6 8 0"/></g>`;
+  } else if(h.t==='marsh'){
+    a+=`<g ${P} stroke="#4a5a4e" stroke-width="1.3"><path d="M${x-5} ${y+5} v-8 M${x-2} ${y+6} v-10 M${x+1} ${y+5} v-7"/><path d="M${x-8} ${y+7} h6 M${x+4} ${y+6} h6" stroke="#3d4a42"/></g>`;
+  }
+  if(h.feat==='ruin')a+=`<g ${P}><rect x="${x-6}" y="${y-4}" width="3.5" height="10" fill="#5c5548" stroke="#17130e" transform="rotate(-7 ${x-4} ${y})"/><rect x="${x+2}" y="${y-1}" width="3.5" height="7" fill="#524b3f" stroke="#17130e" transform="rotate(9 ${x+4} ${y+2})"/></g>`;
+  if(h.feat==='shrine')a+=`<g ${P} stroke="#8a8578" stroke-width="1.8"><path d="M${x} ${y+6} v-11 M${x-4} ${y-1.5} h8"/></g>`;
+  if(h.feat==='barrow')a+=`<g ${P}><path d="M${x-8} ${y+5} q8 -12 16 0 Z" fill="#4a4234" stroke="#17130e"/><circle cx="${x}" cy="${y+3}" r="1.8" fill="#17130e"/></g>`;
+  if(h.feat==='battlefield')a+=`<g ${P} stroke="#6b6353" stroke-width="1.6"><path d="M${x-6} ${y+5} L${x+5} ${y-6} M${x+5} ${y+5} L${x-6} ${y-6}"/></g>`;
+  if(h.feat==='watchtower')a+=`<g ${P}><rect x="${x-3}" y="${y-8}" width="6" height="14" fill="#524b3f" stroke="#17130e"/><path d="M${x-4.5} ${y-8} h2.5 v-2.5 h1.8 v2.5 h2.5 v-2.5 h1.8 v2.5 h2.4" stroke="#17130e" fill="none"/></g>`;
+  if(h.blighted)a+=`<g ${P} opacity=".75"><path d="M${x-8} ${y+8} q4 -10 2 -16 M${x+7} ${y+9} q-5 -8 -1 -15" stroke="#7a4fa3" stroke-width="1.4" fill="none"/><circle cx="${x+4}" cy="${y-6}" r="1.5" fill="#9a6fc9"/></g>`;
+  return a;
+}
+function hexSvg(){
+  const TC={plains:'#2e2a20',forest:'#26301f',hills:'#37322a',marsh:'#28302c',mountain:'#453f35'};
+  let out='<defs><radialGradient id="vig" cx="50%" cy="42%" r="78%"><stop offset="60%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,.45)"/></radialGradient></defs>',glyphs='';
+  for(const k in S.hexes){
+    const h=S.hexes[k];const{x,y}=hexCenter(h.q,h.r);
+    let fill=h.blighted?'#2c2138':TC[h.t];
+    if(h.setl!==null&&!h.blighted)fill='#3d352a';
+    const seld=sel===k;
+    out+=`<g onclick="HEX(${h.q},${h.r})" style="cursor:pointer"><title>${esc(hexTitle(h))}</title>
+      <polygon points="${hexPts(x,y,HXS-0.8)}" fill="${fill}" stroke="${seld?'#c9a227':'#191612'}" stroke-width="${seld?2.2:1}"/></g>`;
+    glyphs+=hexArt(h,x,y);
+    if(h.setl!==null)glyphs+=`<text x="${x}" y="${y+HXS-3}" class="hx" style="fill:#c9b48a;font-size:8.5px">${esc(REGION_DEFS[h.setl].s)}</text>`;
+  }
+  // roads drawn as visible tracks between adjacent road hexes
+  const segs=new Set();
+  for(const k in S.hexes){
+    const h=S.hexes[k]; if(!h.road)continue;
+    for(const nb of hexNbrs(h.q,h.r)){
+      if(!nb.road)continue;
+      const key=[k,hexKey(nb.q,nb.r)].sort().join('|');
+      if(segs.has(key))continue; segs.add(key);
+      const a=hexCenter(h.q,h.r),b2=hexCenter(nb.q,nb.r);
+      out+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b2.x.toFixed(1)}" y2="${b2.y.toFixed(1)}" stroke="#141109" stroke-width="6" stroke-linecap="round" pointer-events="none" opacity=".55"/>
+            <line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b2.x.toFixed(1)}" y2="${b2.y.toFixed(1)}" stroke="#8a6f45" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="7 4" pointer-events="none" opacity=".9"/>`;
+    }
+  }
+  out+=glyphs;
+  for(const c of S.contracts){const{x,y}=hexCenter(c.q,c.r);
+    out+=`<g onclick="HEX(${c.q},${c.r})" style="cursor:pointer"><circle cx="${x+HXS*0.5}" cy="${y-HXS*0.5}" r="${c.story?7:6}" fill="${c.story?'#b08bc9':'#c9a227'}" ${c.story?'stroke="#e8d9f5" stroke-width="1.2"':''}/><text x="${x+HXS*0.5}" y="${y-HXS*0.5+3.5}" class="hxC">!</text></g>`;}
+  const byHex={};
+  for(const a of S.agents){ (byHex[a.q+','+a.r]=byHex[a.q+','+a.r]||[]).push(a); }
+  for(const k2 in byHex) byHex[k2].forEach((a,idx)=>{
+    const c0=hexCenter(a.q,a.r);
+    const ox=c0.x+(idx?9*idx-4:0), oy=c0.y-(idx?6:0);
+    const col=a.kind==='army'?'#7d93a3':a.kind==='revenant'?'#c9a9e0':a.kind==='horde'?'#9a6fc9':a.kind==='hunters'?'#5ab3c9':'#d9604a';
+    const g=a.kind==='army'?'♞':a.kind==='horde'?'☠':a.kind==='revenant'?'⚰':a.kind==='hunters'?'⚚':'⚑';
+    out+=`<g pointer-events="none">
+      ${a.kind==='revenant'?`<circle cx="${ox}" cy="${oy}" r="11" fill="none" stroke="#b08bc9" stroke-width="1.3" opacity=".6"/>`:''}
+      <circle cx="${ox}" cy="${oy}" r="8.5" fill="#12100c" stroke="${col}" stroke-width="1.8"/>
+      <text x="${ox}" y="${oy+4}" style="font-size:11.5px;fill:${col};text-anchor:middle;font-weight:bold">${g}</text></g>`;
+  });
+  if(S.story&&S.story.stage===5&&S.story.meetHex&&S.week<=S.story.meetWeek){
+    const{x,y}=hexCenter(S.story.meetHex.q,S.story.meetHex.r);
+    out+=`<g pointer-events="none"><circle cx="${x}" cy="${y}" r="12" fill="none" stroke="#b08bc9" stroke-width="1.6" stroke-dasharray="4 3"><animate attributeName="r" values="10;13;10" dur="2.4s" repeatCount="indefinite"/></circle>
+      <text x="${x}" y="${y-14}" style="font-size:9px;fill:#c9a9e0;text-anchor:middle">wk ${S.story.meetWeek}</text></g>`;
+  }
+  {const{x,y}=hexCenter(S.caravan.q,S.caravan.r);
+    out+=`<g pointer-events="none"><circle cx="${x}" cy="${y}" r="10" fill="#12100c" stroke="#c9a227" stroke-width="2"/>
+      <text x="${x}" y="${y+5}" style="font-size:13px;text-anchor:middle">⛺</text></g>`;}
+  if(sel){const [q,r]=sel.split(',').map(Number);const p=hexPath(S.caravan,{q,r});
+    if(p&&p.length>1){let d='';p.forEach((st,i)=>{const c=hexCenter(st.q,st.r);d+=(i?'L':'M')+c.x.toFixed(1)+' '+c.y.toFixed(1)+' ';});
+      out+=`<path d="${d}" fill="none" stroke="#c9a227" stroke-width="1.5" stroke-dasharray="4 3" pointer-events="none"/>`;}}
+  const W=HXS*1.5*COLS+HXS, Hh=HXS*Math.sqrt(3)*(ROWS+0.5)+HXS;
+  return `<svg viewBox="0 0 ${W.toFixed(0)} ${Hh.toFixed(0)}" style="width:100%;background:#131009;border:1px solid var(--line);border-radius:4px;box-shadow:inset 0 0 30px rgba(0,0,0,.5)">${out}<rect width="100%" height="100%" fill="url(#vig)" pointer-events="none"/></svg>`;
+}
+window.NEWGAME=function(){ if(confirm('Raise a new banner? The current company is abandoned to the record.')) newGame(); };
+function soldierCard(s,inHire,idx){
+  const bg=bgOf(s);
+  const bondTxt=s.bonds.map(b=>{const o=soldierById(b.id);return o?`${o.name} (${b.type})`:null;}).filter(Boolean).join(', ');
+  const nextArm=ARMORS[s.armor+1];
+  return `<div class="card scard">
+    <div class="face">${faceSvg(s.face,{size:46})}</div>
+    <div class="sbody">
+      <span class="nm">${esc(s.name)}</span>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag">${esc(bg.tag)}</span> <span class="tag">Lv ${s.level}</span>
+      ${s.gravetempered?'<span class="tag revtag tt" data-tip="Watched one of their own laid to rest: +10 resolve, permanently.">gravetempered</span>':''}
+      <div class="bg">${esc(bg.line)}</div>
+      <div class="hpbar"><div style="width:${Math.round(100*s.hp/s.maxhp)}%"></div></div>
+      <div class="wline">${WPN_ICON[s.weapon]||'⚔'} <span class="tt" data-tip="${esc(wpnTip(s.weapon,s.wMod))}">${esc(s.wName||WEAPONS[s.weapon].n)}${s.wMod?' +'+s.wMod:''}</span> · 🛡 <span class="tt" data-tip="${esc(armorTip(s.armor))}">${ARMORS[s.armor].n}</span></div>
+      <div class="statline"><span class="tt" data-tip="${esc(STAT_TIPS.hp)}">HP ${s.hp}/${s.maxhp}</span> · <span class="tt" data-tip="${esc(STAT_TIPS.skl)}">SKL ${s.skl}</span> · <span class="tt" data-tip="${esc(STAT_TIPS.spd)}">SPD ${s.spd}</span> · <span class="tt" data-tip="${esc(STAT_TIPS.res)}">RES ${s.res}</span></div>
+      ${s.feats.length?`<div class="featline">✦ ${featChips(s.feats)}</div>`:''}
+      ${bondTxt?`<div class="bond">Bound: ${esc(bondTxt)}</div>`:''}
+      ${s.traits&&s.traits.length?`<div class="featline traitchip">${s.traits.map(t=>`<span class="tt" data-tip="${esc(TRAITS[t].d)}">${TRAITS[t].n}</span>`).join(' · ')}</div>`:''}
+      ${s.corr?`<div class="featline corrchip"><span class="tt" data-tip="Corruption: the graft feeds on use. At 4 and 7 it takes something back — and her revenant will be stronger for it.">Corruption ${s.corr}</span></div>`:''}
+      ${inHire?`<button ${S.coin<hireCost(s)?'disabled':''} onclick="HIRE(${idx})">Hire — ${hireCost(s)}c</button>`
+              :(nextArm?`<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${nextArm.n} (${armorCost(s.armor+1)}c)</button>`:'')}
+    </div>
+  </div>`;
+}
+window.HIRE=hire; window.BUYARM=buyArmor; window.BUYPROV=buyProv; window.WEEK=()=>advanceDays(7);
+function renderCompany(){
+  const ch=caravanHex();
+  const setl=atSettlement();
+  const graves=S.graves.slice().reverse();
+  const risen=S.graves.filter(g=>g.state==='risen');
+  return header()+mobileTabBar()+`<div id="main" data-mtab="${mobileTab}">
+    <div class="col" id="rosterCol"><h2>The Company (${S.roster.length}/6)</h2>
+      ${S.roster.map(s=>soldierCard(s,false)).join('')||'<p class="hint">No one left. Hire, or the banner falls.</p>'}
+      <h2 style="margin-top:12px">Sellswords for hire</h2>
+      ${setl!==null?(S.hirePool.map((h,i)=>soldierCard(h,true,i)).join('')||'<p class="hint">No one this week.</p>'):'<p class="hint">Sellswords wait in towns, not on the road. Reach a ⌂ settlement.</p>'}
+    </div>
+    <div class="col" id="mapCol"><h2>The March</h2>
+      ${hexSvg()}
+      <div class="hint" style="margin-top:4px">Tap any hex to inspect it. <span style="color:var(--gold)">!</span> contract · ⚑ brigands · ☠ Blight horde · ♞ Karsk column · ⚰ your dead · ⛺ the caravan. Purple ground is His.</div>
+      ${sel?`<div class="mobileonly">${selectedPanel()}</div>`:''}
+    </div>
+    <div class="col" id="sideCol">
+      <h2>Caravan</h2>
+      <div class="card">
+        <div class="statline">⛺ ${esc(hexDesc(ch))}</div>
+        <div style="margin-top:6px">
+          <button class="primary" onclick="WEEK()">Rest a week</button>
+          <button onclick="BUYPROV()" ${setl===null||S.coin<provCost()?'disabled':''} title="${setl===null?'Markets are in settlements':''}">Provisions ×5 (${provCost()}c)</button>
+        </div>
+        <div class="hint" style="margin-top:5px">Weekly: wages 3c/head, 1 provision/head, wounds mend. The world moves while you rest — and while you travel.</div>
+        ${S.story&&S.story.stage===1&&setl===3&&cmdr()?`<button class="storybtn" onclick="SNEAK()">🕯 The Palace — the princess pays for discreet swords. Find a way in.</button>`:''}
+        ${S.story&&S.story.stage===1&&setl!==3?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: reach <b>Karsk Gate</b> — the princess Maren pays for discreet swords.</div>`:''}
+        ${S.story&&S.story.stage===2?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: bring Maren proof — win purge or delve contracts to intercept Conclave letters.</div>`:''}
+        ${S.story&&S.story.stage===3&&setl===3&&cmdr()?`<button class="storybtn" onclick="PALACE2()">🕯 The Palace — she is expecting you this time.</button>`:''}
+        ${S.story&&S.story.stage===3&&setl!==3?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: bring the letters to <b>Maren at Karsk Gate</b>. She is expecting you this time.</div>`:''}
+        ${S.story&&S.story.stage===4?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: strike <b>The Magister’s Courier</b> — the purple mark on the map. Fog, a pass, a named blade.</div>`:''}
+        ${S.story&&S.story.stage===5&&S.story.meetWeek?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: the meeting under the barrow (pulsing mark) — <b>week ${S.story.meetWeek}</b>${S.week<S.story.meetWeek?`, ${S.story.meetWeek-S.week} week${S.story.meetWeek-S.week>1?'s':''} out`:S.week===S.story.meetWeek?' — <b>this week. Be on that hex.</b>':''}. Miss it and it happens without witnesses.</div>`:''}
+        ${S.story&&S.story.stage===6&&setl===3&&cmdr()?`<button class="storybtn" onclick="PALACE3()">🕯 The Palace — three heirs, one ledger. Choose whose hands.</button>`:''}
+        ${S.story&&S.story.stage===6&&setl!==3?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: ${S.story.missedBarrow?'the meeting happened without witnesses — what you still hold must reach':'the Envoy’s ledger must reach'} <b>the palace at Karsk Gate</b>. The King is dying, and three heirs are listening.</div>`:''}
+        ${S.story&&S.story.stage===7?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: the heir’s price — <b>${S.story.heir==='aldric'?'The Ford Must Hold':S.story.heir==='maren'?'The Collegium Archive':'The Quiet Handoff'}</b>, the purple mark on the map.</div>`:''}
+        ${S.story&&S.story.stage>=8?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: the heir owes you a debt, and the candles at the King’s bedside are lit. The finale awaits a future build.</div>`:''}
+      </div>
+      ${selectedPanel()}
+      <h2>Standing</h2>
+      <div class="card">${repRow('Karsk','karsk','#7d93a3')}${repRow('The Folk','folk','#9ab86f')}${repRow('The Conclave','conclave','#b08bc9')}</div>
+      <h2>Contracts</h2>
+      ${S.contracts.map(c=>`<div class="statline" style="cursor:pointer" onclick="HEX(${c.q},${c.r})"><span style="color:${c.story?'#b08bc9':'var(--gold)'}">!</span> ${esc(c.cname||CONTRACT_TYPES[c.type].n)} <span class="hint">(${OBJECTIVES[c.obj||'slay'].n})</span> — <span class="pay">${c.pay}c</span> · ${esc(S.regions[c.regionId].name)}</div>`).join('')||'<p class="hint">Nothing posted. Rest a week.</p>'}
+      <h2 style="margin-top:8px">Rumors</h2>
+      ${risen.map(g=>`<div class="statline" style="color:#b08bc9;cursor:pointer" onclick="${(()=>{const a=S.agents.find(a=>a.kind==='revenant'&&a.graveId===g.id);return a?`HEX(${a.q},${a.r})`:''})()}">⚰ ${esc(g.name)} walks ${esc(S.regions[g.regionId].name)}${g.iter?` · improved ×${g.iter}`:''} — <i>${esc(g.hook)}</i></div>`).join('')||'<p class="hint">Your dead are quiet — the ones you kept.</p>'}
+      <h2 style="margin-top:8px">Grave ledger</h2>
+      ${graves.length?graves.map(g=>`<div class="statline">⚰ ${esc(g.name)} — <i>${g.state}</i>${g.state==='rest'?' ✓':''}</div>`).join(''):'<p class="hint">Empty. It won’t stay that way.</p>'}
+    </div>
+  </div>
+  <div id="log">${S.log.map(l=>{const ic=l.cls==='wk'?'✦':l.cls==='bad'?'✖':l.cls==='good'?'✓':l.cls==='blight'?'⚰':'·';return `<p class="${l.cls}"><span class="lgi">${ic}</span>${l.msg}</p>`;}).join('')}</div>
+  <div class="footer">You will fight everyone you fail to protect.</div>`;
+}
+function repRow(nm,key,col){
+  const v=S.rep?(S.rep[key]||0):0;
+  const pct=Math.min(50,Math.abs(v)/60*50);
+  const side=v>=0?`left:50%;width:${pct}%`:`right:50%;width:${pct}%`;
+  return `<div class="statline"><span class="tt" data-tip="${nm}: ${v>=25?'favored — better pay and prices':v<=-25?'cold — worse pay and prices':'neutral'}. Moved by contracts kept and broken, rites, relics, and what you kill on the roads.">${nm}</span> <span class="hint">${v>0?'+':''}${v}</span></div><div class="repbar"><div style="${side};background:${col}"></div></div>`;
+}
+function selectedPanel(){
+  if(!sel)return `<div class="card"><div class="hint">Select a hex on the map to see what waits there.</div></div>`;
+  const parts=sel.split(',').map(Number);
+  const h=hex(parts[0],parts[1]); if(!h){sel=null;return '';}
+  const q=h.q,r=h.r;
+  const reg=S.regions[h.region];
+  const c=S.contracts.find(c=>c.q===q&&c.r===r);
+  const ags=S.agents.filter(a=>a.q===q&&a.r===r);
+  const here=S.caravan.q===q&&S.caravan.r===r;
+  const p=here?null:hexPath(S.caravan,{q,r});
+  const dys=p&&p.length>1?travelDays(p):0;
+  let html=`<div class="card"><span class="nm">${esc(hexDesc(h))}</span>
+    <div class="statline">${esc(reg.name)} — ${reg.swallowed?'<span class="swallowed">SWALLOWED</span>':'pressure '+reg.pressure}${h.blighted?' · <span class="swallowed">blighted ground</span>':''}${h.road?' · road':''}</div>`;
+  if(h.feat)html+=`<div class="bg">${esc(FEAT_INFO[h.feat]||'')}</div>`;
+  for(const a of ags){
+    if(a.kind==='revenant'){const g=S.graves.find(g=>g.id===a.graveId);
+      html+=`<div class="bond">⚰ ${esc(g?g.name:'One of yours')}, Returned${g&&g.iter?` (improved ×${g.iter})`:''} — move onto her hex to force the confrontation. ${60+20*(g&&g.iter||0)}c to put her down.</div>`;}
+    else html+=`<div class="bg" style="color:${a.kind==='army'?'#7d93a3':'#d98074'}">${a.kind==='army'?'♞ A Karsk column holds this ground. The roads near it are safe.':a.kind==='horde'?'☠ A Blight horde, heading for the nearest town. Someone should stop it.':'⚑ A brigand warband (str '+a.str+'). It has noticed the caravan.'}</div>`;
+  }
+  if(c){const ct=CONTRACT_TYPES[c.type];const ob=OBJECTIVES[c.obj||'slay'];
+    html+=`<div style="margin-top:6px"><span class="nm" ${c.story?'style="color:#b08bc9"':''}>${esc(c.cname||ct.n)}</span> <span class="tag">${esc(c.story?'Maren':ct.employer)}</span>
+      <div class="bg">${esc(ct.desc.replace('{r}',reg.name))}</div>
+      <div class="bg" style="color:#c9b48a">⚑ ${ob.n} — ${esc(ob.d)}</div>
+      <div class="statline">Danger <span class="skull">${'☠'.repeat(c.danger)}</span> · <span class="pay">${c.pay}c</span> · ${here?'you are here':dys+' day'+(dys>1?'s':'')+' away'}</div>
+      <button class="primary" ${S.roster.length?'':'disabled'} onclick="TAKE(${c.id})">${here?'Muster and fight':'Take contract — ride out'}</button></div>`;
+  }
+  if(!here&&!c)html+=`<div style="margin-top:6px"><button onclick="TRAVEL(${q},${r})" ${p&&S.roster.length?'':'disabled'}>${p?`Travel here (${dys} day${dys>1?'s':''})`:'No road leads there'}</button></div>`;
+  html+='</div>';
+  return html;
+}
+window.HEX=function(q,r){ const k=hexKey(q,r); sel=(sel===k)?null:k; render(); };
+window.TAKE=function(cid){
+  const c=S.contracts.find(x=>x.id===cid); if(!c)return;
+  if(S.caravan.q===c.q&&S.caravan.r===c.r){ pickSquad(sq=>startBattle(c,sq)); return; }
+  travelTo(c.q,c.r,cid);
+};
+window.TRAVEL=function(q,r){ travelTo(q,r,null); };
+function pickSquad(cb){
+  const picked=new Set();
+  const build=()=>{
+    const list=S.roster.map(s=>`<button class="pick" onclick="TOG(${s.id})">${picked.has(s.id)?'☑':'☐'} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(WEAPONS[s.weapon].n)}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}</button>`).join('');
+    return `<p class="hint">Pick up to 4. The wounded die faster — and what dies unrecovered comes back.</p>${list}`;
+  };
+  window.TOG=function(id){ if(picked.has(id))picked.delete(id); else if(picked.size<4)picked.add(id); activeModal.html=build(); render(); };
+  showModal('Muster the squad',build(),[
+    {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; closeModal(); cb([...picked]); }},
+    {label:'Not yet',fn:()=>closeModal()}]);
+}
+function tileArt(t,x,y){
+  const v=(x*7+y*13)%4; // deterministic variation — stable across re-renders
+  if(t==='forest')return `<svg class="decor" viewBox="0 0 46 46">
+    <path d="M${12+v*2} 34 L${18+v*2} 14 L${24+v*2} 34 Z" fill="#1f2b18" stroke="#141a10" stroke-width="1.2"/>
+    <rect x="${17+v*2}" y="34" width="2.4" height="5" fill="#2b2118"/>
+    <path d="M${26+v} 38 L${31+v} 22 L${36+v} 38 Z" fill="#243019" stroke="#141a10" stroke-width="1"/>
+    <rect x="${30+v}" y="38" width="2" height="4" fill="#2b2118"/></svg>`;
+  if(t==='rock')return `<svg class="decor" viewBox="0 0 46 46">
+    <path d="M10 36 L${16+v} ${16+v} L30 ${13+v} L38 30 L32 38 L14 38 Z" fill="#4a443a" stroke="#17130e" stroke-width="1.5"/>
+    <path d="M${16+v} ${16+v} L26 26 L30 ${13+v}" fill="none" stroke="#5c5548" stroke-width="1.2"/></svg>`;
+  if(t==='blight')return `<svg class="decor" viewBox="0 0 46 46">
+    <ellipse class="bpool" cx="23" cy="${28+v}" rx="13" ry="6" fill="#4a3266" opacity=".7"/>
+    <circle cx="${15+v*3}" cy="${20+v}" r="1.6" fill="#9a6fc9" opacity=".8"/>
+    <circle cx="${30-v*2}" cy="${33-v}" r="1.3" fill="#b08bc9" opacity=".7"/>
+    <path d="M${18+v} ${28+v} q3 -9 8 -12" stroke="#6b4a95" stroke-width="1.3" fill="none" opacity=".8"/></svg>`;
+  if(t==='plain'&&v===0)return `<svg class="decor" viewBox="0 0 46 46">
+    <path d="M12 34 l2 -5 M16 35 l2 -4 M30 30 l2 -5 M34 32 l1.6 -4" stroke="#3d3722" stroke-width="1.3"/></svg>`;
+  return '';
+}
+function terrDesc(t){
+  return t==='forest'?'forest — attackers −15 to hit anyone here'
+    :t==='blight'?'blighted ground — 2 dmg each round to the living'
+    :t==='rock'?'rock — impassable':'open ground';
+}
+function renderBattle(){
+  const B=S.battle; const u=curUnit(B);
+  const isPC=u&&u.kind==='pc';
+  const narrow=window.innerWidth<760;
+  const availW=narrow?window.innerWidth-16:window.innerWidth-380;
+  const availH=narrow?window.innerHeight-320:window.innerHeight-260;
+  const TS=clamp(Math.floor(Math.min(availW/GW,availH/GH)),narrow?24:46,84);
+  TSCUR=TS;
+  const moves=isPC&&(!u.moved||!u.acted)?reachable(B,u):[];
+  const targets=isPC&&!u.acted&&!B.cast?attackTargets(B,u):[];
+  const casts=isPC&&B.cast&&!u.acted?B.units.filter(t=>t.hp>0&&!t.fled&&isEnemy(u,t)&&distC(u,t)<=(B.weather?3:4)&&hasLOS(B,u,t)):[];
+  // threat overlay for an inspected enemy: everywhere it could move + strike next turn
+  const iu=B.inspect?B.units.find(z=>z.uid===B.inspect&&z.hp>0&&!z.fled):null;
+  const threat=new Set();
+  if(iu){
+    const iw=wOf(iu);
+    const spots=[{x:iu.x,y:iu.y},...reachable(B,iu)];
+    for(const p of spots) for(let ty=0;ty<GH;ty++)for(let tx=0;tx<GW;tx++){
+      if(iw.rng===1?(Math.abs(tx-p.x)+Math.abs(ty-p.y)===1):(Math.max(Math.abs(tx-p.x),Math.abs(ty-p.y))<=iw.rng)) threat.add(tx+','+ty);
+    }
+  }
+  let grid=`<div id="grid" style="--ts:${TS}px;grid-template-columns:repeat(${GW},${TS}px)">`;
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+    const t=tileAt(B,x,y);
+    const un=unitAt(B,x,y);
+    const bd=!un&&bodyAt(B,x,y);
+    const mv=moves.some(m=>m.x===x&&m.y===y);
+    const atk=un&&targets.includes(un);
+    const hc=atk?hitChance(B,u,un):null;
+    let title=terrDesc(t.t);
+    if(un){
+      const uw=wOf(un);
+      title+=` — ${un.name} ${un.hp}/${un.maxhp}, ${uw.n}${uw.rng>1?' (range '+uw.rng+')':''}`;
+      if(un.defending)title+=', bracing';
+      if(un.shakenBy)title+=', SHAKEN';
+      if(un.rattled)title+=`, rattled×${un.rattled}`;
+      if(atk)title+=` — ${hc}% to hit`;
+      else if(un.kind!=='pc')title+=' — click to scout its range';
+    }
+    if(bd)title+=` — the body of ${bd.name}`;
+    const cst=un&&casts.includes(un);
+    const foggedU=un&&B.weather&&un.kind==='foe'&&!un.prop&&!B.units.some(p=>p.kind==='pc'&&p.hp>0&&!p.fled&&distC(p,un)<=5);
+    if(foggedU)title=terrDesc(t.t)+' — a shape in the murk';
+    const isObj=B.objTile&&B.objTile.x===x&&B.objTile.y===y;
+    if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
+    grid+=`<div class="tile ${t.t} ${(x+y)%2?'alt':''} ${mv?'moveable':''} ${atk&&!foggedU?'attackable':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(x+','+y)?'threat':''}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    grid+=tileArt(t.t,x,y);
+    if(un){
+      const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
+      const badge=un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
+      let inner;
+      const fsz=Math.round(TS*0.66);
+      if(foggedU)inner='?';
+      else if(un.kind==='pc'){ const ps=soldierById(un.ref); inner=ps&&ps.face?faceSvg(ps.face,{size:fsz}):esc(un.name[0]); }
+      else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):(un.face?faceSvg(un.face,{size:fsz}):'V');
+      else if(un.prop)inner=nestSvg(fsz);
+      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2&&g2.face?faceSvg(g2.face,{size:fsz,revenant:true}):esc(un.name[0]); }
+      else inner=enemyFace(un.ekey,fsz);
+      const cls2=un.kind==='ally'?'ally':cls;
+      const crown=(!foggedU&&B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
+      grid+=`<div class="unit ${cls2} ${foggedU?'fogged':''} ${u===un?'current':''} ${iu===un?'current':''}" data-uid="${un.uid}">${inner}${foggedU?'':badge}${crown}<div class="hp"><div style="width:${foggedU?0:Math.round(100*un.hp/un.maxhp)}%"></div></div></div>`;
+      if(atk)grid+=`<span class="hitpct">${hc}%</span>`;
+    } else if(bd){ grid+=`<div class="body">☠</div>`; }
+    grid+='</div>';
+  }
+  grid+=`${B.weather?'<div class="fogveil"></div>':''}</div>`;
+  const q=B.queue.map((id,i)=>{const z=B.units.find(x=>x.uid===id);if(!z||z.hp<=0||z.fled)return '';
+    return `<div class="qitem ${i===B.qi?'cur':''} ${z.graveId?'rev':''}">${i===B.qi?'▶ ':''}${esc(z.name)} (${z.hp})</div>`;}).join('');
+  const show=iu||u;
+  const sw=show?wOf(show):null;
+  let showFace='';
+  if(show){
+    if(show.kind==='pc'){const ps=soldierById(show.ref); if(ps&&ps.face)showFace=`<div class="face" style="float:right">${faceSvg(ps.face,{size:44})}</div>`;}
+    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2&&g2.face)showFace=`<div class="face revf" style="float:right">${faceSvg(g2.face,{size:44,revenant:true})}</div>`;}
+    else showFace=`<div class="face" style="float:right">${enemyFace(show.ekey,44)}</div>`;
+  }
+  const insp=show?`<div class="card">${showFace}<span class="nm">${esc(show.name)}</span>${iu?' <span class="tag revtag">scouting</span>':''}
+      <div class="statline">HP ${show.hp}/${show.maxhp} · SKL ${show.skl} · SPD ${show.spd}${show.shakenBy?' · <span class="skull">SHAKEN −10</span>':''}${show.rattled?' · rattled×'+show.rattled+' (−'+(show.rattled*5)+')':''}${show.defending?' · bracing':''}</div>
+      <div class="wline">${WPN_ICON[show.weapon]||'⚔'} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng:''}</div>
+      <div class="featline">✦ ${featChips(show.feats)}</div>
+      ${iu?`<div class="hint">Red-hatched tiles: everywhere it can reach and strike next turn. Click it again to dismiss.</div>`
+        :isPC?`<div class="hint">${B.cast?'ASHFIRE: click a purple-rimmed enemy within 4. ':''}${u.moved&&u.acted?'':'Click a gold tile to move'+(!u.acted?' — twice, if you skip your action (dash)':'')+'. '}${u.acted?'':'Click a red-rimmed enemy to strike (odds shown). '}Click any other enemy to scout its range.</div>`
+        :'<div class="hint">The enemy moves…</div>'}
+    </div>`:'';
+  const ct=CONTRACT_TYPES[B.type];
+  return `<div id="battleTop"><h1>⚔ ${B.cname||ct.n}</h1><span class="stat">Round <b>${B.round}</b></span>
+      <span class="stat" style="color:var(--gold)">⚑ <b>${OBJECTIVES[B.obj].n}</b>${B.obj==='survive'?` · ${Math.min(B.round,B.objRounds)}/${B.objRounds}`:B.obj==='capture'?` · held ${B.capProgress}/2`:''}</span>
+      ${B.weather?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Ranged attacks and ashfire are capped at range 3; enemies beyond 5 tiles are hidden">${B.weather==='fog'?'FOG':'ASH-HAZE'}</span>`:''}
+      ${isPC?`<span class="pips">Move ${u.moved?'—':'●'} · Action ${u.acted?'—':'●'}</span>`:'<span class="hint">enemy turn…</span>'}
+      <span style="flex:1"></span>
+      <button ${isPC&&!u.acted&&(u.feats.includes('ashfire')||(u.feats.includes('medic')&&!u.medicUsed))?'':'disabled'} onclick="MEDIC()" title="${isPC&&u&&u.feats.includes('ashfire')?'Spend your action: hurl ashfire — range 4, 4–7 dmg, ignores armor. Feeds the graft (+1 corruption).':'Spend your action: heal an adjacent ally 5 HP (once per battle)'}">${isPC&&u&&u.feats.includes('ashfire')?(B.cast?'Cancel Ashfire':'☄ Ashfire'):'Field Medic'}</button>
+      <button ${isPC&&!u.acted?'':'disabled'} onclick="DEFEND()" title="Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled)">Brace</button>
+      <button ${isPC?'':'disabled'} onclick="ENDT()">End Turn</button>
+      <button class="danger" ${isPC?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen comrades are carried out only if a living soldier stands beside their body.">Retreat</button></div>
+    <div id="battleWrap">${grid}
+      <div class="col" id="sidePanel"><h2>Initiative</h2>${q}<h2 style="margin-top:8px">Unit</h2>${insp}
+        <h2 style="margin-top:8px">Field log</h2><div style="font-size:12px;max-height:180px;overflow-y:auto">${B.log.map(m=>`<p style="margin:2px 0">${m}</p>`).join('')}</div>
+      </div></div>`;
+}
+window.TILE=function(x,y){
+  const B=S.battle; if(!B||B.over||activeModal)return;
+  const u=curUnit(B); if(!u||u.kind!=='pc')return;
+  const t=unitAt(B,x,y);
+  if(B.cast&&t&&isEnemy(u,t)&&!u.acted&&distC(u,t)<=(B.weather?3:4)&&hasLOS(B,u,t)){
+    doCast(B,u,t);
+    if(!B.over){ render(); if(u.acted&&u.moved) endUnitTurn(); }
+    return;
+  }
+  if(t&&isEnemy(u,t)){
+    if(B.weather&&t.kind==='foe'&&!B.units.some(p=>p.kind==='pc'&&p.hp>0&&!p.fled&&distC(p,t)<=5))return; // just a shape in the murk
+    if(!u.acted&&attackTargets(B,u).includes(t)){ tryAttack(t.uid); return; }
+    B.inspect=(B.inspect===t.uid)?null:t.uid; render(); return;  // scout its range instead
+  }
+  B.inspect=null;
+  tryMove(x,y);
+};
+window.DEFEND=defend; window.ENDT=endUnitTurn; window.RETREAT=retreat; window.MEDIC=useAbility;
+function renderGameOver(){
+  const walking=S.graves.filter(g=>g.state==='risen');
+  return header()+`<div id="main"><div class="col" style="flex:1">
+    <h1>This is how the company died.</h1>
+    <p>Week ${S.week}. Renown ${S.renown}. ${S.graves.length} graves in the ledger.</p>
+    <h2>Chronicle</h2>
+    ${S.chronicle.map(c=>`<p class="bg">${esc(c)}</p>`).join('')||'<p class="hint">A short story.</p>'}
+    ${walking.length?`<h2>Still walking</h2><p class="bond">${walking.map(g=>esc(g.name)).join(', ')} — unresolved, improving, wearing your colors. Someone else’s problem now.</p>`:''}
+    <p style="margin-top:14px;font-style:italic">You fought everyone you failed to protect. In the end, that was everyone.</p>
+    <button class="primary" onclick="NEWGAME()">Raise a new banner</button>
+  </div></div>`;
+}
+
+/* ============================== BOOT ============================== */
+window.G={ get state(){return S;}, newGame, advanceDays, weeklyTick, startBattle, save, load,
+  soldierById, rise, graves:()=>S.graves, dbgKill:(id)=>{const s=soldierById(id); if(s){S.battle=null; killSoldier(s); S.graves[S.graves.length-1].state='lost'; render();}} };
+if(!load()) newGame();
+else {
+  log('The record resumes.','wk');
+  // self-heal interrupted choices: rites and feat picks owed from before a reload
+  for(const g of S.graves){ if(g.state==='recovered') queueModal(()=>ritesModal(g)); }
+  for(const s of S.roster){ (s.pendingFeats||[]).forEach(p=>queueModal(()=>featModal(s,p.opts.filter(f=>!s.feats.includes(f)),p.stat))); }
+  render(); pumpModals();
+}
+</script>
+</body>
+</html>
