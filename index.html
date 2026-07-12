@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.14</title>
+<title>GRAVEBORNE — alpha v0.15</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -88,7 +88,12 @@
   /* battle */
   #battleTop{display:flex;gap:14px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
   #battleWrap{display:flex;gap:10px;padding:10px;align-items:flex-start;flex-wrap:wrap}
-  #grid{display:grid;gap:1px;background:#000;border:1px solid var(--line)}
+  #gridwrap{max-width:100%;max-height:68vh;overflow:auto;border:1px solid var(--line);border-radius:3px;background:#0c0a07}
+  #grid{display:grid;gap:1px;background:#000;width:max-content}
+  .tile.hi{filter:brightness(1.14);box-shadow:inset 0 2px 0 rgba(201,162,39,.28),inset 0 0 0 1px rgba(0,0,0,.25)}
+  .tile.lo{filter:brightness(.8);box-shadow:inset 0 0 9px rgba(0,0,0,.55)}
+  .tile.fogseen{filter:brightness(.42) saturate(.5)}
+  .tile.fogdark{background:#0c0a07 !important;cursor:default}
   .tile{width:var(--ts,46px);height:var(--ts,46px);background:#26221a;position:relative;cursor:pointer;font-size:11px}
   .tile.castable{outline:2px solid rgba(122,79,163,.8);outline-offset:-2px}
   .repbar{height:7px;background:#221d15;border:1px solid var(--line);border-radius:2px;position:relative;margin:2px 0 7px}
@@ -1038,7 +1043,68 @@ function featModal(s,opts,stat){
 }
 
 /* ============================== BATTLE ============================== */
-const GW=13,GH=8;
+let GW=13,GH=8; // set per-battle by genBattleMap (variable-size maps)
+// battle tile features — single-tile scale (a wagon fills ~3x3 of these)
+const BT={ grass:{}, road:{}, bridge:{}, brush:{cover:10}, tree:{cover:15,los:true,mv:2},
+  boulder:{block:true,los:true}, rubble:{block:true,los:true}, column:{block:true,los:true},
+  stone:{block:true,los:true}, water:{block:true} };
+const bImpass=t=>!!(BT[t]&&BT[t].block);
+const bLOS=t=>!!(BT[t]&&BT[t].los);
+const bCover=t=>(BT[t]&&BT[t].cover)||0;
+const bMv=t=>(BT[t]&&BT[t].mv)||1;
+function elevAt(B,x,y){const t=tileAt(B,x,y);return t?(t.elev||1):1;}
+function genBattleMap(B,bhex,region){
+  GW=ri(19,24); GH=ri(13,16);
+  B.tiles=[];
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)B.tiles.push({x,y,t:'grass',elev:1,blighted:false});
+  const T=(x,y)=>(x>=0&&y>=0&&x<GW&&y<GH)?B.tiles[y*GW+x]:null;
+  const randOpen=()=>{ for(let i=0;i<50;i++){ const t=T(ri(2,GW-3),ri(1,GH-2)); if(t&&t.t==='grass')return t;} return null; };
+  const blobFeat=(feat,size)=>{ let t=randOpen(); if(!t)return; const g=[t]; t.t=feat; for(let i=0;i<size;i++){ const b=pick(g),n=T(clamp(b.x+ri(-1,1),0,GW-1),clamp(b.y+ri(-1,1),0,GH-1)); if(n&&n.t==='grass'){n.t=feat;g.push(n);} } };
+  const blobElev=(e,size)=>{ let t=randOpen(); if(!t)return; const g=[t]; t.elev=e; for(let i=0;i<size;i++){ const b=pick(g),n=T(clamp(b.x+ri(-1,1),0,GW-1),clamp(b.y+ri(-1,1),0,GH-1)); if(n){n.elev=e;g.push(n);} } };
+  let theme=B.mapTheme;
+  if(!theme){
+    if(B.obj==='reclaim')theme='ritual';
+    else if(B.type==='delve'||B.obj==='burn')theme='ruins';
+    else if(B.obj==='escort')theme=chance(55)?'river':'fields';
+    else if(bhex.t==='forest')theme='woods';
+    else if(['hills','mountain'].includes(bhex.t))theme=chance(50)?'pass':'ruins';
+    else if(bhex.t==='marsh')theme='river';
+    else theme=pick(['fields','fields','ruins','ritual','river','woods']);
+  }
+  B.mapTheme=theme;
+  for(let i=0;i<ri(4,8);i++)blobFeat('brush',ri(2,4));
+  for(let i=0;i<ri(2,5);i++)blobFeat('tree',ri(1,3));
+  for(let i=0;i<ri(2,4);i++){const t=randOpen(); if(t)t.t='boulder';}
+  if(theme==='river'){
+    const x0=2,y0=1,x1=GW-3,y1=GH-2,L2=((x1-x0)**2+(y1-y0)**2)||1;
+    for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){ const tt=((x-x0)*(x1-x0)+(y-y0)*(y1-y0))/L2,px=x0+tt*(x1-x0),py=y0+tt*(y1-y0);
+      if(tt>=-0.03&&tt<=1.03&&Math.hypot(x-px,y-py)<1.35){T(x,y).t='water';} }
+    [0.3,0.68].forEach(f=>{ const bx=Math.round(x0+f*(x1-x0)),by=Math.round(y0+f*(y1-y0));
+      for(let ox=0;ox<=1;ox++)for(let o=-2;o<=2;o++){ const t=T(clamp(bx+ox,0,GW-1),clamp(by+o,0,GH-1)); if(t&&t.t==='water')t.t='bridge'; } });
+    B.bridges=[0.3,0.68].map(f=>({x:Math.round(x0+f*(x1-x0)),y:Math.round(y0+f*(y1-y0))}));
+  } else if(theme==='ruins'){
+    for(let i=0;i<ri(4,6);i++)blobFeat('rubble',ri(3,7));
+    for(let i=0;i<ri(3,6);i++){const t=randOpen(); if(t)t.t='column';}
+    for(let i=0;i<ri(2,3);i++)blobElev(0,ri(3,5));
+    for(let i=0;i<ri(1,2);i++)blobElev(2,ri(2,4));
+  } else if(theme==='ritual'){
+    const cx=Math.floor(GW*0.62),cy=Math.floor(GH/2);
+    for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){ const d=Math.hypot(x-cx,y-cy); if(d<3.3)T(x,y).elev=2; else if(d<4.6&&chance(40))T(x,y).elev=2; }
+    for(let a=0;a<9;a++){ const t=T(clamp(Math.round(cx+Math.cos(a/9*6.283)*4),0,GW-1),clamp(Math.round(cy+Math.sin(a/9*6.283)*4),0,GH-1)); if(t&&t.t==='grass'&&chance(70))t.t='stone'; }
+    B.ritualCenter={x:cx,y:cy};
+  } else if(theme==='pass'){
+    for(let x=2;x<=GW-3;x++){ if(chance(70))T(x,0).t='boulder'; if(chance(45))T(x,1).t='boulder'; if(chance(70))T(x,GH-1).t='boulder'; if(chance(45))T(x,GH-2).t='boulder'; }
+    for(let i=0;i<ri(1,3);i++)blobElev(2,ri(2,4));
+  } else if(theme==='woods'){
+    for(let i=0;i<ri(8,12);i++)blobFeat('tree',ri(2,5));
+  } else { for(let i=0;i<ri(3,6);i++)blobFeat('brush',ri(2,4)); }
+  const pB=(bhex.blighted||bhex.t==='marsh')?18:(region.pressure>=50?9:region.pressure>=30?4:0);
+  if(pB){ const bx=chance(50)?0:GW-1; const n=Math.floor(GW*GH*pB/100); for(let i=0;i<n;i++){ const t=T(clamp(bx+ri(-3,3),0,GW-1),ri(0,GH-1)); if(t&&(t.t==='grass'||t.t==='brush'))t.blighted=true; } }
+  for(let y=0;y<GH;y++){ [0,1,GW-2,GW-1].forEach(x=>{const t=T(x,y); if(t&&bImpass(t.t))t.t='grass';}); }
+  B.seen={};
+  return theme;
+}
+function placeOpen(B,x0,x1){ for(let tries=0;tries<80;tries++){ const x=ri(x0,x1),y=ri(0,GH-1); if(!bImpass(tileAt(B,x,y).t)&&!unitAt(B,x,y))return {x,y}; } return {x:x0,y:0}; }
 function startBattle(contract,squadIds){
   const region=S.regions[contract.regionId];
   const ct=CONTRACT_TYPES[contract.type];
@@ -1047,52 +1113,37 @@ function startBattle(contract,squadIds){
            pay:contract.pay,agentId:contract.agentId||null,
            obj:contract.obj||'slay',objRounds:6,capProgress:0,objFailed:false,objTile:null,weather:null,aim:null,leaderStyle:null,
            poolKeys:CONTRACT_TYPES[contract.type].pool,caravanRaid:!!contract.caravanRaid,wagonsLost:0,
-           cname:contract.cname||null,storyBeat:contract.story||null,leaderUid:null,nestUid:null};
-  // terrain keyed to the caravan's hex — you fight on the ground you're standing on
+           cname:contract.cname||null,storyBeat:contract.story||null,leaderUid:null,nestUid:null,mapTheme:null,seen:{}};
   const bhex=hex(S.caravan.q,S.caravan.r)||{t:'plains',blighted:false};
   B.weather=contract.weatherLock!==undefined?contract.weatherLock
            :bhex.blighted?(chance(40)?'ashhaze':null)
            :(['hills','marsh','mountain'].includes(bhex.t)?(chance(45)?'fog':null)
            :(chance(12)?'fog':null));
-  const pForest=bhex.t==='forest'?24:10;
-  const pRock=(bhex.t==='hills'||bhex.t==='mountain')?15:7;
-  const pBlight=(bhex.blighted||bhex.t==='marsh')?14:(region.pressure>=50?8:0);
-  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
-    let t='plain';
-    if(x>1&&x<GW-2){
-      const rd=Math.random()*100;
-      if(rd<pForest)t='forest'; else if(rd<pForest+pRock)t='rock'; else if(rd<pForest+pRock+pBlight)t='blight';
-    }
-    B.tiles.push({x,y,t});
-  }
-  // scenario dressing — the map tells the mission's story
-  const clearTile=(x,y)=>{const tl=tileAt(B,x,y); if(tl&&tl.t==='rock')tl.t='plain';};
-  if(contract.layout==='pass'||['hills','mountain'].includes(bhex.t)&&(B.obj==='slay'||B.obj==='escort'||B.obj==='assassinate')){
-    for(let x=3;x<=GW-4;x++){ // a mountain pass: walls funnel the fight
-      if(chance(75))tileAt(B,x,0).t='rock';
-      if(chance(50))tileAt(B,x,1).t='rock';
-      if(chance(75))tileAt(B,x,GH-1).t='rock';
-      if(chance(50))tileAt(B,x,GH-2).t='rock';
-    }
-  }
+  if(contract.layout==='pass')B.mapTheme='pass';
+  genBattleMap(B,bhex,region);
+  // escort lays a road lane across the field (bridging any water on it)
   if(B.obj==='escort'){
-    for(let x=0;x<GW;x++){clearTile(x,3);clearTile(x,4);}
-    spawnProp(B,'wagon',1,4);
+    const ly=Math.floor(GH/2);
+    for(let x=0;x<GW;x++){ const t=tileAt(B,x,ly); if(t.t==='water')t.t='bridge'; else if(bImpass(t.t))t.t='grass'; if(t.t==='grass')t.t='road'; }
+    spawnProp(B,'wagon',1,ly);
   }
   if(B.obj==='protect'){
-    if(B.caravanRaid){ spawnProp(B,'wagon',2,3); spawnProp(B,'wagon',3,5); }
-    else { spawnProp(B,'villager',4,3); spawnProp(B,'villager',5,5); tileAt(B,4,2).t='rock'; tileAt(B,5,6).t='rock'; }
+    const cy=Math.floor(GH/2), cx=Math.floor(GW/2);
+    if(B.caravanRaid){ spawnProp(B,'wagon',cx-1,cy-1); spawnProp(B,'wagon',cx,cy+1); }
+    else { spawnProp(B,'villager',cx-1,cy-1); spawnProp(B,'villager',cx,cy+1); }
   }
   if(B.obj==='capture'){
-    const ox=GW-4, oy=ri(2,GH-3);
-    B.objTile={x:ox,y:oy}; clearTile(ox,oy);
-    [[ox-1,oy-1],[ox+1,oy+1],[ox+1,oy-1]].forEach(p2=>{const tl=tileAt(B,p2[0],p2[1]); if(tl&&chance(60))tl.t='rock';});
+    const c=B.ritualCenter||{x:Math.floor(GW*0.62),y:ri(2,GH-3)};
+    B.objTile={x:c.x,y:c.y}; const t=tileAt(B,c.x,c.y); if(t&&bImpass(t.t))t.t='grass';
   }
-  // player units
+  // player units — deploy in the left columns, spread around centre
+  const pcy0=Math.max(0,Math.floor(GH/2)-Math.ceil(squadIds.length/2));
   squadIds.forEach((id,i)=>{
     const s=soldierById(id);
+    let px=i%2, py=clamp(pcy0+Math.floor(i/2)+ (i%2)*0, 0, GH-1);
+    for(let tries=0;tries<30&&(bImpass(tileAt(B,px,py).t)||unitAt(B,px,py));tries++){py=clamp(py+1,0,GH-1); if(py===GH-1)px=(px+1)%2;}
     B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,
-      weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:i%2,y:1+Math.floor(i/2)*2,
+      weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
       moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
   });
   // enemies — flank deployments when there's something to protect; authored comps for set-pieces
@@ -1122,10 +1173,10 @@ function startBattle(contract,squadIds){
     }
   }
   if(B.obj==='burn'){
-    const nx=GW-3, ny=ri(2,GH-3);
-    const tl=tileAt(B,nx,ny); if(tl)tl.t='blight';
+    const p=placeOpen(B,Math.floor(GW*0.55),GW-2);
+    const tl=tileAt(B,p.x,p.y); if(tl){tl.t='grass';tl.blighted=true;}
     const nest={uid:nid(),kind:'foe',prop:true,ekey:'nest',name:'Blight-nest',hp:12,maxhp:12,skl:0,spd:0,res:99,
-      weapon:'shortsword',wMod:0,arm:1,feats:[],traits:[],undead:true,x:nx,y:ny,moved:true,acted:true,
+      weapon:'shortsword',wMod:0,arm:1,feats:[],traits:[],undead:true,x:p.x,y:p.y,moved:true,acted:true,
       shakenBy:null,rattled:0,reaper:0,xpv:6,graveId:null,fled:false};
     B.units.push(nest); B.nestUid=nest.uid;
   }
@@ -1159,14 +1210,14 @@ function placeFoe(B,u,flank){
       const y=chance(50)?ri(0,1):ri(GH-2,GH-1);
       const x=ri(4,GW-2);
       const tl=tileAt(B,x,y);
-      if(tl&&tl.t!=='rock'&&!unitAt(B,x,y)){u.x=x;u.y=y;return;}
+      if(tl&&!bImpass(tl.t)&&!unitAt(B,x,y)){u.x=x;u.y=y;return;}
     }
   }
   placeRight(B,u);
 }
 function spawnProp(B,kind,x,y){
   const wagon=kind==='wagon';
-  const tl=tileAt(B,x,y); if(tl)tl.t='plain';
+  const tl=tileAt(B,x,y); if(tl&&bImpass(tl.t))tl.t='grass';
   const old=unitAt(B,x,y); if(old)return;
   B.units.push({uid:nid(),kind:'ally',prop:wagon,name:wagon?'Wagon':'Villager',hp:wagon?10:4,maxhp:wagon?10:4,
     skl:0,spd:0,res:99,weapon:'shortsword',wMod:0,arm:wagon?1:0,feats:[],traits:[],undead:false,x,y,
@@ -1183,7 +1234,7 @@ function spawnRevenant(B,g){
 function placeRight(B,u){
   for(let tries=0;tries<60;tries++){
     const x=ri(GW-3,GW-1),y=ri(0,GH-1);
-    if(tileAt(B,x,y).t!=='rock'&&!unitAt(B,x,y)){u.x=x;u.y=y;return;}
+    if(!bImpass(tileAt(B,x,y).t)&&!unitAt(B,x,y)){u.x=x;u.y=y;return;}
   }
   u.x=GW-1;u.y=0;
 }
@@ -1213,7 +1264,7 @@ function nextTurn(){
 function blightTick(B){
   for(const u of B.units){
     if(u.hp<=0||u.fled)continue;
-    if(tileAt(B,u.x,u.y).t==='blight'&&!u.undead){ u.hp-=2; u.blightBit=true; blog(B,`${u.name} is seared by blighted ground (2).`);
+    if(tileAt(B,u.x,u.y).blighted&&!u.undead&&!u.prop){ u.hp-=2; u.blightBit=true; blog(B,`${u.name} is seared by blighted ground (2).`);
       if(u.hp<=0) applyDeath(B,u); }
   }
   checkEnd(B);
@@ -1223,19 +1274,21 @@ function reachable(B,u){
   if(u.rooted)return [];
   let mov=u.spd>=5?4:3;
   if(u.feats.includes('fleet'))mov+=1;
-  const seen={}; const out=[]; const q=[{x:u.x,y:u.y,d:0}];
-  seen[u.x+','+u.y]=true;
+  // Dijkstra over movement points — brush/trees/climbs/blight cost more
+  const best={}; const out=[]; best[u.x+','+u.y]=0;
+  const q=[{x:u.x,y:u.y,d:0}];
   while(q.length){
+    q.sort((a,b)=>a.d-b.d);
     const c=q.shift();
-    if(c.d>=mov)continue;
+    if(c.d>best[c.x+','+c.y])continue;
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
       const x=c.x+dx,y=c.y+dy;
       if(x<0||y<0||x>=GW||y>=GH)continue;
-      const k=x+','+y;
-      if(seen[k])continue;
-      if(tileAt(B,x,y).t==='rock')continue;
-      if(unitAt(B,x,y))continue;
-      seen[k]=true; out.push({x,y}); q.push({x,y,d:c.d+1});
+      const t=tileAt(B,x,y);
+      if(bImpass(t.t)||unitAt(B,x,y))continue;
+      let step=bMv(t.t); if(t.blighted)step+=1; if(Math.abs((t.elev||1)-(tileAt(B,c.x,c.y).elev||1))>=1)step+=1;
+      const nd=c.d+step, k=x+','+y;
+      if(nd<=mov&&(best[k]===undefined||nd<best[k])){ best[k]=nd; if(!out.some(o=>o.x===x&&o.y===y))out.push({x,y}); q.push({x,y,d:nd}); }
     }
   }
   return out;
@@ -1245,16 +1298,19 @@ function adjacent(a,b){return Math.abs(a.x-b.x)+Math.abs(a.y-b.y)===1;}
 function hasLOS(B,a,b){
   let x0=a.x,y0=a.y;
   const x1=b.x,y1=b.y;
+  const ea=elevAt(B,a.x,a.y), eb=elevAt(B,b.x,b.y), hi=Math.max(ea,eb);
   const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;
   let err=dx-dy,guard=0;
-  while(!(x0===x1&&y0===y1)&&guard++<40){
+  while(!(x0===x1&&y0===y1)&&guard++<60){
     const e2=2*err;
     if(e2>-dy){err-=dy;x0+=sx;}
     if(e2<dx){err+=dx;y0+=sy;}
     if(x0===x1&&y0===y1)break;
-    if(tileAt(B,x0,y0).t==='rock')return false;
+    const tl=tileAt(B,x0,y0);
+    if(bLOS(tl.t))return false;
+    if((tl.elev||1)>hi)return false;          // a hill/high ground blocks sight past it
     const blocker=unitAt(B,x0,y0);
-    if(blocker&&blocker.prop)return false; // wagons block sightlines
+    if(blocker&&blocker.prop)return false;     // wagons & nests block sightlines
   }
   return true;
 }
@@ -1262,7 +1318,7 @@ function adjAllies(B,u){return B.units.filter(x=>x!==u&&x.kind===u.kind&&x.hp>0&
 function coverAt(B,t){
   return [[1,0],[-1,0],[0,1],[0,-1]].some(d=>{
     const tl=tileAt(B,t.x+d[0],t.y+d[1]);
-    if(tl&&tl.t==='rock')return true;
+    if(tl&&(bImpass(tl.t)||bCover(tl.t)))return true;
     const un=unitAt(B,t.x+d[0],t.y+d[1]);
     return !!(un&&un.prop);
   });
@@ -1273,7 +1329,7 @@ function objTick(B){
     const w=B.units.find(u=>u.kind==='ally'&&u.prop&&u.hp>0);
     if(w){
       const t=tileAt(B,w.x+1,w.y);
-      if(t&&t.t!=='rock'&&!unitAt(B,w.x+1,w.y)){ w.x++; blog(B,'The wagon creaks forward.'); }
+      if(t&&!bImpass(t.t)&&!unitAt(B,w.x+1,w.y)){ w.x++; blog(B,'The wagon creaks forward.'); }
       else blog(B,'The wagon waits — the road ahead is blocked.');
       if(w.x>=GW-1){ blog(B,'The wagon is through. Contract fulfilled.'); endBattle('victory'); return; }
     }
@@ -1308,7 +1364,7 @@ function wOf(u){const w=WEAPONS[u.weapon]||WEAPONS.shortsword;return {n:w.n,lo:w
 function inWeaponRange(B,att,def){
   const w=wOf(att);
   const dx=Math.abs(att.x-def.x),dy=Math.abs(att.y-def.y),man=dx+dy,cheb=Math.max(dx,dy);
-  if(w.rng>1){ const rng=B.weather?Math.min(w.rng,3):w.rng; return cheb>=2&&cheb<=rng&&hasLOS(B,att,def); }
+  if(w.rng>1){ let rng=B.weather?Math.min(w.rng,3):w.rng; if(elevAt(B,att.x,att.y)===2)rng+=1; return cheb>=2&&cheb<=rng&&hasLOS(B,att,def); }
   if(w.reach){ return (cheb<=1&&man>=1)||(man===2&&(dx===0||dy===0)); } // 8 neighbours + straight poke
   return man===1; // plain melee: orthogonal adjacent only
 }
@@ -1321,7 +1377,9 @@ function hitChance(B,att,def){
   let h=65+att.skl*3-def.spd*2+w.hitB;
   if(w.rng===1&&att.feats.includes('duelist'))h+=10;
   if(w.rng>1&&att.feats.includes('deadeye'))h+=10;
-  if(tileAt(B,def.x,def.y).t==='forest')h-=15;
+  h-=bCover(tileAt(B,def.x,def.y).t);                 // brush/tree cover
+  const eh=elevAt(B,att.x,att.y)-elevAt(B,def.x,def.y);
+  if(eh>0)h+=6; else if(eh<0)h-=4;                     // high ground vs uphill
   if(def.defending)h-=10;
   if(att.shakenBy)h-=10;
   if(att.offbalance)h-=10;
@@ -1518,7 +1576,7 @@ function tryMove(x,y){
 }
 function stepTiles(B,u){
   return [[1,0],[-1,0],[0,1],[0,-1]].map(d=>({x:u.x+d[0],y:u.y+d[1]}))
-    .filter(t=>t.x>=0&&t.y>=0&&t.x<GW&&t.y<GH&&tileAt(B,t.x,t.y).t!=='rock'&&!unitAt(B,t.x,t.y));
+    .filter(t=>t.x>=0&&t.y>=0&&t.x<GW&&t.y<GH&&!bImpass(tileAt(B,t.x,t.y).t)&&!unitAt(B,t.x,t.y));
 }
 function tryAttack(targetUid){
   const B=S.battle; const u=curUnit(B);
@@ -1573,7 +1631,7 @@ function execAbility(B,u,ab,t){
   if(ab.k==='ashward'){ t.warded=3; fx.push({type:'float',x:t.x,y:t.y,txt:'ward',color:'#b08bc9'}); blog(B,`${u.name} shrouds ${t.name} in ash — +3 armor.`); corrupt(); u.acted=true; B.aim=null; return; }
   if(ab.k==='hook'){
     const dx=Math.sign(u.x-t.x),dy=Math.sign(u.y-t.y),nx=t.x+dx,ny=t.y+dy;
-    if(!(nx===u.x&&ny===u.y)&&tileAt(B,nx,ny)&&tileAt(B,nx,ny).t!=='rock'&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
+    if(!(nx===u.x&&ny===u.y)&&tileAt(B,nx,ny)&&!bImpass(tileAt(B,nx,ny).t)&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
     t.offbalance=true; fx.push({type:'float',x:t.x,y:t.y,txt:'hooked',color:'#c9a227'}); blog(B,`${u.name} hooks ${t.name} in close and off-balance.`);
     u.acted=true; B.aim=null; return;
   }
@@ -1581,7 +1639,7 @@ function execAbility(B,u,ab,t){
     const dx=Math.sign(t.x-u.x),dy=Math.sign(t.y-u.y),d=ri(1,2);
     t.hp-=d; t.stunned=true;
     const nx=t.x+dx,ny=t.y+dy;
-    if(tileAt(B,nx,ny)&&tileAt(B,nx,ny).t!=='rock'&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
+    if(tileAt(B,nx,ny)&&!bImpass(tileAt(B,nx,ny).t)&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
     fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'staggered',color:'#7d93a3'});
     blog(B,`${u.name} bashes ${t.name} back and staggers them.`);
     if(t.hp<=0){applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}}
@@ -2233,6 +2291,9 @@ function render(){
   }
   app.innerHTML=html;
   const lg=document.getElementById('log'); if(lg)lg.scrollTop=0;
+  // keep the acting unit in view on scrolling battle maps
+  if(S.battle){ const gw=document.getElementById('gridwrap'); const cu=curUnit(S.battle);
+    if(gw&&cu){ const ts=(S.battle._ts||40)+1; gw.scrollLeft=clamp(cu.x*ts-gw.clientWidth/2,0,1e5); gw.scrollTop=clamp(cu.y*ts-gw.clientHeight/2,0,1e5); } }
   playFx();
 }
 function playFx(){
@@ -2299,7 +2360,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.14</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.15</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2540,38 +2601,49 @@ function pickSquad(cb){
     {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; closeModal(); cb([...picked]); }},
     {label:'Not yet',fn:()=>closeModal()}]);
 }
-function tileArt(t,x,y){
-  const v=(x*7+y*13)%4; // deterministic variation — stable across re-renders
-  if(t==='forest')return `<svg class="decor" viewBox="0 0 46 46">
-    <path d="M${12+v*2} 34 L${18+v*2} 14 L${24+v*2} 34 Z" fill="#1f2b18" stroke="#141a10" stroke-width="1.2"/>
-    <rect x="${17+v*2}" y="34" width="2.4" height="5" fill="#2b2118"/>
-    <path d="M${26+v} 38 L${31+v} 22 L${36+v} 38 Z" fill="#243019" stroke="#141a10" stroke-width="1"/>
-    <rect x="${30+v}" y="38" width="2" height="4" fill="#2b2118"/></svg>`;
-  if(t==='rock')return `<svg class="decor" viewBox="0 0 46 46">
-    <path d="M10 36 L${16+v} ${16+v} L30 ${13+v} L38 30 L32 38 L14 38 Z" fill="#4a443a" stroke="#17130e" stroke-width="1.5"/>
-    <path d="M${16+v} ${16+v} L26 26 L30 ${13+v}" fill="none" stroke="#5c5548" stroke-width="1.2"/></svg>`;
-  if(t==='blight')return `<svg class="decor" viewBox="0 0 46 46">
-    <ellipse class="bpool" cx="23" cy="${28+v}" rx="13" ry="6" fill="#4a3266" opacity=".7"/>
-    <circle cx="${15+v*3}" cy="${20+v}" r="1.6" fill="#9a6fc9" opacity=".8"/>
-    <circle cx="${30-v*2}" cy="${33-v}" r="1.3" fill="#b08bc9" opacity=".7"/>
-    <path d="M${18+v} ${28+v} q3 -9 8 -12" stroke="#6b4a95" stroke-width="1.3" fill="none" opacity=".8"/></svg>`;
-  if(t==='plain'&&v===0)return `<svg class="decor" viewBox="0 0 46 46">
-    <path d="M12 34 l2 -5 M16 35 l2 -4 M30 30 l2 -5 M34 32 l1.6 -4" stroke="#3d3722" stroke-width="1.3"/></svg>`;
+const TILE_BG={grass:'#2e2a20',road:'#3d352a',bridge:'#4c3f2d',brush:'#2b301f',tree:'#222c19',boulder:'#413a30',rubble:'#3a352c',column:'#3a352c',stone:'#332f28',water:'#1c2836'};
+function tileArt(t,x,y,tile){
+  const v=(x*7+y*13)%4;
+  if(t==='tree')return `<svg class="decor" viewBox="0 0 46 46"><path d="M${9+v} 40 L${18+v} 12 L${27+v} 40 Z" fill="#243019" stroke="#141a10" stroke-width="1.2"/><rect x="${16.5+v}" y="38" width="3" height="6" fill="#2b2118"/><path d="M${24+v} 42 L${31+v} 20 L${38+v} 42 Z" fill="#1f2b18" stroke="#141a10"/></svg>`;
+  if(t==='brush')return `<svg class="decor" viewBox="0 0 46 46"><path d="M10 36 q3 -8 6 0 q3 -7 6 0 q3 -8 6 0 q3 -7 6 0" fill="none" stroke="#3f4a2a" stroke-width="2"/></svg>`;
+  if(t==='boulder')return `<svg class="decor" viewBox="0 0 46 46"><path d="M8 38 L${15+v} 16 L30 12 L40 30 L34 40 L12 40 Z" fill="#4a443a" stroke="#17130e" stroke-width="1.5"/><path d="M${15+v} 16 L26 26 L30 12" fill="none" stroke="#5c5548"/></svg>`;
+  if(t==='rubble')return `<svg class="decor" viewBox="0 0 46 46"><rect x="6" y="20" width="14" height="18" fill="#4a443a" stroke="#17130e"/><rect x="22" y="12" width="10" height="26" fill="#413a30" stroke="#17130e"/><rect x="14" y="30" width="8" height="8" fill="#3a352c" stroke="#17130e"/></svg>`;
+  if(t==='column')return `<svg class="decor" viewBox="0 0 46 46"><rect x="18" y="8" width="10" height="32" rx="2" fill="#524b3f" stroke="#17130e"/><rect x="15" y="6" width="16" height="4" fill="#4a443a" stroke="#17130e"/><path d="M20 14 v22 M26 14 v22" stroke="#3a352c"/></svg>`;
+  if(t==='stone')return `<svg class="decor" viewBox="0 0 46 46"><path d="M16 40 L14 12 Q23 6 32 12 L30 40 Z" fill="#4c4740" stroke="#17130e" stroke-width="1.5"/><path d="M22 16 v20" stroke="#3a352c"/></svg>`;
+  if(t==='water')return `<svg class="decor" viewBox="0 0 46 46"><path d="M4 ${16+v} q10 -4 20 0 t20 0 M4 ${26+v} q10 -4 20 0 t20 0 M4 ${36-v} q10 -4 20 0 t20 0" fill="none" stroke="#37506a" stroke-width="1.6" opacity=".8"/></svg>`;
+  if(t==='bridge')return `<svg class="decor" viewBox="0 0 46 46"><rect x="2" y="18" width="42" height="10" fill="#5a4632" stroke="#2b2118"/><path d="M8 18 v10 M18 18 v10 M28 18 v10 M38 18 v10" stroke="#3a2c1c"/></svg>`;
+  if(tile&&tile.blighted)return `<svg class="decor" viewBox="0 0 46 46"><ellipse class="bpool" cx="23" cy="${28+v}" rx="13" ry="6" fill="#4a3266" opacity=".65"/><circle cx="${15+v*3}" cy="${20+v}" r="1.6" fill="#9a6fc9"/><path d="M${18+v} ${28+v} q3 -9 8 -12" stroke="#6b4a95" stroke-width="1.3" fill="none"/></svg>`;
+  if(t==='road')return `<svg class="decor" viewBox="0 0 46 46"><path d="M0 23 h46" stroke="#5a4c34" stroke-width="6" opacity=".4"/></svg>`;
   return '';
 }
-function terrDesc(t){
-  return t==='forest'?'forest — attackers −15 to hit anyone here'
-    :t==='blight'?'blighted ground — 2 dmg each round to the living'
-    :t==='rock'?'rock — impassable':'open ground';
+const TERR_DESC={grass:'open ground',road:'a road — quick going',bridge:'a bridge — the only dry crossing',brush:'brush — light cover (−10 to be hit here)',tree:'dense trees — cover and no line of sight through',boulder:'a boulder — impassable, blocks sight',rubble:'ruined wall — impassable, blocks sight',column:'a fallen column — impassable, blocks sight',stone:'a standing stone — impassable, blocks sight',water:'water — impassable'};
+function terrDesc(tile){
+  const base=TERR_DESC[tile.t]||'open ground';
+  const e=tile.elev||1;
+  const el=e===2?' · high ground (+hit, +range for archers, blocks sight past it)':e===0?' · low ground (exposed from above)':'';
+  return base+(tile.blighted?' · blighted (2 dmg/round to the living)':'')+el;
+}
+function computeVis(B){
+  const R0=B.weather?4:6;
+  const vis=new Set();
+  for(const u of B.units){
+    if(u.kind==='foe'||u.hp<=0||u.fled)continue; // your soldiers & charges are your eyes
+    const R=R0+(elevAt(B,u.x,u.y)===2?2:0);
+    for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){
+      if(Math.max(Math.abs(dx),Math.abs(dy))>R)continue;
+      const x=u.x+dx,y=u.y+dy; if(x<0||y<0||x>=GW||y>=GH)continue;
+      const k=x+','+y; if(vis.has(k))continue;
+      if(hasLOS(B,{x:u.x,y:u.y},{x,y})){ vis.add(k); B.seen[k]=1; }
+    }
+  }
+  return vis;
 }
 function renderBattle(){
   const B=S.battle; const u=curUnit(B);
   const isPC=u&&u.kind==='pc';
   const narrow=window.innerWidth<760;
-  const availW=narrow?window.innerWidth-16:window.innerWidth-380;
-  const availH=narrow?window.innerHeight-320:window.innerHeight-260;
-  const TS=clamp(Math.floor(Math.min(availW/GW,availH/GH)),narrow?24:46,84);
-  TSCUR=TS;
+  const TS=narrow?30:40;            // fixed size; the map scrolls when larger than the viewport
+  TSCUR=TS; B._ts=TS;
   const moves=isPC?(u.freeStep?stepTiles(B,u):((!u.moved||!u.acted)&&!B.aim?reachable(B,u):[])):[];
   const ab=isPC?unitAbility(u):null;
   const aiming=isPC&&B.aim&&ab&&ab.k===B.aim?ab:null;
@@ -2587,15 +2659,19 @@ function renderBattle(){
       if(iw.rng===1?(Math.abs(tx-p.x)+Math.abs(ty-p.y)===1):(Math.max(Math.abs(tx-p.x),Math.abs(ty-p.y))<=iw.rng)) threat.add(tx+','+ty);
     }
   }
-  let grid=`<div id="grid" style="--ts:${TS}px;grid-template-columns:repeat(${GW},${TS}px)">`;
+  const vis=computeVis(B); B._vis=vis;
+  const fsz=Math.round(TS*0.66);
+  let grid=`<div id="gridwrap"><div id="grid" style="--ts:${TS}px;grid-template-columns:repeat(${GW},${TS}px)">`;
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
     const t=tileAt(B,x,y);
-    const un=unitAt(B,x,y);
-    const bd=!un&&bodyAt(B,x,y);
+    const key=x+','+y, visible=vis.has(key), explored=!!B.seen[key];
+    const rawUn=unitAt(B,x,y);
+    const un=(rawUn&&(rawUn.kind!=='foe'||visible))?rawUn:null;   // fog of war: enemies hidden until seen
+    const bd=(!un&&visible)?bodyAt(B,x,y):null;
     const mv=moves.some(m=>m.x===x&&m.y===y);
     const atk=un&&targets.includes(un);
     const hc=atk?hitChance(B,u,un):null;
-    let title=terrDesc(t.t);
+    let title=terrDesc(t);
     if(un){
       const uw=wOf(un);
       title+=` — ${un.name} ${un.hp}/${un.maxhp}, ${uw.n}${uw.rng>1?' (range '+uw.rng+')':''}`;
@@ -2607,35 +2683,33 @@ function renderBattle(){
       if(un.warded)title+=', warded (+armor)';
       if(un.offbalance||un.warcried)title+=', −10 to hit';
       if(atk)title+=` — ${hc}% to hit`;
-      else if(un.kind!=='pc')title+=' — click to scout its range';
+      else if(un.kind==='foe')title+=' — tap to scout its range';
     }
     if(bd)title+=` — the body of ${bd.name}`;
     const cst=un&&casts.includes(un);
-    const foggedU=un&&B.weather&&un.kind==='foe'&&!un.prop&&!B.units.some(p=>p.kind==='pc'&&p.hp>0&&!p.fled&&distC(p,un)<=5);
-    if(foggedU)title=terrDesc(t.t)+' — a shape in the murk';
     const isObj=B.objTile&&B.objTile.x===x&&B.objTile.y===y;
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
-    grid+=`<div class="tile ${t.t} ${(x+y)%2?'alt':''} ${mv?'moveable':''} ${atk&&!foggedU?'attackable':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(x+','+y)?'threat':''}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
-    grid+=tileArt(t.t,x,y);
+    const e=t.elev||1, bg=TILE_BG[t.t]||'#2e2a20';
+    const fog=visible?'':(explored?'fogseen':'fogdark');
+    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${e===2?'hi':e===0?'lo':''} ${fog} ${mv?'moveable':''} ${atk?'attackable':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    if(fog!=='fogdark')grid+=tileArt(t.t,x,y,t);
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
       const badge=un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
-      const fsz=Math.round(TS*0.66);
-      if(foggedU)inner='?';
-      else if(un.kind==='pc'){ const ps=soldierById(un.ref); inner=ps&&ps.face?faceSvg(ps.face,{size:fsz}):esc(un.name[0]); }
+      if(un.kind==='pc'){ const ps=soldierById(un.ref); inner=ps&&ps.face?faceSvg(ps.face,{size:fsz}):esc(un.name[0]); }
       else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):(un.face?faceSvg(un.face,{size:fsz}):'V');
       else if(un.prop)inner=nestSvg(fsz);
       else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2&&g2.face?faceSvg(g2.face,{size:fsz,revenant:true}):esc(un.name[0]); }
       else inner=enemyFace(un.ekey,fsz);
       const cls2=un.kind==='ally'?'ally':cls;
-      const crown=(!foggedU&&B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
-      grid+=`<div class="unit ${cls2} ${foggedU?'fogged':''} ${u===un?'current':''} ${iu===un?'current':''}" data-uid="${un.uid}">${inner}${foggedU?'':badge}${crown}<div class="hp"><div style="width:${foggedU?0:Math.round(100*un.hp/un.maxhp)}%"></div></div></div>`;
+      const crown=(B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
+      grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''}" data-uid="${un.uid}">${inner}${badge}${crown}<div class="hp"><div style="width:${Math.round(100*un.hp/un.maxhp)}%"></div></div></div>`;
       if(atk)grid+=`<span class="hitpct">${hc}%</span>`;
     } else if(bd){ grid+=`<div class="body">☠</div>`; }
     grid+='</div>';
   }
-  grid+=`${B.weather?'<div class="fogveil"></div>':''}</div>`;
+  grid+=`${B.weather?'<div class="fogveil"></div>':''}</div></div>`;
   const q=B.queue.map((id,i)=>{const z=B.units.find(x=>x.uid===id);if(!z||z.hp<=0||z.fled)return '';
     return `<div class="qitem ${i===B.qi?'cur':''} ${z.graveId?'rev':''}">${i===B.qi?'▶ ':''}${esc(z.name)} (${z.hp})</div>`;}).join('');
   const show=iu||u;
@@ -2682,7 +2756,7 @@ window.TILE=function(x,y){
     if(t&&t===u){ return; }
   }
   if(t&&isEnemy(u,t)){
-    if(B.weather&&t.kind==='foe'&&!B.units.some(p=>p.kind==='pc'&&p.hp>0&&!p.fled&&distC(p,t)<=5))return; // just a shape in the murk
+    if(t.kind==='foe'&&B._vis&&!B._vis.has(t.x+','+t.y))return; // unseen — hidden by fog of war
     if(!u.acted&&!B.aim&&attackTargets(B,u).includes(t)){ tryAttack(t.uid); return; }
     B.inspect=(B.inspect===t.uid)?null:t.uid; render(); return;  // scout its range instead
   }
