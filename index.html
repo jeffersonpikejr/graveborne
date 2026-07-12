@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.16</title>
+<title>GRAVEBORNE — alpha v0.17</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -213,7 +213,26 @@ const BACKSTORIES=[
   callouts:['Mind the wheels, {b}. They’ll turn without me.','I built your home, {b}. Now I’ll unmake it.']},
  {tag:'bell-ringer', line:'Rang the plague bell at Karsk Gate until her hands bled.', hook:'the bell never stopped',
   callouts:['Hear the bell, {b}? It rings for you.','I rang for all of them, {b}. Who rings for me?']},
+ {tag:'shieldbearer', cls:['fighter'], line:'Held the Karsk line at the Fords when the levy broke around her.', hook:'left the man beside her to die',
+  callouts:['I held the line, {b}. You didn’t hold me.','Shield up, {b} — like you never did for me.']},
+ {tag:'huntsman', cls:['ranger'], line:'Tracked wolves and worse for the Undercrown before the roads closed.', hook:'a bounty she never collected',
+  callouts:['Still can’t hear me coming, {b}?','I tracked you here, {b}. I always could.']},
+ {tag:'field-chirurgeon', cls:['cleric'], line:'Sewed soldiers shut through three wars and buried more than she saved.', hook:'the one she couldn’t close',
+  callouts:['I stitched you once, {b}. Let me open you now.','Hold still, {b} — this won’t heal.']},
+ {tag:'ash-touched', cls:['acolyte'], line:'Survived a Blight-graft that took the rest of her cohort.', hook:'the graft still calls the others home',
+  callouts:['The graft remembers you, {b}.','You watched them cut it into me, {b}. Watch this.']},
+ {tag:'sellsword', cls:['fighter','ranger'], line:'Has fought under nine banners and sold out six of them.', hook:'a contract she broke and never paid',
+  callouts:['One more banner betrayed, {b}.','You bought me cheap, {b}. I cost more now.']},
+ {tag:'seminary novice', cls:['cleric','acolyte'], line:'Fled the Cindered Faith seminary the night they came to burn her.', hook:'the vows she never spoke',
+  callouts:['They were right about me, {b}.','No vows held me, {b}. Nothing does now.']},
 ];
+const BG_CLASS={
+ 'Karsk deserter':['fighter'],'Thornwood exile':['ranger'],'failed apprentice':['acolyte'],
+ 'gravedigger':['cleric'],'debt-runner':['fighter','ranger'],'plague survivor':['cleric','acolyte'],
+ 'oathbreaker':['fighter','ranger'],'temple ward':['cleric'],'poacher':['ranger'],
+ 'heir’s blade':['fighter'],'cartwright':['fighter','cleric'],'bell-ringer':['cleric'],
+};
+function bgClasses(i){ const b=BACKSTORIES[i]; return b.cls||BG_CLASS[b.tag]||['fighter','ranger','cleric','acolyte']; }
 const FEATS={
  fleet:{n:'Fleet',d:'+1 movement'},
  duelist:{n:'Duelist',d:'+10 hit in melee'},
@@ -232,10 +251,26 @@ const FEATS={
  bonespears:{n:'Bone-Spear Graft',d:'ASH. Ability: erupt bone at range 3 — 3–5 damage and root the target (no move next turn). +1 corruption.',ash:true},
  ashward:{n:'Ashen Ward Graft',d:'ASH. Ability: shroud an ally within 2 — +3 armor until their next turn. +1 corruption.',ash:true},
  hook:{n:'Grapple-Hook',d:'Ability: yank an enemy within 2 one tile toward you and off-balance them (−10 to hit next turn).'},
- warcry:{n:'War-Cry',d:'Ability (once per battle): enemies within 2 are shaken (−10 to hit next round); allies within 2 shed a rattle.'},
+ warcry:{n:'War-Cry',d:'COMMANDER. Ability (once per battle): enemies within 2 are shaken (−10 to hit next round); allies within 2 shed a rattle.',leader:true},
  skirmisher:{n:'Skirmisher',d:'After you attack, take one free step — strike and fade.'},
- rally:{n:'Rally',d:'Ability: steady an adjacent ally — clear their rattle and grant +10 hit next turn.'},
+ rally:{n:'Rally',d:'COMMANDER. Ability: steady an adjacent ally — clear their rattle and grant +10 hit next turn.',leader:true},
 };
+const CLASSES={
+ fighter:{n:'Fighter', wpns:['shortsword','spear','axe','mace'], hp:[12,15],skl:[3,5],spd:[3,4],res:[30,42],arm:[0,1],
+   feats:['duelist','shieldwall','bulwark','berserker','executioner','reaper','stalwart'],
+   d:'Line-breaker. Steel, and the stubbornness to stand in it.'},
+ ranger:{n:'Ranger', wpns:['bow','bow','spear'], hp:[10,13],skl:[3,5],spd:[4,5],res:[30,40],arm:[0,1],
+   feats:['deadeye','fleet','skirmisher','executioner','duelist','hook'],
+   d:'Eyes on the treeline. Kills what it can before it closes.'},
+ cleric:{n:'Cleric', wpns:['mace','spear','shortsword'], hp:[11,14],skl:[2,4],spd:[3,4],res:[38,48],arm:[0,2],
+   feats:['medic','stalwart','bonecarver','shieldwall','bulwark','vengeful'],
+   d:'Field-surgeon and last rites both. Holds the line’s soul together.'},
+ acolyte:{n:'Ash Acolyte', wpns:['shortsword','spear'], hp:[9,12],skl:[3,5],spd:[3,5],res:[28,40],arm:[0,1],
+   feats:['ashfire','veindrink','bonespears','ashward','executioner','fleet'],
+   d:'Reads the Blight and answers it. Every rank of it a bill that comes due.'},
+};
+const LEADER_FEATS=['warcry','rally']; // only the Commander is offered these
+function classFeatPool(s){ const c=CLASSES[s.cls]||CLASSES.fighter; let p=c.feats.slice(); if(s.commander)p=p.concat(LEADER_FEATS); return p; }
 const TRAITS={
  scarred:{n:'Scarred',d:'+3 resolve, and the face remembers. Survived a battle at death’s edge.',good:true},
  coldblooded:{n:'Cold-Blooded',d:'+5 hit, permanently. Three kills in one battle and the hands stopped shaking.',good:true},
@@ -269,7 +304,20 @@ const ENEMIES={
  cutthroat:{n:'Cutthroat',hp:8,skl:4,spd:6,w:'shortsword',arm:0,undead:false,xp:4,ai:'flank'},
  shieldman:{n:'Shieldman',hp:13,skl:3,spd:3,w:'mace',arm:2,undead:false,xp:5,ai:'anchor'},
  pikeman:{n:'Levy Pikeman',hp:11,skl:4,spd:3,w:'spear',arm:1,undead:false,xp:4},
+ blightmage:{n:'Blight-Mage',hp:9,skl:4,spd:3,w:'shortsword',arm:0,undead:false,xp:9,ai:'caster'},
+ houndrider:{n:'Hound-Rider',hp:9,skl:4,spd:7,w:'bow',arm:1,undead:false,xp:6,ai:'kite'},
 };
+const POD_DOCTRINES={
+ warband:{n:'Brigand Warband', comp:['brigand','cutthroat','archer','brigand'], for:['patrol','hunt','hold']},
+ outriders:{n:'Hound Outriders', comp:['houndrider','hound','houndrider','hound'], for:['patrol','hunt']},
+ shieldwall:{n:'Karsk Shieldwall', comp:['shieldman','pikeman','shieldman','pikeman'], for:['patrol','hold']},
+ coven:{n:'Ebon Coven', comp:['blightmage','husk','husk','graveguard'], for:['purge','delve','hold']},
+ risen:{n:'Risen Tide', comp:['graveguard','husk','husk','husk'], for:['purge','delve','hunt']},
+};
+function doctrinesFor(contract){
+  const ks=Object.keys(POD_DOCTRINES).filter(k=>POD_DOCTRINES[k].for.includes(contract.type));
+  return ks.length?ks:['warband'];
+}
 const CONTRACT_TYPES={
  patrol:{n:'Road Patrol',employer:'Karsk',desc:'Clear brigands from the {r} road.',pool:['brigand','brigand','archer','cutthroat','deserter'],base:40},
  purge:{n:'Purge the Risen',employer:'Karsk',desc:'Put down the dead walking in {r}.',pool:['husk','husk','hound','acolyte','shieldman'],base:55},
@@ -500,6 +548,18 @@ function enemyFace(key,size){
         <rect x="36" y="47.5" width="12" height="3" fill="#7a4fa3" opacity=".85"/><rect x="52" y="47.5" width="12" height="3" fill="#7a4fa3" opacity=".85"/>
         <path d="M50 30 L50 74 M34 60 h32" stroke="#3a3a40" stroke-width="2"/>
         <circle cx="31" cy="36" r="1.5" fill="#2a2a30"/><circle cx="69" cy="36" r="1.5" fill="#2a2a30"/>`; break;
+    case 'blightmage':
+      s=`<path d="M50 5 Q86 20 82 82 L18 82 Q14 20 50 5 Z" fill="#2a2333" stroke="#17130e" stroke-width="2.5"/>
+        <ellipse cx="50" cy="56" rx="18" ry="18" fill="#0d0b10"/>
+        <circle cx="43" cy="55" r="3" fill="#b08bc9"><animate attributeName="opacity" values="1;.4;1" dur="2.4s" repeatCount="indefinite"/></circle>
+        <circle cx="57" cy="55" r="3" fill="#b08bc9"><animate attributeName="opacity" values="1;.4;1" dur="2.4s" repeatCount="indefinite"/></circle>
+        <path d="M50 74 l0 12 M44 78 l12 0" stroke="#7a4fa3" stroke-width="2"/><circle cx="50" cy="80" r="4" fill="#7a4fa3" opacity=".8"/>`; break;
+    case 'houndrider':
+      s=`<path d="M30 44 Q50 26 70 44 L76 66 Q64 84 50 84 Q36 84 24 66 Z" fill="#5a6350" stroke="#17130e" stroke-width="2.2"/>
+        <path d="M26 42 L34 24 L40 40 Z M74 42 L66 24 L60 40 Z" fill="#5a6350" stroke="#17130e" stroke-width="2"/>
+        <circle cx="41" cy="54" r="3" fill="#b08bc9"/><circle cx="59" cy="54" r="3" fill="#b08bc9"/>
+        <path d="M28 68 L18 62 M72 68 L82 62" stroke="#33291c" stroke-width="2.5"/>
+        <path d="M40 76 l4 5 M50 78 l0 6 M60 76 l-4 5" stroke="#d8cdb8" stroke-width="1.8"/>`; break;
     default: return enemyFace('brigand',size);
   }
   return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${s}</svg>`;
@@ -535,7 +595,7 @@ function newGame(){
   S.regions=REGION_DEFS.map((d,i)=>({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-8,8)),swallowed:false}));
   genWorld();
   S.caravan={q:REGION_DEFS[1].q,r:REGION_DEFS[1].r};
-  for(let i=0;i<3;i++) S.roster.push(makeSoldier());
+  ['fighter','ranger','cleric'].forEach(c=>S.roster.push(makeSoldier(c))); // a founding spread of archetypes
   // The founding grave: the company already has one debt walking. Guarantees the
   // signature loop fires by week ~3 regardless of play style (inherited-revenant prologue).
   const fd=makeSoldier();
@@ -552,16 +612,21 @@ function newGame(){
   log('The Blight is patient. Territory dies slowly, then all at once. Watch the pressure.','blight');
   save(); render();
 }
-function makeSoldier(){
+function makeSoldier(clsKey){
   const name=pick(NAMES.filter(n=>!S.usedNames.includes(n)))||pick(NAMES)+' II';
   S.usedNames.push(name);
-  let bgIdx=ri(0,BACKSTORIES.length-1);
-  if(S.usedBg.length<BACKSTORIES.length){ while(S.usedBg.includes(bgIdx)) bgIdx=ri(0,BACKSTORIES.length-1); }
-  S.usedBg.push(bgIdx);
-  const w=pick(['shortsword','shortsword','spear','axe','bow']);
-  const maxhp=ri(10,14);
-  return {id:nid(),name,bg:bgIdx,hp:maxhp,maxhp,skl:ri(2,5),spd:ri(3,5),res:ri(30,45),
-          weapon:w,wMod:0,wName:null,armor:ri(0,1),feats:[],xp:0,level:1,bonds:[],battles:0,
+  const cls=clsKey||pick(['fighter','fighter','ranger','cleric','acolyte']);
+  const C=CLASSES[cls];
+  // a backstory that fits the class — no clash between who they were and what they do
+  const all=BACKSTORIES.map((_,i)=>i);
+  let choices=all.filter(i=>!S.usedBg.includes(i)&&bgClasses(i).includes(cls));
+  if(!choices.length)choices=all.filter(i=>bgClasses(i).includes(cls));
+  if(!choices.length)choices=all.filter(i=>!S.usedBg.includes(i));
+  if(!choices.length)choices=all;
+  const bgIdx=pick(choices); S.usedBg.push(bgIdx);
+  const maxhp=ri(C.hp[0],C.hp[1]);
+  return {id:nid(),name,cls,bg:bgIdx,hp:maxhp,maxhp,skl:ri(C.skl[0],C.skl[1]),spd:ri(C.spd[0],C.spd[1]),res:ri(C.res[0],C.res[1]),
+          weapon:pick(C.wpns),wMod:0,wName:null,armor:ri(C.arm[0],C.arm[1]),feats:[],xp:0,level:1,bonds:[],battles:0,
           rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0};
 }
 function addTrait(s,id){
@@ -619,6 +684,10 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
   for(const arr of [S.roster,S.hirePool]) for(const p of arr){ if(!p.traits){p.traits=[];p.corr=0;touched=true;} }
   if(!S.rep){ S.rep={karsk:0,folk:0,conclave:0}; touched=true; }
   if(!S.deserters){ S.deserters=[]; touched=true; }
+  // pre-v0.17: infer a class for classless soldiers from their kit
+  for(const arr of [S.roster,S.hirePool,S.deserters]) for(const p of (arr||[])){
+    if(!p.cls){ p.cls=(p.feats||[]).some(f=>FEATS[f]&&FEATS[f].ash)?'acolyte':(p.feats||[]).includes('medic')?'cleric':(WEAPONS[p.weapon]||{}).rng>1?'ranger':'fighter'; touched=true; }
+  }
   if(S.story&&S.roster.length&&!S.roster.some(x=>x.commander)){ ensureCommander(); touched=true; }
   // pre-v0.9 saves already at stage 5: schedule the barrow meeting
   if(S.story&&S.story.stage===5&&!S.story.meetWeek){
@@ -1013,7 +1082,7 @@ function grantXp(s,amt){
     if(stat==='maxhp'){s.maxhp+=2;s.hp+=2;
       if(S.battle){const bu=S.battle.units.find(x=>x.kind==='pc'&&x.ref===s.id); if(bu){bu.maxhp+=2;bu.hp+=2;}}
     } else if(stat==='res'){s.res+=5;} else {s[stat]+=1;}
-    const opts=Object.keys(FEATS).filter(f=>!s.feats.includes(f));
+    const opts=classFeatPool(s).filter(f=>!s.feats.includes(f)); // choices drawn from the soldier's class (+ Commander leadership)
     const three=[];
     while(three.length<3&&opts.length){ const f=opts.splice(ri(0,opts.length-1),1)[0]; three.push(f); }
     s.pendingFeats=s.pendingFeats||[]; s.pendingFeats.push({opts:three,stat});
@@ -1023,7 +1092,7 @@ function grantXp(s,amt){
 function featModal(s,opts,stat){
   const up=k=>stat===k?' statup':'';
   const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
-      <p style="margin:0"><b>${esc(s.name)}</b>${s.commander?' <span class="cmdr">Commander</span>':''} reaches <b>level ${s.level}</b>.</p>
+      <p style="margin:0"><b>${esc(s.name)}</b>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> reaches <b>level ${s.level}</b>.</p>
       <div class="statgrid">
         <span class="${up('maxhp')}"><span class="tt" data-tip="${esc(STAT_TIPS.hp)}">HP</span> ${s.hp}/${s.maxhp}${stat==='maxhp'?' (+2)':''}</span>
         <span class="${up('skl')}"><span class="tt" data-tip="${esc(STAT_TIPS.skl)}">SKL</span> ${s.skl}${stat==='skl'?' (+1)':''}</span>
@@ -1169,19 +1238,29 @@ function makeWaypoints(B,home,r){
 }
 function deployPods(B,contract,ct,danger){
   const podN=clamp(1+danger+((contract.type==='hold'||S.regions[B.regionId].swallowed)?1:0),2,5);
-  const homes=pickHomes(B,podN); B.pods=[];
+  const homes=pickHomes(B,podN); B.pods=[]; B.raised=0;
+  const dks=doctrinesFor(contract);
   homes.forEach((home,pi)=>{
+    const dk=pick(dks), doc=POD_DOCTRINES[dk];
     const radius=ri(3,4);
-    const pod={id:pi,state:'patrol',home,radius,waypoints:makeWaypoints(B,home,radius),wi:ri(0,3),members:[],lastSeen:null,spotterUid:null};
-    const size=clamp(2+(danger>=2?1:0)+ri(0,1),2,4);
+    const pod={id:pi,state:'patrol',doctrine:dk,dname:doc.n,home,radius,waypoints:makeWaypoints(B,home,radius),wi:ri(0,3),members:[],lastSeen:null,spotterUid:null};
+    const size=clamp(2+(danger>=2?1:0)+ri(0,1),2,doc.comp.length);
     for(let i=0;i<size;i++){ if(foeCount(B)>=MAXFOES)break;
-      const u=spawnEnemy(B,pick(ct.pool),danger,false);
+      const u=spawnEnemy(B,doc.comp[i],danger,false);      // doctrine-ordered composition (special unit first)
       const spot=nearOpen(B,home.x,home.y,3)||home; u.x=spot.x;u.y=spot.y;u.podId=pi;
-      if(danger>=3&&i===0){u.hp+=3;u.maxhp+=3;u.skl+=1;u.name='Veteran '+u.name;}
+      if(danger>=3&&i===size-1&&u.ai!=='caster'){u.hp+=3;u.maxhp+=3;u.skl+=1;u.name='Veteran '+u.name;}
       pod.members.push(u.uid);
     }
+    // a caster's melee packmates become its bodyguards — they screen the VIP and hold formation
+    if(podMembers(B,pod).some(m=>m.ai==='caster'))
+      podMembers(B,pod).forEach(m=>{ if(!m.ai||m.ai==='charge') m.ai='anchor'; });
     B.pods.push(pod);
   });
+}
+function podCentroid(B,pod){ const m=podMembers(B,pod); if(!m.length)return pod.home; return {x:Math.round(m.reduce((a,u)=>a+u.x,0)/m.length),y:Math.round(m.reduce((a,u)=>a+u.y,0)/m.length)}; }
+function podFocus(B,pod,list){ // the shared quarry the pod converges on
+  const seen=list.filter(p=>podMembers(B,pod).some(m=>distC(m,p)<=podFov(B,m)+2));
+  return (seen.length?seen:list).slice().sort((a,b)=>podNearestDist(B,pod,a)-podNearestDist(B,pod,b))[0]||null;
 }
 function startBattle(contract,squadIds){
   const region=S.regions[contract.regionId];
@@ -1220,7 +1299,7 @@ function startBattle(contract,squadIds){
     const s=soldierById(id);
     let px=i%2, py=clamp(pcy0+Math.floor(i/2)+ (i%2)*0, 0, GH-1);
     for(let tries=0;tries<30&&(bImpass(tileAt(B,px,py).t)||unitAt(B,px,py));tries++){py=clamp(py+1,0,GH-1); if(py===GH-1)px=(px+1)%2;}
-    B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,
+    B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,cmdr:!!s.commander,
       weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
       moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
   });
@@ -1482,6 +1561,8 @@ function hitChance(B,att,def){
     const ally=B.units.find(x=>x!==att&&x.kind===att.kind&&x.hp>0&&!x.fled&&adjacent(x,att));
     if(ally)h+=5;
   }
+  // the Commander's banner: soldiers near the standard fight harder
+  if(att.kind==='pc'&&B.units.some(z=>z.kind==='pc'&&z.hp>0&&!z.fled&&z.cmdr&&distC(z,att)<=2))h+=4;
   return clamp(h,20,95);
 }
 function isBondedToGrave(u,graveId){
@@ -1964,6 +2045,50 @@ function threatScore(B,t){ // how tempting a target is to the enemy
   return s;
 }
 function minDistTo(list,p){ return list.reduce((m,t)=>Math.min(m,distC(t,p)),99); }
+function enemyBlightBolt(B,u,def){
+  const h=clamp(65+u.skl*3-def.spd*2,30,90);
+  fx.push({type:'arrow',fx:u.x,fy:u.y,tx:def.x,ty:def.y});
+  if(ri(1,100)<=h){ const d=ri(3,5); def.hp-=d; fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:'-'+d,color:'#b08bc9'});
+    blog(B,`${u.name} flings a gout of blightfire at ${def.name} for ${d} — armor is no help.`);
+    if(def.hp>0&&def.hp<=3&&def.kind==='pc')def.nearDeath=true;
+    if(def.hp<=0)applyDeath(B,def); }
+  else blog(B,`${u.name}’s blightbolt spits wide of ${def.name}.`);
+}
+function enemyCasterTurn(B,u,pod,pcs){
+  // survive: back off from anyone at knifing range
+  const near2=pcs.filter(p=>distC(u,p)<=2);
+  if(near2.length){ const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>minDistTo(pcs,b)-minDistTo(pcs,a)); if(minDistTo(pcs,steps[0])>minDistTo(pcs,u)){u.x=steps[0].x;u.y=steps[0].y;} } }
+  // raise the dead: pull a husk up from the ground (limited, on a cooldown)
+  if((u.raiseCd||0)<=0 && (B.raised||0)<5 && foeCount(B)<MAXFOES && chance(65)){
+    const spot=nearOpen(B,u.x,u.y,2);
+    if(spot){ const hk=spawnEnemy(B,'husk',1,false); hk.x=spot.x;hk.y=spot.y;hk.podId=u.podId; if(pod)pod.members.push(hk.uid);
+      B.raised=(B.raised||0)+1; u.raiseCd=3; buildQueue(B);
+      blog(B,`${u.name} spreads its hands — the ground heaves, and a husk claws its way up to serve.`);
+      if(!B.over){render();nextTurn();} return; }
+  }
+  if(u.raiseCd>0)u.raiseCd--;
+  // else sling blightfire at the softest target in sight
+  const tgt=pcs.filter(p=>distC(u,p)>=1&&distC(u,p)<=4&&hasLOS(B,u,p)).sort((a,b)=>a.hp-b.hp)[0];
+  if(tgt)enemyBlightBolt(B,u,tgt);
+  if(!B.over){render();nextTurn();}
+}
+function enemyKiteTurn(B,u,pcs){
+  const adj=pcs.filter(p=>distC(u,p)<2);
+  if(adj.length){ const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>minDistTo(pcs,b)-minDistTo(pcs,a)); if(minDistTo(pcs,steps[0])>1){u.x=steps[0].x;u.y=steps[0].y;} } } // ride clear of the blades
+  else { const t=pcs.slice().sort((a,b)=>distC(u,a)-distC(u,b))[0];
+    if(t&&!attackTargets(B,u).includes(t)){ const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>Math.abs(distC(a,t)-2)-Math.abs(distC(b,t)-2)); u.x=steps[0].x;u.y=steps[0].y; } } }
+  const nr=attackTargets(B,u); if(nr.length)doAttack(B,u,nr.sort((a,b)=>a.hp-b.hp)[0]);
+  if(!B.over){render();nextTurn();}
+}
+function guardTurn(B,u,pod,pcs){
+  const caster=podMembers(B,pod).find(m=>m.ai==='caster'); if(!caster)return false; // no VIP to screen — advance normally
+  const threat=pcs.slice().sort((a,b)=>distC(caster,a)-distC(caster,b))[0]; if(!threat)return false;
+  const mid={x:clamp(Math.round((caster.x+threat.x)/2),0,GW-1),y:clamp(Math.round((caster.y+threat.y)/2),0,GH-1)};
+  const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>distC(a,mid)-distC(b,mid)); u.x=steps[0].x;u.y=steps[0].y; }
+  const nr=attackTargets(B,u); if(nr.length)doAttack(B,u,nr.sort((a,b)=>a.hp-b.hp)[0]);
+  if(!B.over){render();nextTurn();}
+  return true;
+}
 function maybeAI(){
   const B=S.battle; if(!B||B.over)return;
   if(activeModal){ setTimeout(maybeAI,300); return; }
@@ -1985,8 +2110,13 @@ function aiAct(u){
     podSensePod(B,pod,pcs.concat(charges));                 // step-into-view reacts the same turn
     if(pod.state==='patrol'){ aiPatrol(B,u,pod); if(!B.over){render();nextTurn();} return; }
     if(pod.state==='alert'&&!podHasLOS(B,pod,pcs.concat(charges))){ aiInvestigate(B,u,pod); if(!B.over){render();nextTurn();} return; }
-    // charge (or alert with a live sightline): fall through to the existing, unchanged combat AI
+    // ENGAGED — each role executes its doctrine's job, and the squad fights as a squad
+    if(u.ai==='caster'){ return enemyCasterTurn(B,u,pod,pcs); }
+    if(u.ai==='kite'){ return enemyKiteTurn(B,u,pcs); }
+    if(u.ai==='anchor'){ const g=guardTurn(B,u,pod,pcs); if(g)return; } // screen the caster; else fall through to advance
   }
+  const podQuarry=pod&&pod.state!=='patrol'?podFocus(B,pod,pcs.concat(charges)):null;
+  const centroid=pod?podCentroid(B,pod):null;
   const near=(a,b)=>(Math.abs(a.x-u.x)+Math.abs(a.y-u.y))-(Math.abs(b.x-u.x)+Math.abs(b.y-u.y));
   let target=null;
   if(u.graveId){
@@ -2020,6 +2150,8 @@ function aiAct(u){
     target=inRange.sort((a,b)=>threatScore(B,b)-threatScore(B,a)||a.hp-b.hp)[0]
       ||pool.slice().sort((a,b)=>near(a,b)||threatScore(B,b)-threatScore(B,a))[0];
   }
+  // pod front-line converges on the squad's shared quarry so they arrive together, not in a straggling line
+  if(podQuarry&&u.ai!=='flank'&&!inRange.includes(target))target=podQuarry;
   // the assassinate leader: a butcher charges, the quarry runs
   if(u.uid===B.leaderUid&&pcs.length){
     if(u.ai==='flee'){
@@ -2039,12 +2171,12 @@ function aiAct(u){
       if(distC(steps[0],target)>distC(u,target)){u.x=steps[0].x;u.y=steps[0].y;}
     }
   }
-  // move toward target if can't hit
-  if(!inRange.includes(target)){
+  // move toward target if can't hit — with a cohesion pull so the pod doesn't string out
+  if(!inRange.includes(target)&&target){
     const steps=reachable(B,u);
     if(steps.length){
-      steps.sort((a,b)=>(Math.abs(a.x-target.x)+Math.abs(a.y-target.y))-(Math.abs(b.x-target.x)+Math.abs(b.y-target.y)));
-      // ranged units keep distance if already in range
+      const coh=s=>(centroid?Math.max(0,distC(s,centroid)-(pod.radius+2))*1.5:0);
+      steps.sort((a,b)=>((Math.abs(a.x-target.x)+Math.abs(a.y-target.y))+coh(a))-((Math.abs(b.x-target.x)+Math.abs(b.y-target.y))+coh(b)));
       const best=steps[0];
       if(!(w.rng>1&&distC(u,target)<=w.rng)){ u.x=best.x;u.y=best.y; }
     }
@@ -2456,7 +2588,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.16</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.17</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2568,7 +2700,7 @@ function soldierCard(s,inHire,idx){
   return `<div class="card scard">
     <div class="face">${faceSvg(s.face,{size:46})}</div>
     <div class="sbody">
-      <span class="nm">${esc(s.name)}</span>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag">${esc(bg.tag)}</span> <span class="tag">Lv ${s.level}</span>
+      <span class="nm">${esc(s.name)}</span>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag tt" data-tip="${esc((CLASSES[s.cls]||CLASSES.fighter).d)}">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">${esc(bg.tag)}</span> <span class="tag">Lv ${s.level}</span>
       ${s.gravetempered?'<span class="tag revtag tt" data-tip="Watched one of their own laid to rest: +10 resolve, permanently.">gravetempered</span>':''}
       <div class="bg">${esc(bg.line)}</div>
       <div class="hpbar"><div style="width:${Math.round(100*s.hp/s.maxhp)}%"></div></div>
@@ -2780,7 +2912,7 @@ function renderBattle(){
       if(un.offbalance||un.warcried)title+=', −10 to hit';
       if(atk)title+=` — ${hc}% to hit`;
       else if(un.kind==='foe')title+=' — tap to scout its range';
-      if(un.kind==='foe'&&un.podId!=null&&B.podsActive&&B.pods[un.podId]){ const ps=B.pods[un.podId].state; title+=ps==='patrol'?' · unaware (patrolling)':ps==='alert'?' · alerted — searching':' · engaged'; }
+      if(un.kind==='foe'&&un.podId!=null&&B.podsActive&&B.pods[un.podId]){ const P=B.pods[un.podId]; title+=(P.dname?' · '+P.dname:'')+(P.state==='patrol'?' · unaware (patrolling)':P.state==='alert'?' · alerted — searching':' · engaged'); }
     }
     if(bd)title+=` — the body of ${bd.name}`;
     const cst=un&&casts.includes(un);
