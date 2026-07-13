@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.31</title>
+<title>GRAVEBORNE — alpha v0.32</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -105,6 +105,7 @@
   .tile.moveable{outline:2px solid rgba(90,150,220,.7);outline-offset:-2px}   /* blue: reach with movement, action kept */
   .tile.dashable{outline:2px dashed rgba(201,162,39,.6);outline-offset:-2px}  /* gold: reach only by dashing (spends action) */
   .tile.attackable{outline:2px solid rgba(163,59,46,.7);outline-offset:-2px}
+  .tile.blockedshot{outline:2px dashed rgba(163,59,46,.42);outline-offset:-2px}  /* in range, but line of sight blocked */
   .tile .terr{position:absolute;top:1px;left:3px;color:#5c5545;font-size:10px}
   .unit{position:absolute;inset:4px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:15px;border:2px solid transparent;color:#0e0c09}
   .unit.pc{background:var(--steel)} .unit.foe{background:#8a4a28;box-shadow:inset 0 0 0 1px #17130e} .unit.undead{background:#556347;box-shadow:inset 0 0 0 1px #17130e}
@@ -2884,7 +2885,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.31</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.32</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3219,14 +3220,23 @@ function renderBattle(){
   const narrow=window.innerWidth<760;
   const TS=narrow?30:40;            // fixed size; the map scrolls when larger than the viewport
   TSCUR=TS; B._ts=TS;
-  // blue = tiles reachable with remaining movement (action kept); gold = reachable only by dashing (spends the action)
+  // blue = reachable while KEEPING your action; gold = reachable only by spending your action.
+  // once the action is spent (you dashed or attacked), any leftover movement stays gold — never reverts to blue.
   const mp=isPC?(u.mp||0):0;
-  const blueMoves=isPC&&!B.aim&&mp>0?reachCosts(B,u,mp):[];
-  const goldMoves=isPC&&!B.aim&&!u.acted?reachCosts(B,u,mp+moveBudget(u)).filter(g=>!blueMoves.some(b=>b.x===g.x&&b.y===g.y)):[];
+  let blueMoves=[], goldMoves=[];
+  if(isPC&&!B.aim){
+    if(u.acted){ goldMoves = mp>0?reachCosts(B,u,mp):[]; }                 // action gone → leftover move is gold
+    else { blueMoves = mp>0?reachCosts(B,u,mp):[];
+      goldMoves = reachCosts(B,u,mp+moveBudget(u)).filter(g=>!blueMoves.some(b=>b.x===g.x&&b.y===g.y)); }
+  }
   const abs=isPC?unitAbilities(u):[];
   const aiming=isPC&&B.aim?abilityByKey(u,B.aim):null;
   const targets=isPC&&!u.acted&&!B.aim?attackTargets(B,u):[];
   const casts=aiming?B.units.filter(t=>abilityValidTarget(B,u,aiming,t)):[];
+  // a ranged unit's effective reach this turn (weapon range, +1 on high ground, capped in weather) — used to flag
+  // enemies that ARE in range but whose line of sight is blocked, so the archer's range doesn't feel bugged
+  const uw=isPC?wOf(u):null;
+  const uRangedReach=(isPC&&!u.acted&&!B.aim&&uw&&uw.rng>1)?((B.weather?Math.min(uw.rng,3):uw.rng)+(elevAt(B,u.x,u.y)===2?1:0)):0;
   // threat overlay for an inspected enemy: everywhere it could move + strike next turn
   const iu=B.inspect?B.units.find(z=>z.uid===B.inspect&&z.hp>0&&!z.fled):null;
   const threat=new Set();
@@ -3250,7 +3260,10 @@ function renderBattle(){
     const dash=!mv&&goldMoves.some(m=>m.x===x&&m.y===y);
     const atk=un&&targets.includes(un);
     const hc=atk?hitChance(B,u,un):null;
+    // in weapon range but the shot is blocked — flag it so "range 6" doesn't look broken when a tree/hill is in the way
+    const blocked=!atk&&uRangedReach>0&&un&&isEnemy(u,un)&&(()=>{const cheb=Math.max(Math.abs(u.x-un.x),Math.abs(u.y-un.y));return cheb>=2&&cheb<=uRangedReach&&!hasLOS(B,u,un);})();
     let title=terrDesc(t);
+    if(blocked)title+=' — IN RANGE but no line of sight (move for a clear shot)';
     if(un){
       const uw=wOf(un);
       title+=` — ${un.name} ${un.hp}/${un.maxhp}, ${uw.n}${uw.rng>1?' (range '+uw.rng+')':''}`;
@@ -3271,7 +3284,7 @@ function renderBattle(){
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
     const e=(t.elev==null?1:t.elev), bg=TILE_BG[t.t]||'#2e2a20';
     const fog=visible?'':(explored?'fogseen':'fogdark');
-    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${e===2?'hi':e===0?'lo':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${e===2?'hi':e===0?'lo':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
     if(fog!=='fogdark')grid+=tileArt(t.t,x,y,t);
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
@@ -3308,7 +3321,7 @@ function renderBattle(){
   }
   let insp=show?`<div class="card">${showFace}<span class="nm">${esc(show.name)}</span>${iu?' <span class="tag revtag">scouting</span>':''}
       <div class="statline">HP ${show.hp}/${show.maxhp} · SKL ${show.skl} · SPD ${show.spd}${show.dbl?' · <span style="color:var(--gold)">⚔ Double Strike</span>':''}${show.shakenBy?' · <span class="skull">SHAKEN −10</span>':''}${show.rattled?' · rattled×'+show.rattled+' (−'+(show.rattled*5)+')':''}${show.defending?' · bracing':''}</div>
-      <div class="wline">${WPN_ICON[show.weapon]||'⚔'} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng:''}</div>
+      <div class="wline">${WPN_ICON[show.weapon]||'⚔'} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng+(B.weather&&sw.rng>3?` <span style="color:#aab3c0">(${Math.min(sw.rng,3)+(elevAt(B,show.x,show.y)===2?1:0)} in this ${B.weather==='fog'?'fog':'ash-haze'})</span>`:(elevAt(B,show.x,show.y)===2?` <span style="color:var(--gold)">(${sw.rng+1} on high ground)</span>`:'')):''}</div>
       <div class="featline">✦ ${featChips(show.feats)}</div>
       ${iu?`<div class="hint">Red-hatched tiles: everywhere it can reach and strike next turn. Tap it again to dismiss.</div>`
         :isPC?`<div class="hint">${aiming?esc((aiming.label||'').replace(/^\S+\s/,'').toUpperCase())+': tap a '+(aiming.side==='ally'?'blue-rimmed ally':'purple-rimmed target')+'. ':''}${(u.mp||0)>0?'Blue tiles: move (keeps your action). ':''}${!u.acted?'Gold-dashed tiles: dash there (spends your action). Tap a red-rimmed enemy to strike. ':''}Tap another soldier to command them. Move can split around your action — move, strike, then move again.<br><span style="opacity:.7">Keys: Space end phase · B brace · F ability · R retreat · Esc cancel</span></div>`
