@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.30</title>
+<title>GRAVEBORNE — alpha v0.31</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -102,7 +102,8 @@
   .repbar>div{position:absolute;top:0;bottom:0}
   .traitchip{color:#c98a5a}
   .corrchip{color:#b08bc9}
-  .tile.moveable{outline:2px solid rgba(201,162,39,.45);outline-offset:-2px}
+  .tile.moveable{outline:2px solid rgba(90,150,220,.7);outline-offset:-2px}   /* blue: reach with movement, action kept */
+  .tile.dashable{outline:2px dashed rgba(201,162,39,.6);outline-offset:-2px}  /* gold: reach only by dashing (spends action) */
   .tile.attackable{outline:2px solid rgba(163,59,46,.7);outline-offset:-2px}
   .tile .terr{position:absolute;top:1px;left:3px;color:#5c5545;font-size:10px}
   .unit{position:absolute;inset:4px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:15px;border:2px solid transparent;color:#0e0c09}
@@ -115,7 +116,8 @@
   #sidePanel{flex:0 0 250px}
   .initstrip{display:flex;flex-wrap:nowrap;gap:5px;align-items:center;overflow-x:auto;flex:0 1 auto;min-width:0;max-width:100%;padding:1px 0;scrollbar-width:thin}
   .initstrip::before{content:'Order';color:var(--dim);font-size:10px;letter-spacing:.5px;text-transform:uppercase;margin-right:2px;flex:0 0 auto}
-  .qitem{flex:0 0 auto;padding:1px 7px;border:1px solid var(--line);border-radius:3px;font-size:11.5px;color:var(--dim);white-space:nowrap}
+  .qitem{flex:0 0 auto;padding:1px 7px;border:1px solid var(--line);border-radius:3px;font-size:11.5px;color:var(--dim);white-space:nowrap;cursor:pointer}
+  .qitem.spent{opacity:.42}
   .qitem.cur{border-color:var(--gold);color:var(--ink);background:rgba(201,162,39,.14)}
   .qitem.rev{color:#b08bc9;border-color:#5a4668}
   #grid{position:relative}
@@ -760,7 +762,8 @@ function genContracts(){
     else if(!r.swallowed&&r.pressure>=55&&shrineInRegion&&chance(45)) type='reclaim';
     else type=pick(r.pressure>=45?['purge','hold','patrol','hunt']:['patrol','hunt','purge']);
     const ct=CONTRACT_TYPES[type];
-    const danger=dangerOf(r);
+    // by week 4 the war has moved on — no more danger-1 work, so the player can't farm easy XP
+    const danger=Math.max(dangerOf(r), S.week>=4?2:1);
     let pay=Math.round((ct.base+danger*15)*(1+r.pressure/150));
     if(type==='delve') pay=Math.round(pay*(0.35+0.11*(r.salvage||0))); // ruins deplete
     const anchor=contractAnchor(r.id,type);
@@ -771,9 +774,9 @@ function genContracts(){
     if(rk&&S.rep){ if(S.rep[rk]>=25)pay=Math.round(pay*1.15); else if(S.rep[rk]<=-25)pay=Math.round(pay*0.75); }
     S.contracts.push({id:nid(),type,regionId:r.id,pay,danger,q:anchor.q,r:anchor.r,expires:S.week+2,obj:rollObjective(type)});
   }
-  // frontier floor: as regions pressurise past danger 1, always keep ONE easy contract open on the softest
-  // still-held region, so a green company always has somewhere to cut its teeth (pay drops with the danger).
-  if(!S.contracts.some(c=>c.danger===1)){
+  // frontier floor — ONLY in the first three weeks: keep one danger-1 contract open so a green company has
+  // somewhere to blood itself. From week 4 the easy work dries up (danger clamps to 2+ above), so no XP farming.
+  if(S.week<4&&!S.contracts.some(c=>c.danger===1)){
     const isPlain=c=>!c.qm&&!c.cinderling&&!c.story&&!c.reckoning; // never re-tune a fixed-reward commission/story contract
     for(const front of S.regions.filter(r=>!r.swallowed).sort((a,b)=>a.pressure-b.pressure)){
       const fc=S.contracts.find(c=>c.regionId===front.id&&isPlain(c));
@@ -1467,7 +1470,6 @@ function startBattle(contract,squadIds){
   else if(contract.revGraveId){ revs=[S.graves.find(g=>g.id===contract.revGraveId)]; }
   else if(risenHere.length&&chance(65)){ revs=[risenHere[0]]; }
   for(const g of revs){ if(g&&g.state==='risen') spawnRevenant(B,g); }
-  buildQueue(B);
   S.battle=B;
   // quartermaster loadout & scouting are spent the moment the mission begins
   const lo=S._loadout||{}; S._loadout=null; S.scouted=false;
@@ -1479,7 +1481,7 @@ function startBattle(contract,squadIds){
     const g=S.graves.find(x=>x.id===gId);
     queueModal(()=>calloutModal(B,g));
   }
-  render(); pumpModals(); maybeAI();
+  startPlayerPhase(B); pumpModals();   // the company moves first — your Player Phase
 }
 // Time-based enemy upgrades: as the world tier climbs (every ~3 weeks) foes gain randomized buffs,
 // so the mid/late game stays sharp even as the company grows in power. Each candidate rolls independently;
@@ -1552,27 +1554,76 @@ function placeRight(B,u){
 function tileAt(B,x,y){return (x>=0&&y>=0&&x<GW&&y<GH)?B.tiles[y*GW+x]:undefined;}
 function unitAt(B,x,y){return B.units.find(u=>u.hp>0&&!u.fled&&u.x===x&&u.y===y);}
 function bodyAt(B,x,y){return B.bodies.find(b=>b.x===x&&b.y===y);}
-function buildQueue(B){
-  B.queue=B.units.filter(u=>u.hp>0&&!u.fled&&u.kind!=='ally'&&!u.prop).sort((a,b)=>b.spd-a.spd||a.uid-b.uid).map(u=>u.uid);
+/* ===== PHASE-BASED SQUAD TURNS =====
+   Round = your Player Phase (move/act every soldier in any order you choose) then the Enemy Phase
+   (every foe acts). B.queue drives ONLY the enemy phase now. */
+function clearTransient(u){ u.rooted=false; u.offbalance=false; u.warcried=false; u.rallied=false; u.warded=0; u.skirmished=false; }
+function buildEnemyQueue(B){
+  B.queue=B.units.filter(u=>u.kind==='foe'&&u.hp>0&&!u.fled&&!u.prop).sort((a,b)=>b.spd-a.spd||a.uid-b.uid).map(u=>u.uid);
   B.qi=0;
-  B.units.forEach(u=>{u.moved=false;u.acted=false;});
+  B.units.forEach(u=>{ if(u.kind==='foe'){u.moved=false;u.acted=false;} });
 }
+function buildQueue(B){ buildEnemyQueue(B); }   // legacy alias; the queue only governs the enemy phase
 function curUnit(B){ const id=B.queue[B.qi]; return B.units.find(u=>u.uid===id&&u.hp>0&&!u.fled); }
-function nextTurn(){
+function activeUnit(B){ // whom the player controls (player phase) or the AI runs (enemy phase)
+  if(!B)return null;
+  if(B.phase==='enemy')return curUnit(B);
+  return B.sel?B.units.find(u=>u.uid===B.sel&&u.hp>0&&!u.fled&&u.kind==='pc'):null;
+}
+function pcTurnLeft(u){ return u.kind==='pc'&&u.hp>0&&!u.fled&&(!u.acted||(u.mp||0)>0); }
+function startPlayerPhase(B){
+  B.phase='player'; B.aim=null; B.inspect=null;
+  // clear the soldiers' transient statuses at the top of their phase; foes shed theirs as they act (so a
+  // War-Horn / Smoke Bomb / root applied during the player phase still bites them in the enemy phase)
+  for(const u of B.units){ if(u.hp<=0||u.fled)continue;
+    if(u.kind==='pc'){ clearTransient(u); u.mp=moveBudget(u); u.acted=false; u.moved=false; u.defending=false; u.stunned=false; } }
+  if(B.podsActive)podSenseAll(B);
+  const pcs=B.units.filter(u=>u.kind==='pc'&&u.hp>0&&!u.fled);
+  B.sel=pcs.length?pcs[0].uid:null;          // auto-select the first soldier
+  if(!B.over)render();
+}
+function startEnemyPhase(B){
+  if(B.over)return; B.phase='enemy'; B.sel=null; B.aim=null; B.inspect=null;
+  buildEnemyQueue(B);
+  if(B.podsActive)podSenseAll(B);
+  if(!B.over){ render();
+    // if a foe leads the queue and is stunned/dead, nextTurn's guards handle it; kick the phase off
+    const u=curUnit(B);
+    if(u&&u.stunned){ u.stunned=false; blog(B,`${u.name} is staggered and loses the turn.`); render(); setTimeout(()=>{ if(S.battle&&!S.battle.over)nextTurn(); },400); }
+    else if(!u){ nextTurn(); } else { maybeAI(); }
+  }
+}
+function endPlayerPhase(){ const B=S.battle; if(!B||B.over||B.phase!=='player')return; startEnemyPhase(B); }
+function endEnemyPhase(B){
+  B.round++;                              // (matches the old rollover order: advance the round, then tick)
+  blightTick(B); if(B.over)return;
+  objTick(B); if(B.over)return;
+  startPlayerPhase(B);
+}
+function nextTurn(){ // enemy-phase advancer (player phase is driven by selection)
   const B=S.battle; if(!B||B.over)return;
-  const prev=curUnit(B);
-  if(prev){ prev.rooted=false; prev.offbalance=false; prev.warcried=false; prev.rallied=false; prev.warded=0; prev.skirmish=false; prev.skirmished=false; }
+  if(B.phase!=='enemy')return;
+  const prev=curUnit(B); if(prev)clearTransient(prev);   // the foe that just acted sheds its transient debuffs
   B.inspect=null; B.aim=null;
   B.qi++;
-  if(B.qi>=B.queue.length){ B.round++; buildQueue(B); blightTick(B); if(!B.over)objTick(B); }
+  if(B.qi>=B.queue.length){ endEnemyPhase(B); return; }
   if(B.over)return;
-  if(B.podsActive)podSenseAll(B);   // fresh pod awareness before the next unit acts
+  if(B.podsActive)podSenseAll(B);
   const u=curUnit(B);
-  if(!u){ if(!B.over) nextTurn(); return; }
-  u.defending=false;
-  if(u.stunned){ u.stunned=false; blog(B,`${u.name} is staggered and loses the turn.`); render(); setTimeout(()=>{ if(S.battle&&!S.battle.over)nextTurn(); },450); return; }
+  if(!u){ nextTurn(); return; }
+  if(u.stunned){ u.stunned=false; blog(B,`${u.name} is staggered and loses the turn.`); render(); setTimeout(()=>{ if(S.battle&&!S.battle.over)nextTurn(); },400); return; }
   render(); maybeAI();
 }
+// selection + turn-flow helpers for the player phase
+function selectUnit(uid){ const B=S.battle; if(!B||B.phase!=='player'||B.over)return; uid=Number(uid); const u=B.units.find(z=>z.uid===uid&&z.kind==='pc'&&z.hp>0&&!z.fled); if(!u)return; B.sel=uid; B.aim=null; B.inspect=null; render(); }
+function afterPcAct(u){ // after a soldier moves/acts: stay on it if it still has a turn, else advance to the next, else the enemy moves
+  const B=S.battle; if(!B||B.over||B.phase!=='player')return;
+  if(u&&pcTurnLeft(u)){ render(); return; }
+  const next=B.units.find(z=>pcTurnLeft(z));
+  if(next){ B.sel=next.uid; B.aim=null; render(); return; }
+  startEnemyPhase(B);   // every soldier is spent
+}
+window.SELECT=selectUnit;
 function blightTick(B){
   for(const u of B.units){
     if(u.hp<=0||u.fled)continue;
@@ -1584,11 +1635,10 @@ function blightTick(B){
   checkEnd(B);
 }
 function blog(B,msg){ B.log.unshift(msg); if(B.log.length>40)B.log.pop(); }
-function reachable(B,u,bonus){
+function moveBudget(u){ let mov=(u.spd>=5?4:3); if(u.feats.includes('fleet'))mov+=1; return mov; } // movement points per turn
+// Dijkstra over movement points — returns every tile reachable within `budget`, each tagged with its path cost.
+function reachCosts(B,u,budget){
   if(u.rooted)return [];
-  let mov=(u.spd>=5?4:3)+(bonus||0);
-  if(u.feats.includes('fleet'))mov+=1;
-  // Dijkstra over movement points — brush/trees/climbs/blight cost more
   const best={}; const out=[]; best[u.x+','+u.y]=0;
   const q=[{x:u.x,y:u.y,d:0}];
   while(q.length){
@@ -1602,11 +1652,14 @@ function reachable(B,u,bonus){
       if(bImpass(t.t)||unitAt(B,x,y))continue;
       let step=bMv(t.t); if(t.blighted)step+=1; if(Math.abs(elevAt(B,x,y)-elevAt(B,c.x,c.y))>=1)step+=1;
       const nd=c.d+step, k=x+','+y;
-      if(nd<=mov&&(best[k]===undefined||nd<best[k])){ best[k]=nd; if(!out.some(o=>o.x===x&&o.y===y))out.push({x,y}); q.push({x,y,d:nd}); }
+      if(nd<=budget&&(best[k]===undefined||nd<best[k])){ best[k]=nd; const ex=out.find(o=>o.x===x&&o.y===y); if(ex)ex.cost=nd; else out.push({x,y,cost:nd}); q.push({x,y,d:nd}); }
     }
   }
   return out;
 }
+// backward-compatible for the AI: tiles within the unit's full budget (+bonus). Returned objects still expose .x/.y.
+function reachable(B,u,bonus){ return reachCosts(B,u,moveBudget(u)+(bonus||0)); }
+function pathCostTo(B,u,x,y,budget){ const t=reachCosts(B,u,budget).find(o=>o.x===x&&o.y===y); return t?t.cost:null; }
 function distC(a,b){return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y));}
 function adjacent(a,b){return Math.abs(a.x-b.x)+Math.abs(a.y-b.y)===1;}
 function isIsolated(B,def){ return !B.units.some(z=>z!==def&&z.hp>0&&!z.fled&&!z.prop&&z.kind===def.kind&&distC(z,def)<=1); } // no same-side ally adjacent
@@ -1774,8 +1827,7 @@ function doAttack(B,att,def){
   }
   strike();
   if(att.dbl && !B.over && def.hp>0 && !def.fled){ strike(); }   // martial Double Strike (level 5): a second swing
-  att.acted=true;
-  if(att.kind==='pc'&&(att.feats||[]).includes('skirmisher')&&!att.skirmished){ att.skirmished=true; att.skirmish=true; }
+  att.acted=true;   // Skirmisher's post-attack move refresh is handled in tryAttack (mp economy)
 }
 function applyDeath(B,u){
   u.hp=0;
@@ -1877,38 +1929,31 @@ function calloutModal(B,g){
     [{label:'Steel yourselves',fn:()=>closeModal()}]);
 }
 function tryMove(x,y){
-  const B=S.battle; const u=curUnit(B);
-  if(!u||u.kind!=='pc')return;
-  if(u.moved&&u.acted&&!u.skirmish)return;
-  if(u.skirmish){ // skirmisher fade: a full move at +1 speed after attacking — strike and slip away
-    if(!reachable(B,u,1).some(t=>t.x===x&&t.y===y))return;
-    u.x=x;u.y=y;u.skirmish=false; B.aim=null; render(); endUnitTurn(); return;
-  }
-  if(!reachable(B,u).some(t=>t.x===x&&t.y===y))return;
-  const dash=u.moved; // second move spends the action
-  u.x=x;u.y=y;
-  if(dash){ u.acted=true; blog(B,`${u.name} dashes.`); } else u.moved=true;
-  B.aim=null;
-  render();
-  if(u.moved&&u.acted&&!u.skirmish) endUnitTurn();
-}
-function stepTiles(B,u){
-  return [[1,0],[-1,0],[0,1],[0,-1]].map(d=>({x:u.x+d[0],y:u.y+d[1]}))
-    .filter(t=>t.x>=0&&t.y>=0&&t.x<GW&&t.y<GH&&!bImpass(tileAt(B,t.x,t.y).t)&&!unitAt(B,t.x,t.y));
+  const B=S.battle; const u=activeUnit(B);
+  if(!u||u.kind!=='pc'||B.phase!=='player')return;
+  const mp=u.mp||0;
+  // blue: within your remaining movement — spend the points, keep your action
+  let cost=pathCostTo(B,u,x,y,mp);
+  if(cost!=null){ u.x=x;u.y=y; u.mp=mp-cost; u.moved=true; B.aim=null; if(B.podsActive)podSenseAll(B); afterPcAct(u); return; }
+  // gold: dash — reachable only by spending your action for a second wind of movement
+  if(!u.acted){ const dashBudget=mp+moveBudget(u); cost=pathCostTo(B,u,x,y,dashBudget);
+    if(cost!=null){ u.x=x;u.y=y; u.acted=true; u.moved=true; u.mp=Math.max(0,dashBudget-cost); blog(B,`${u.name} dashes.`); B.aim=null; if(B.podsActive)podSenseAll(B); afterPcAct(u); return; } }
 }
 function tryAttack(targetUid){
-  const B=S.battle; const u=curUnit(B);
-  if(!u||u.kind!=='pc'||u.acted)return;
+  const B=S.battle; const u=activeUnit(B);
+  if(!u||u.kind!=='pc'||u.acted||B.phase!=='player')return;
   const t=B.units.find(z=>z.uid===targetUid);
   if(!t||!attackTargets(B,u).includes(t))return;
   doAttack(B,u,t);
-  if(!B.over){ render(); if(u.acted&&u.moved&&!u.skirmish) endUnitTurn(); }
+  // Skirmisher: attacking refreshes your movement to a full budget (+1) — strike, then fade away
+  if(u.hp>0&&!u.fled&&(u.feats||[]).includes('skirmisher')&&!u.skirmished){ u.mp=moveBudget(u)+1; u.skirmished=true; }
+  if(!B.over)afterPcAct(u);
 }
-function endUnitTurn(){ const B=S.battle; if(!B||B.over)return; nextTurn(); }
+function endUnitTurn(){ endPlayerPhase(); }   // legacy: the "End Turn" control now ends the whole player phase
 function peekToggle(){ const B=S.battle; if(!B)return; B.peek=!B.peek; if(!B.peek)B.peekTile=null; B.aim=null; render(); }
-function defend(){ const B=S.battle; const u=curUnit(B); if(!u||u.kind!=='pc'||u.acted)return;
-  u.defending=true; u.rattled=Math.max(0,u.rattled-1); u.acted=true;u.moved=true;
-  blog(B,`${u.name} braces — −10 to be hit, +2 armor, nerves steadied, until their next turn.`); nextTurn(); }
+function defend(){ const B=S.battle; const u=activeUnit(B); if(!u||u.kind!=='pc'||u.acted||B.phase!=='player')return;
+  u.defending=true; u.rattled=Math.max(0,u.rattled-1); u.acted=true; B.aim=null;
+  blog(B,`${u.name} braces — −10 to be hit, +2 armor, nerves steadied, until their next turn.`); afterPcAct(u); }
 function unitAbilities(u){
   // ALL abilities a unit can use — the action bar shows one button per ability so a soldier who knows
   // several (e.g. Sanctuary + an Ash graft) can pick any of them, not just the highest-priority one.
@@ -1932,20 +1977,21 @@ function abilityByKey(u,k){ return unitAbilities(u).find(a=>a.k===k)||null; }
 function abilityValidTarget(B,u,ab,t){
   if(!t||t.hp<=0||t.fled)return false;
   if(ab.side==='enemy'&&!isEnemy(u,t))return false;
+  if(ab.side==='enemy'&&t.kind==='foe'&&B._vis&&!B._vis.has(t.x+','+t.y))return false;   // can't target a foe hidden by fog
   if(ab.side==='ally'&&!(t.kind===u.kind&&t!==u&&!t.prop))return false;
   if(ab.ranged)return distC(u,t)>=2&&distC(u,t)<=(B.weather?Math.min(ab.range,3):ab.range)&&hasLOS(B,u,t);
   return distC(u,t)<=ab.range&&distC(u,t)>=1;
 }
 function useAbility(k){
-  const B=S.battle; const u=curUnit(B);
-  if(!u||u.kind!=='pc'||u.acted)return;
+  const B=S.battle; const u=activeUnit(B);
+  if(!u||u.kind!=='pc'||u.acted||B.phase!=='player')return;
   const abs=unitAbilities(u); if(!abs.length)return;
   const ab = k ? abs.find(a=>a.k===k) : abs[0];   // a specific button, or (keyboard shortcut) the first
   if(!ab)return;
-  if(ab.side==='self'){ execAbility(B,u,ab,null); if(!B.over){ render(); if(u.acted&&u.moved) endUnitTurn(); } return; }
+  if(ab.side==='self'){ execAbility(B,u,ab,null); if(!B.over)afterPcAct(u); return; }
   B.aim=(B.aim===ab.k)?null:ab.k; render();
 }
-function afterAbility(B,u){ if(!B.over){ render(); if(u.acted&&u.moved&&!u.skirmish) endUnitTurn(); } }
+function afterAbility(B,u){ if(!B.over)afterPcAct(u); }
 function execAbility(B,u,ab,t){
   if(t&&t.kind==='foe')noticeAttack(B,u,t);   // bone-spears/bash/hook on a patroller wakes its pod
   const corrupt=()=>{ if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} };
@@ -2039,7 +2085,7 @@ function doCast(B,att,def){
 }
 function retreat(){
   const B=S.battle; if(!B||B.over||activeModal)return;
-  const cu=curUnit(B); if(!cu||cu.kind!=='pc')return;
+  if(B.phase!=='player')return;   // you can only sound the retreat on your own turn
   const carried=[],lost=[];
   for(const b of B.bodies){
     const near=B.units.some(u=>u.kind==='pc'&&u.hp>0&&!u.fled&&(adjacent(u,b)||(u.x===b.x&&u.y===b.y)));
@@ -2331,7 +2377,7 @@ function guardTurn(B,u,pod,pcs){
   return true;
 }
 function maybeAI(){
-  const B=S.battle; if(!B||B.over)return;
+  const B=S.battle; if(!B||B.over||B.phase!=='enemy')return;
   if(activeModal){ setTimeout(maybeAI,300); return; }
   const u=curUnit(B);
   if(!u){ nextTurn(); return; }
@@ -2764,7 +2810,7 @@ function render(){
   app.innerHTML=html;
   const lg=document.getElementById('log'); if(lg)lg.scrollTop=0;
   // keep the acting unit in view on scrolling battle maps
-  if(S.battle){ const B=S.battle; const gw=document.getElementById('gridwrap'); const cu=curUnit(B);
+  if(S.battle){ const B=S.battle; const gw=document.getElementById('gridwrap'); const cu=activeUnit(B);
     // only follow the player's own units, or a foe the player can actually see — never scroll to an enemy hidden by fog
     const canCenter=cu&&(cu.kind!=='foe'||(B._vis&&B._vis.has(cu.x+','+cu.y)));
     if(gw){
@@ -2826,18 +2872,19 @@ function mobileTabBar(){
       return;
     }
     if(activeModal||!S||!S.battle)return;
-    const B=S.battle, u=curUnit(B); if(!u||u.kind!=='pc')return;
+    const B=S.battle; if(B.over||B.phase!=='player')return;
     const k=e.key.toLowerCase();
-    if(k===' '||k==='enter'){ e.preventDefault(); endUnitTurn(); }
-    else if(k==='b'){ defend(); }
+    if(k===' '||k==='enter'){ e.preventDefault(); endPlayerPhase(); return; }
+    if(k==='escape'){ if(B.aim){B.aim=null;render();} return; }
+    if(k==='r'){ retreat(); return; }
+    const u=activeUnit(B); if(!u||u.kind!=='pc')return;
+    if(k==='b'){ defend(); }
     else if(k==='f'||k==='q'){ useAbility(); }
-    else if(k==='r'){ retreat(); }
-    else if(k==='escape'){ if(B.aim){B.aim=null;render();} }
   });
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.30</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.31</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3167,12 +3214,15 @@ function computeVis(B){
   return vis;
 }
 function renderBattle(){
-  const B=S.battle; const u=curUnit(B);
-  const isPC=u&&u.kind==='pc';
+  const B=S.battle; const u=activeUnit(B);
+  const isPC=B.phase==='player'&&u&&u.kind==='pc';
   const narrow=window.innerWidth<760;
   const TS=narrow?30:40;            // fixed size; the map scrolls when larger than the viewport
   TSCUR=TS; B._ts=TS;
-  const moves=isPC?(u.skirmish?reachable(B,u,1):((!u.moved||!u.acted)&&!B.aim?reachable(B,u):[])):[];
+  // blue = tiles reachable with remaining movement (action kept); gold = reachable only by dashing (spends the action)
+  const mp=isPC?(u.mp||0):0;
+  const blueMoves=isPC&&!B.aim&&mp>0?reachCosts(B,u,mp):[];
+  const goldMoves=isPC&&!B.aim&&!u.acted?reachCosts(B,u,mp+moveBudget(u)).filter(g=>!blueMoves.some(b=>b.x===g.x&&b.y===g.y)):[];
   const abs=isPC?unitAbilities(u):[];
   const aiming=isPC&&B.aim?abilityByKey(u,B.aim):null;
   const targets=isPC&&!u.acted&&!B.aim?attackTargets(B,u):[];
@@ -3196,7 +3246,8 @@ function renderBattle(){
     const rawUn=unitAt(B,x,y);
     const un=(rawUn&&(rawUn.kind!=='foe'||visible))?rawUn:null;   // fog of war: enemies hidden until seen
     const bd=(!un&&visible)?bodyAt(B,x,y):null;
-    const mv=moves.some(m=>m.x===x&&m.y===y);
+    const mv=blueMoves.some(m=>m.x===x&&m.y===y);
+    const dash=!mv&&goldMoves.some(m=>m.x===x&&m.y===y);
     const atk=un&&targets.includes(un);
     const hc=atk?hitChance(B,u,un):null;
     let title=terrDesc(t);
@@ -3220,7 +3271,7 @@ function renderBattle(){
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
     const e=(t.elev==null?1:t.elev), bg=TILE_BG[t.t]||'#2e2a20';
     const fog=visible?'':(explored?'fogseen':'fogdark');
-    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${e===2?'hi':e===0?'lo':''} ${fog} ${mv?'moveable':''} ${atk?'attackable':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${e===2?'hi':e===0?'lo':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
     if(fog!=='fogdark')grid+=tileArt(t.t,x,y,t);
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
@@ -3242,9 +3293,11 @@ function renderBattle(){
     grid+='</div>';
   }
   grid+=`${B.weather?'<div class="fogveil"></div>':''}</div></div>`;
-  const q=B.queue.map((id,i)=>{const z=B.units.find(x=>x.uid===id);if(!z||z.hp<=0||z.fled)return '';
-    if(z.kind==='foe'&&B._vis&&!B._vis.has(z.x+','+z.y))return ''; // fog of war: don't spoil enemies the company hasn't spotted yet
-    return `<div class="qitem ${i===B.qi?'cur':''} ${z.graveId?'rev':''}">${i===B.qi?'▶ ':''}${esc(z.name)} (${z.hp})</div>`;}).join('');
+  // squad roster (player phase) — tap a soldier to command them, in any order you like; ● = action still available
+  const q = B.phase==='player'
+    ? B.units.filter(z=>z.kind==='pc'&&z.hp>0&&!z.fled).map(z=>{ const done=z.acted&&(z.mp||0)<=0;
+        return `<div class="qitem ${z.uid===B.sel?'cur':''} ${done?'spent':''}" onclick="SELECT(${z.uid})" title="Tap to command ${esc(z.name)}">${z.uid===B.sel?'▶ ':''}${esc(z.name)}${z.acted?'':' ●'}</div>`; }).join('')
+    : '<span class="hint">The enemy moves…</span>';
   const show=iu||u;
   const sw=show?wOf(show):null;
   let showFace='';
@@ -3258,8 +3311,8 @@ function renderBattle(){
       <div class="wline">${WPN_ICON[show.weapon]||'⚔'} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng:''}</div>
       <div class="featline">✦ ${featChips(show.feats)}</div>
       ${iu?`<div class="hint">Red-hatched tiles: everywhere it can reach and strike next turn. Tap it again to dismiss.</div>`
-        :isPC?`<div class="hint">${u.skirmish?'FADE: skirmisher — tap a highlighted tile to slip away (full move, +1). ':''}${aiming?esc((aiming.label||'').replace(/^\S+\s/,'').toUpperCase())+': tap a '+(aiming.side==='ally'?'blue-rimmed ally':'purple-rimmed target')+'. ':''}${u.moved&&u.acted?'':'Tap a gold tile to move'+(!u.acted?' — twice to dash':'')+'. '}${u.acted?'':'Tap a red-rimmed enemy to strike. '}Tap any other enemy to scout it.<br><span style="opacity:.7">Keys: Space end · B brace · F ability · R retreat · Esc cancel</span></div>`
-        :'<div class="hint">The enemy moves…</div>'}
+        :isPC?`<div class="hint">${aiming?esc((aiming.label||'').replace(/^\S+\s/,'').toUpperCase())+': tap a '+(aiming.side==='ally'?'blue-rimmed ally':'purple-rimmed target')+'. ':''}${(u.mp||0)>0?'Blue tiles: move (keeps your action). ':''}${!u.acted?'Gold-dashed tiles: dash there (spends your action). Tap a red-rimmed enemy to strike. ':''}Tap another soldier to command them. Move can split around your action — move, strike, then move again.<br><span style="opacity:.7">Keys: Space end phase · B brace · F ability · R retreat · Esc cancel</span></div>`
+        :'<div class="hint">Tap one of your soldiers to command them.</div>'}
     </div>`:'';
   if(B.peekTile) insp=tileDesc(B,B.peekTile.x,B.peekTile.y)+insp;
   else if(B.peek) insp=`<div class="card"><span class="hint">👁 Inspect mode — tap any square to read its terrain effects and who stands there. Tap 👁 again to exit.</span></div>`+insp;
@@ -3268,14 +3321,14 @@ function renderBattle(){
   return `<div id="battleTop"><h1>⚔ ${B.cname||ct.n}</h1><span class="stat">Round <b>${B.round}</b></span>
       <span class="stat" style="color:var(--gold)">⚑ <b>${OBJECTIVES[B.obj].n}</b>${objProg}</span>
       ${B.weather?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Ranged attacks capped at range 3; enemies beyond 5 tiles are hidden">${B.weather==='fog'?'FOG':'ASH-HAZE'}</span>`:''}
-      ${isPC?`<span class="pips">Move ${u.moved?'—':'●'} · Action ${u.acted?'—':'●'}</span>`:'<span class="hint">enemy turn…</span>'}
-      <span class="initstrip" title="Turn order — the active unit is highlighted">${q}</span>
+      ${isPC?`<span class="pips">${esc(u.name)} · Move ${u.mp||0} · Action ${u.acted?'—':'●'}</span>`:(B.phase==='enemy'?'<span class="hint">enemy phase…</span>':'<span class="hint">— tap a soldier —</span>')}
+      <span class="initstrip" title="Your squad — tap a soldier to command them in any order">${q}</span>
       <span id="actbar">
       <button class="${B.peek?'primary':''}" onclick="PEEK()" title="Inspect mode: tap any square to read its terrain effects and who stands there.">👁${B.peek?' Inspecting':''}</button>
       ${abs.map(a=>`<button ${isPC&&!u.acted?'':'disabled'} onclick="MEDIC('${a.k}')" title="${esc(a.tip)}">${B.aim===a.k?'Cancel':a.label}</button>`).join('')}
       <button ${isPC&&!u.acted?'':'disabled'} onclick="DEFEND()" title="Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled)">🛡 Brace</button>
-      <button class="primary" ${isPC?'':'disabled'} onclick="ENDT()">End Turn ⏎</button>
-      <button class="danger" ${isPC?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen comrades are carried out only if a living soldier stands beside their body.">Retreat</button></span></div>
+      <button class="primary" ${B.phase==='player'?'':'disabled'} onclick="ENDT()" title="End your whole squad's turn — the enemy moves">End Turn ⏎</button>
+      <button class="danger" ${B.phase==='player'?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen comrades are carried out only if a living soldier stands beside their body.">Retreat</button></span></div>
     <div id="battleWrap">${grid}
       <div class="col" id="sidePanel"><h2>Unit</h2>${insp}
         <h2 style="margin-top:8px">Field log</h2><div style="font-size:12px;max-height:180px;overflow-y:auto">${B.log.map(m=>`<p style="margin:2px 0">${m}</p>`).join('')}</div>
@@ -3283,9 +3336,12 @@ function renderBattle(){
 }
 window.TILE=function(x,y){
   const B=S.battle; if(!B||B.over||activeModal)return;
-  if(B.peek){ B.peekTile={x,y}; render(); return; }   // inspect mode: read the square, take no action (works on any turn)
-  const u=curUnit(B); if(!u||u.kind!=='pc')return;
+  if(B.peek){ B.peekTile={x,y}; render(); return; }   // inspect mode: read the square, take no action (any phase)
+  if(B.phase!=='player')return;                        // enemy phase — no player input
   const t=unitAt(B,x,y);
+  // tap one of your own soldiers (when not aiming an ability at an ally) → make them the active unit
+  if(t&&t.kind==='pc'&&!B.aim){ selectUnit(t.uid); return; }
+  const u=activeUnit(B); if(!u){ if(t&&t.kind==='pc')selectUnit(t.uid); return; }
   // ability targeting mode
   if(B.aim&&!u.acted){
     const ab=abilityByKey(u,B.aim);
@@ -3300,7 +3356,7 @@ window.TILE=function(x,y){
   B.inspect=null;
   tryMove(x,y);
 };
-window.DEFEND=defend; window.ENDT=endUnitTurn; window.RETREAT=retreat; window.MEDIC=useAbility; window.PEEK=peekToggle;
+window.DEFEND=defend; window.ENDT=endPlayerPhase; window.RETREAT=retreat; window.MEDIC=useAbility; window.PEEK=peekToggle;
 function renderGameOver(){
   if(S.victory)return renderVictory();
   const walking=S.graves.filter(g=>g.state==='risen');

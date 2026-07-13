@@ -11,6 +11,15 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.31 (2026-07-13) — Squad Tactics: One Player Turn, Split Movement
+A ground-up rework of the tactical layer into proper squad tactics, plus a difficulty tightening.
+- **One Player Phase, then the Enemy Phase.** Individual initiative is gone. On your turn you command **your whole company in any order you choose** — tap a soldier (on the map or in the roster strip up top) to make them active, move/act them, switch to another, come back. Move the soldiers on the outside first to clear a lane for the one boxed in. When you're done, **End Turn** and the whole enemy line moves.
+- **Movement is a pool you spend around your action.** Each soldier has movement points and one action. **Blue tiles** are reachable with your remaining movement and keep your action free; **gold-dashed tiles** are reachable only by dashing (which spends your action). Crucially, movement **splits around your action** — with Speed 3 you can move two tiles, strike, then move the last tile. Move, attack, move.
+- **Skirmisher** now refreshes your movement to a full budget (+1) after you attack — strike and fade, in the new economy.
+- **No more easy-XP farming.** Danger-1 contracts dry up by **week 4** (a green company gets three weeks to blood itself on the frontier, then the war moves on and the softest work available is danger 2).
+
+Verified end-to-end and run through a multi-agent adversarial review (turn engine, movement, control, status timing, stale-reference sweep) — no softlocks; three confirmed issues fixed (roster-tap selection, brace-while-aiming, ability fog-of-war guard).
+
 ## v0.30 (2026-07-13) — Milestone Hardening (Adversarial Review Fixes)
 A multi-agent adversarial review of the v0.26–v0.29 milestone surfaced five confirmed bugs, all fixed here:
 - **(major) Raising the dead no longer restarts the round.** The Blight-Mage's and Blight-Sorcerer's raise called `buildQueue()` mid-turn, which reset the initiative index and cleared everyone's move/action flags — replaying the round and handing bonus turns to both sides. The raised unit now simply joins the tail of the current round. (This was a latent bug in the mage since v0.17, caught because the new sorcerer reproduced the pattern.)
