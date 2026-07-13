@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.34</title>
+<title>GRAVEBORNE — alpha v0.35</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -91,8 +91,8 @@
   #gridwrap{max-width:100%;max-height:68vh;overflow:auto;border:1px solid var(--line);border-radius:3px;background:#0c0a07}
   #grid{display:grid;gap:1px;background:#000;width:max-content}
   /* tile shading via inset shadow (paints UNDER the child unit token, not over it) */
-  .tile.hi{box-shadow:inset 0 3px 0 rgba(201,162,39,.22),inset 0 0 0 200px rgba(233,214,160,.06)}
-  .tile.lo{box-shadow:inset 0 0 10px rgba(0,0,0,.5),inset 0 0 0 200px rgba(0,0,0,.16)}
+  .tile.hi{box-shadow:inset 0 4px 0 rgba(216,180,104,.34),inset 0 0 0 200px rgba(233,214,160,.11)}
+  .tile.lo{box-shadow:inset 0 0 10px rgba(0,0,0,.55),inset 0 0 0 200px rgba(0,0,0,.2)}
   .tile.fogseen{box-shadow:inset 0 0 0 200px rgba(6,5,3,.62)}
   .tile.fogseen .decor{opacity:.5}
   .tile.fogdark{background:#0c0a07 !important;cursor:default}
@@ -1221,13 +1221,21 @@ function tileDesc(B,x,y){ // inspect-mode readout: what this square does, and wh
     <div class="hint" style="margin-top:6px">👁 Inspect mode — tap any square to read it. Tap 👁 again to exit.</div></div>`;
 }
 function genBattleMap(B,bhex,region){
-  GW=ri(19,24); GH=ri(13,16);
+  const SZ=ri(20,24); GW=SZ+ri(0,2); GH=SZ+ri(0,2);          // square-ish and roomy — a proper battleground
   B.tiles=[];
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)B.tiles.push({x,y,t:'grass',elev:1,blighted:false});
   const T=(x,y)=>(x>=0&&y>=0&&x<GW&&y<GH)?B.tiles[y*GW+x]:null;
-  const randOpen=()=>{ for(let i=0;i<50;i++){ const t=T(ri(2,GW-3),ri(1,GH-2)); if(t&&t.t==='grass')return t;} return null; };
-  const blobFeat=(feat,size)=>{ let t=randOpen(); if(!t)return; const g=[t]; t.t=feat; for(let i=0;i<size;i++){ const b=pick(g),n=T(clamp(b.x+ri(-1,1),0,GW-1),clamp(b.y+ri(-1,1),0,GH-1)); if(n&&n.t==='grass'){n.t=feat;g.push(n);} } };
-  const blobElev=(e,size)=>{ let t=randOpen(); if(!t)return; const g=[t]; t.elev=e; for(let i=0;i<size;i++){ const b=pick(g),n=T(clamp(b.x+ri(-1,1),0,GW-1),clamp(b.y+ri(-1,1),0,GH-1)); if(n){n.elev=e;g.push(n);} } };
+  const cxc=GW/2, cyc=GH/2;
+  const randOpen=(pad)=>{ pad=pad||2; for(let i=0;i<80;i++){ const t=T(ri(pad,GW-1-pad),ri(pad,GH-1-pad)); if(t&&t.t==='grass')return t;} return null; };
+  // a rounded cover CLUSTER (clean-edged, so travel lanes read clearly between clusters instead of scattered noise)
+  const cluster=(feat,cx,cy,rx,ry,fill)=>{ for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){ const dx=(x-cx)/(rx||1),dy=(y-cy)/(ry||1); if(dx*dx+dy*dy<=1&&(fill==null||chance(fill))){ const t=T(x,y); if(t&&t.t==='grass')t.t=feat; } } };
+  const scatter=(feat,n,mn,mx)=>{ for(let i=0;i<n;i++){ const t=randOpen(3); if(t)cluster(feat,t.x,t.y,ri(mn,mx),ri(mn,mx),85); } };
+  // a broad flat-topped PLATEAU: the interior is elev 2 (flat — normal move cost across the top); only the single-tile
+  // ring where it meets the ground is the +1 "slope" (the elevation-change cost in reachCosts). No 2-tile gradients.
+  const plateau=(cx,cy,rx,ry,e)=>{ for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){ const dx=(x-cx)/(rx||1),dy=(y-cy)/(ry||1); if(dx*dx+dy*dy<=1){ const t=T(x,y); if(t)t.elev=(e==null?2:e); } } };
+  const wallRect=(x0,y0,x1,y1,feat)=>{ for(let x=x0;x<=x1;x++){ [y0,y1].forEach(y=>{const t=T(x,y); if(t&&chance(82))t.t=feat;}); } for(let y=y0;y<=y1;y++){ [x0,x1].forEach(x=>{const t=T(x,y); if(t&&chance(82))t.t=feat;}); } };
+  const gate=(x0,y0,x1,y1)=>{ const side=pick(['t','b','l','r']); if(side==='t'||side==='b'){ const gx=ri(x0+1,x1-1),gy=side==='t'?y0:y1; for(let d=-1;d<=1;d++){const t=T(gx+d,gy); if(t)t.t='grass';} } else { const gy=ri(y0+1,y1-1),gx=side==='l'?x0:x1; for(let d=-1;d<=1;d++){const t=T(gx,gy+d); if(t)t.t='grass';} } };
+
   let theme=B.mapTheme;
   if(!theme){
     if(B.obj==='reclaim')theme='ritual';
@@ -1236,38 +1244,56 @@ function genBattleMap(B,bhex,region){
     else if(bhex.t==='forest')theme='woods';
     else if(['hills','mountain'].includes(bhex.t))theme=chance(50)?'pass':'ruins';
     else if(bhex.t==='marsh')theme='river';
-    else theme=pick(['fields','fields','ruins','ritual','river','woods']);
+    else theme=pick(['fields','fields','ruins','ruins','ritual','river','woods','town']);
   }
   B.mapTheme=theme;
-  for(let i=0;i<ri(4,8);i++)blobFeat('brush',ri(2,4));
-  for(let i=0;i<ri(2,5);i++)blobFeat('tree',ri(1,3));
-  for(let i=0;i<ri(2,4);i++){const t=randOpen(); if(t)t.t='boulder';}
+
   if(theme==='river'){
     const x0=2,y0=1,x1=GW-3,y1=GH-2,L2=((x1-x0)**2+(y1-y0)**2)||1;
     for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){ const tt=((x-x0)*(x1-x0)+(y-y0)*(y1-y0))/L2,px=x0+tt*(x1-x0),py=y0+tt*(y1-y0);
-      if(tt>=-0.03&&tt<=1.03&&Math.hypot(x-px,y-py)<1.35){T(x,y).t='water';} }
-    [0.3,0.68].forEach(f=>{ const bx=Math.round(x0+f*(x1-x0)),by=Math.round(y0+f*(y1-y0));
+      if(tt>=-0.03&&tt<=1.03&&Math.hypot(x-px,y-py)<1.5){T(x,y).t='water';} }
+    [0.32,0.7].forEach(f=>{ const bx=Math.round(x0+f*(x1-x0)),by=Math.round(y0+f*(y1-y0));
       for(let ox=0;ox<=1;ox++)for(let o=-2;o<=2;o++){ const t=T(clamp(bx+ox,0,GW-1),clamp(by+o,0,GH-1)); if(t&&t.t==='water')t.t='bridge'; } });
-    B.bridges=[0.3,0.68].map(f=>({x:Math.round(x0+f*(x1-x0)),y:Math.round(y0+f*(y1-y0))}));
+    B.bridges=[0.32,0.7].map(f=>({x:Math.round(x0+f*(x1-x0)),y:Math.round(y0+f*(y1-y0))}));
+    scatter('tree',ri(2,3),2,3); scatter('brush',ri(2,3),2,3);   // cover clumps on the banks
   } else if(theme==='ruins'){
-    for(let i=0;i<ri(4,6);i++)blobFeat('rubble',ri(3,7));
-    for(let i=0;i<ri(3,6);i++){const t=randOpen(); if(t)t.t='column';}
-    for(let i=0;i<ri(2,3);i++)blobElev(0,ri(3,5));
-    for(let i=0;i<ri(1,2);i++)blobElev(2,ri(2,4));
+    // an old fort — a walled keep with gate gaps, a raised inner foundation, corner columns; rubble as cover outside
+    const fw=Math.round(GW*0.4),fh=Math.round(GH*0.4);
+    const fx0=Math.round(cxc-fw/2),fy0=Math.round(cyc-fh/2),fx1=fx0+fw,fy1=fy0+fh;
+    plateau(cxc,cyc,fw*0.32,fh*0.32);                            // the raised inner keep (a plateau)
+    wallRect(fx0,fy0,fx1,fy1,'rubble'); gate(fx0,fy0,fx1,fy1); gate(fx0,fy0,fx1,fy1);
+    [[fx0,fy0],[fx1,fy0],[fx0,fy1],[fx1,fy1]].forEach(([x,y])=>{ const t=T(x,y); if(t)t.t='column'; });
+    for(let i=0;i<ri(2,4);i++){const t=T(ri(fx0+1,fx1-1),ri(fy0+1,fy1-1)); if(t&&t.t==='grass'&&t.elev===1&&chance(45))t.t='column';}
+    scatter('rubble',ri(2,3),2,3);
   } else if(theme==='ritual'){
-    const cx=Math.floor(GW*0.62),cy=Math.floor(GH/2);
-    for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){ const d=Math.hypot(x-cx,y-cy); if(d<3.3)T(x,y).elev=2; else if(d<4.6&&chance(40))T(x,y).elev=2; }
-    for(let a=0;a<9;a++){ const t=T(clamp(Math.round(cx+Math.cos(a/9*6.283)*4),0,GW-1),clamp(Math.round(cy+Math.sin(a/9*6.283)*4),0,GH-1)); if(t&&t.t==='grass'&&chance(70))t.t='stone'; }
-    B.ritualCenter={x:cx,y:cy};
+    plateau(cxc,cyc,GW*0.2,GH*0.2);                             // the hilltop (Weathertop)
+    for(let a=0;a<10;a++){ const t=T(clamp(Math.round(cxc+Math.cos(a/10*6.283)*GW*0.23),0,GW-1),clamp(Math.round(cyc+Math.sin(a/10*6.283)*GH*0.23),0,GH-1)); if(t&&t.t==='grass'&&chance(75))t.t='stone'; }
+    B.ritualCenter={x:Math.round(cxc),y:Math.round(cyc)};
+    scatter('brush',ri(2,3),2,3); for(let i=0;i<ri(2,3);i++){const t=randOpen(3); if(t)t.t='boulder';}
   } else if(theme==='pass'){
-    for(let x=2;x<=GW-3;x++){ if(chance(70))T(x,0).t='boulder'; if(chance(45))T(x,1).t='boulder'; if(chance(70))T(x,GH-1).t='boulder'; if(chance(45))T(x,GH-2).t='boulder'; }
-    for(let i=0;i<ri(1,3);i++)blobElev(2,ri(2,4));
+    for(let x=1;x<GW-1;x++){ for(let d=0;d<ri(1,2);d++){ if(chance(72)){const t=T(x,d); if(t)t.t='boulder';} if(chance(72)){const t=T(x,GH-1-d); if(t)t.t='boulder';} } }
+    for(let i=0;i<ri(1,2);i++){ const t=randOpen(3); if(t)plateau(t.x,t.y,ri(3,4),ri(2,3)); }   // ledges above the corridor
+    scatter('boulder',ri(1,2),1,2);
   } else if(theme==='woods'){
-    for(let i=0;i<ri(8,12);i++)blobFeat('tree',ri(2,5));
-  } else { for(let i=0;i<ri(3,6);i++)blobFeat('brush',ri(2,4)); }
+    scatter('tree',ri(6,9),2,4);                                // groves…
+    cluster('grass',cxc,cyc,GW*0.17,GH*0.17,100);               // …around a central clearing to fight in
+    scatter('brush',ri(2,3),2,3);
+  } else if(theme==='town'){
+    // a pillaged hamlet — a couple of ruined houses and a central well, streets (open lanes) between them
+    for(let b=0;b<ri(2,3);b++){ const bw=ri(3,5),bh=ri(3,4),bx0=ri(2,Math.max(2,GW-3-bw)),by0=ri(2,Math.max(2,GH-3-bh)); wallRect(bx0,by0,bx0+bw,by0+bh,'rubble'); gate(bx0,by0,bx0+bw,by0+bh); }
+    const wt=T(Math.round(cxc),Math.round(cyc)); if(wt)wt.t='boulder';   // the well
+    scatter('rubble',ri(2,3),1,2); scatter('brush',ri(1,2),2,3);
+  } else { // fields — open, with one honest centerpiece and hedgerows that shape the lanes
+    if(chance(55)){ const p=randOpen(3); if(p)plateau(p.x,p.y,ri(3,5),ri(3,4)); }              // a hillock
+    else { const w=randOpen(3); if(w)cluster('water',w.x,w.y,ri(3,4),ri(2,3),90); }            // …or a pond
+    for(let h=0;h<ri(2,3);h++){ const hy=ri(3,GH-4),hx=ri(2,Math.max(2,GW-9)),len=ri(4,8); for(let d=0;d<len;d++){ const t=T(hx+d,hy); if(t&&t.t==='grass'&&chance(72))t.t='brush'; } }
+    scatter('tree',ri(1,2),2,3); for(let i=0;i<ri(1,2);i++){const t=randOpen(3); if(t)t.t='boulder';}
+  }
   const pB=(bhex.blighted||bhex.t==='marsh')?18:(region.pressure>=50?9:region.pressure>=30?4:0);
   if(pB){ const bx=chance(50)?0:GW-1; const n=Math.floor(GW*GH*pB/100); for(let i=0;i<n;i++){ const t=T(clamp(bx+ri(-3,3),0,GW-1),ri(0,GH-1)); if(t&&(t.t==='grass'||t.t==='brush'))t.blighted=true; } }
-  for(let y=0;y<GH;y++){ [0,1,GW-2,GW-1].forEach(x=>{const t=T(x,y); if(t&&bImpass(t.t))t.t='grass';}); }
+  // clear impassables off the whole 1-tile border so the company can muster on ANY edge
+  for(let x=0;x<GW;x++){ [0,GH-1].forEach(y=>{const t=T(x,y); if(t&&bImpass(t.t))t.t='grass';}); }
+  for(let y=0;y<GH;y++){ [0,GW-1].forEach(x=>{const t=T(x,y); if(t&&bImpass(t.t))t.t='grass';}); }
   B.seen={};
   return theme;
 }
@@ -1321,19 +1347,19 @@ function podsEligible(B,contract){ return ['slay','capture','assassinate'].inclu
 function pickHomes(B,podN){
   // Spread pods as far apart as the battlefield allows, so spotting one squad doesn't auto-wake its
   // neighbours (shout radius 6) — the player gets to pull and fight them piecemeal. Farthest-point
-  // placement over the enemy half maximises separation for any pod count; it's fine if they later
-  // patrol into each other. Falls back only if there are genuinely no open tiles.
-  const x0=5, x1=GW-2, y0=1, y1=GH-2, cands=[];
-  for(let x=Math.max(x0,Math.floor(GW*0.28));x<=x1;x++) for(let y=y0;y<=y1;y++){
+  // placement SEEDED with the company's muster point, so pods deploy away from wherever the player
+  // spawned (any edge) as well as from each other. Falls back only if there are genuinely no open tiles.
+  const sp=B.spawn||{x:1,y:Math.floor(GH/2)}, cands=[];
+  for(let x=2;x<=GW-3;x++) for(let y=1;y<=GH-2;y++){
     const t=tileAt(B,x,y);
-    if(t&&!bImpass(t.t)&&!(B.objTile&&B.objTile.x===x&&B.objTile.y===y)) cands.push({x,y});
+    if(t&&!bImpass(t.t)&&distC({x,y},sp)>=5&&!(B.objTile&&B.objTile.x===x&&B.objTile.y===y)) cands.push({x,y});
   }
   if(!cands.length){ const h=[]; while(h.length<podN)h.push(placeOpen(B,Math.floor(GW*0.4),GW-2)); return h; }
-  const homes=[pick(cands)];
+  const homes=[], placed=[sp];                            // seed with the muster point → first pod lands farthest from the company
   while(homes.length<podN){
-    let best=cands[0],bestD=-1;                          // pick the tile farthest from every pod placed so far
-    for(const c of cands){ let d=1e9; for(const h of homes)d=Math.min(d,distC(c,h)); if(d>bestD){bestD=d;best=c;} }
-    homes.push(best);
+    let best=cands[0],bestD=-1;                            // pick the tile farthest from the spawn and every pod placed so far
+    for(const c of cands){ let d=1e9; for(const h of placed)d=Math.min(d,distC(c,h)); if(d>bestD){bestD=d;best=c;} }
+    homes.push(best); placed.push(best);
   }
   return homes;
 }
@@ -1389,7 +1415,7 @@ function startBattle(contract,squadIds){
            pay:contract.pay,agentId:contract.agentId||null,
            obj:contract.obj||'slay',objRounds:6,capProgress:0,objFailed:false,objTile:null,weather:null,aim:null,leaderStyle:null,
            poolKeys:CONTRACT_TYPES[contract.type].pool,caravanRaid:!!contract.caravanRaid,wagonsLost:0,
-           cname:contract.cname||null,storyBeat:contract.story||null,leaderUid:null,nestUid:null,mapTheme:null,seen:{},pods:[],podsActive:false};
+           cname:contract.cname||null,storyBeat:contract.story||null,leaderUid:null,nestUid:null,mapTheme:null,spawn:null,seen:{},pods:[],podsActive:false};
   const bhex=hex(S.caravan.q,S.caravan.r)||{t:'plains',blighted:false};
   B.weather=contract.weatherLock!==undefined?contract.weatherLock
            :bhex.blighted?(chance(40)?'ashhaze':null)
@@ -1415,12 +1441,32 @@ function startBattle(contract,squadIds){
   // a rescued Underkingdom shade fights at your side as a guest — permanently yours if they survive the victory
   if(contract.cinderling&&S.roster.length<ROSTER_CAP){ const g=makeCinderling(); S.roster.push(g); squadIds=squadIds.concat(g.id); B.cinderlingId=g.id;
     blog(B,'A stranger in ash-grey slips out of the smoke to fight at your side.'); }
-  // player units — deploy in the left columns, spread around centre
-  const pcy0=Math.max(0,Math.floor(GH/2)-Math.ceil(squadIds.length/2));
+  // player units — muster positions. Directional objectives (a wagon crossing, charges to guard, a point to
+  // seize) keep the company on the WEST edge with their objective; everything else musters on a RANDOM edge —
+  // a corner or the middle of some side — so the company arrives from an unpredictable quarter each battle.
+  const spots=[]; const dirObj=['escort','protect','capture','reclaim','burn'].includes(B.obj);
+  if(dirObj){
+    B.spawn={x:1,y:Math.floor(GH/2)};
+    const pcy0=Math.max(0,Math.floor(GH/2)-Math.ceil(squadIds.length/2));
+    squadIds.forEach((id,i)=>{ let px=i%2, py=clamp(pcy0+Math.floor(i/2),0,GH-1);
+      for(let tries=0;tries<40&&(bImpass(tileAt(B,px,py).t)||unitAt(B,px,py)||spots.some(p=>p.x===px&&p.y===py));tries++){py=clamp(py+1,0,GH-1); if(py>=GH-1){py=0;px=(px+1)%3;}}
+      spots.push({x:px,y:py}); });
+  } else {
+    const edge=pick(['top','bottom','left','right']), along=pick([0.16,0.5,0.84]);
+    let ax,ay;
+    if(edge==='left'){ax=1;ay=Math.round(along*(GH-1));}
+    else if(edge==='right'){ax=GW-2;ay=Math.round(along*(GH-1));}
+    else if(edge==='top'){ax=Math.round(along*(GW-1));ay=1;}
+    else{ax=Math.round(along*(GW-1));ay=GH-2;}
+    ax=clamp(ax,1,GW-2); ay=clamp(ay,1,GH-2); B.spawn={x:ax,y:ay};
+    squadIds.forEach(()=>{ let spot=null;                              // spiral out from the muster anchor for a clean cluster
+      for(let r=0;r<14&&!spot;r++)for(let dy=-r;dy<=r&&!spot;dy++)for(let dx=-r;dx<=r&&!spot;dx++){ if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;
+        const x=clamp(ax+dx,0,GW-1),y=clamp(ay+dy,0,GH-1),t=tileAt(B,x,y);
+        if(t&&!bImpass(t.t)&&!unitAt(B,x,y)&&!spots.some(p=>p.x===x&&p.y===y))spot={x,y}; }
+      spots.push(spot||{x:ax,y:ay}); });
+  }
   squadIds.forEach((id,i)=>{
-    const s=soldierById(id);
-    let px=i%2, py=clamp(pcy0+Math.floor(i/2)+ (i%2)*0, 0, GH-1);
-    for(let tries=0;tries<30&&(bImpass(tileAt(B,px,py).t)||unitAt(B,px,py));tries++){py=clamp(py+1,0,GH-1); if(py===GH-1)px=(px+1)%2;}
+    const s=soldierById(id); const px=spots[i].x, py=spots[i].y;
     B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,cmdr:!!s.commander,
       weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
       dbl:!!(CLASSES[s.cls]&&CLASSES[s.cls].martial&&s.level>=5),
@@ -1546,10 +1592,15 @@ function spawnRevenant(B,g){
   placeRight(B,u); B.units.push(u); B.revGraveIds.push(g.id);
 }
 function placeRight(B,u){
-  for(let tries=0;tries<60;tries++){
-    const x=ri(GW-3,GW-1),y=ri(0,GH-1);
-    if(!bImpass(tileAt(B,x,y).t)&&!unitAt(B,x,y)){u.x=x;u.y=y;return;}
+  // deploy in the quarter of the field FARTHEST from the company's muster point (west edge for directional
+  // objectives; the opposite edge when the company mustered somewhere random). Keeps foes off the player's start.
+  const sp=B.spawn||{x:1,y:Math.floor(GH/2)}, far=Math.max(GW,GH)*0.45;
+  let best=null,bd=-1;
+  for(let tries=0;tries<90;tries++){
+    const x=ri(1,GW-2),y=ri(0,GH-1),t=tileAt(B,x,y);
+    if(t&&!bImpass(t.t)&&!unitAt(B,x,y)){ const d=distC({x,y},sp); if(d>=far){u.x=x;u.y=y;return;} if(d>bd){bd=d;best={x,y};} }
   }
+  if(best){u.x=best.x;u.y=best.y;return;}
   u.x=GW-1;u.y=0;
 }
 function tileAt(B,x,y){return (x>=0&&y>=0&&x<GW&&y<GH)?B.tiles[y*GW+x]:undefined;}
@@ -1646,14 +1697,16 @@ function reachCosts(B,u,budget){
     q.sort((a,b)=>a.d-b.d);
     const c=q.shift();
     if(c.d>best[c.x+','+c.y])continue;
-    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
       const x=c.x+dx,y=c.y+dy;
       if(x<0||y<0||x>=GW||y>=GH)continue;
       const t=tileAt(B,x,y);
       if(bImpass(t.t)||unitAt(B,x,y))continue;
-      let step=bMv(t.t); if(t.blighted)step+=1; if(Math.abs(elevAt(B,x,y)-elevAt(B,c.x,c.y))>=1)step+=1;
+      const diag=dx!==0&&dy!==0;
+      if(diag){ const ca=tileAt(B,c.x+dx,c.y),cb=tileAt(B,c.x,c.y+dy); if((!ca||bImpass(ca.t))&&(!cb||bImpass(cb.t)))continue; } // can't slip diagonally through a solid corner
+      let step=bMv(t.t)*(diag?1.5:1); if(t.blighted)step+=1; if(Math.abs(elevAt(B,x,y)-elevAt(B,c.x,c.y))>=1)step+=1; // diagonals cost 1.5×
       const nd=c.d+step, k=x+','+y;
-      if(nd<=budget&&(best[k]===undefined||nd<best[k])){ best[k]=nd; const ex=out.find(o=>o.x===x&&o.y===y); if(ex)ex.cost=nd; else out.push({x,y,cost:nd}); q.push({x,y,d:nd}); }
+      if(nd<=budget+1e-9&&(best[k]===undefined||nd<best[k])){ best[k]=nd; const ex=out.find(o=>o.x===x&&o.y===y); if(ex)ex.cost=nd; else out.push({x,y,cost:nd}); q.push({x,y,d:nd}); }
     }
   }
   return out;
@@ -1662,7 +1715,7 @@ function reachCosts(B,u,budget){
 function reachable(B,u,bonus){ return reachCosts(B,u,moveBudget(u)+(bonus||0)); }
 function pathCostTo(B,u,x,y,budget){ const t=reachCosts(B,u,budget).find(o=>o.x===x&&o.y===y); return t?t.cost:null; }
 function distC(a,b){return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y));}
-function adjacent(a,b){return Math.abs(a.x-b.x)+Math.abs(a.y-b.y)===1;}
+function adjacent(a,b){return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y))===1;} // 8-directional: diagonals count (matches diagonal movement)
 function isIsolated(B,def){ return !B.units.some(z=>z!==def&&z.hp>0&&!z.fled&&!z.prop&&z.kind===def.kind&&distC(z,def)<=1); } // no same-side ally adjacent
 function hasLOS(B,a,b){
   let x0=a.x,y0=a.y;
@@ -1736,8 +1789,8 @@ function inWeaponRange(B,att,def){
   const w=wOf(att);
   const dx=Math.abs(att.x-def.x),dy=Math.abs(att.y-def.y),man=dx+dy,cheb=Math.max(dx,dy);
   if(w.rng>1){ let rng=B.weather?Math.min(w.rng,3):w.rng; if(elevAt(B,att.x,att.y)===2)rng+=1; return cheb>=2&&cheb<=rng&&hasLOS(B,att,def); }
-  if(w.reach){ return (cheb<=1&&man>=1)||(man===2&&(dx===0||dy===0)); } // 8 neighbours + straight poke
-  return man===1; // plain melee: orthogonal adjacent only
+  if(w.reach){ return (cheb<=1&&man>=1)||(cheb===2&&(dx===0||dy===0||dx===dy)); } // 8 neighbours + a 2-tile poke (straight or diagonal)
+  return cheb===1; // plain melee: any of the 8 neighbours (diagonals included)
 }
 function attackTargets(B,u){
   return B.units.filter(t=>t.hp>0&&!t.fled&&isEnemy(u,t)&&inWeaponRange(B,u,t));
@@ -2475,11 +2528,12 @@ function aiAct(u){
   if(hit) doAttack(B,u,hit);
   else if(target&&w.rng===1&&!nowRange.length){
     // couldn't reach anyone this turn — a melee foe with a reason to close (it's engaged/pursuing, never on patrol)
-    // spends its turn on a SECOND move: a double-move to close the gap, just like the player's dash (no attack after)
+    // spends its turn on a SECOND move: a double-move to close the gap, just like the player's dash (no attack after).
+    // Pure commit — the dash minimises distance to the target with NO cohesion drag, so an out-of-reach foe
+    // reliably closes its whole budget instead of being leashed to the (now-behind) pod centroid.
     const steps=reachable(B,u);
     if(steps.length){
-      const coh=s=>(centroid?Math.max(0,distC(s,centroid)-(pod.radius+2))*1.5:0);
-      steps.sort((a,b)=>((Math.abs(a.x-target.x)+Math.abs(a.y-target.y))+coh(a))-((Math.abs(b.x-target.x)+Math.abs(b.y-target.y))+coh(b)));
+      steps.sort((a,b)=>(Math.abs(a.x-target.x)+Math.abs(a.y-target.y))-(Math.abs(b.x-target.x)+Math.abs(b.y-target.y)));
       const best=steps[0];
       if((Math.abs(best.x-target.x)+Math.abs(best.y-target.y))<(Math.abs(u.x-target.x)+Math.abs(u.y-target.y))){ u.x=best.x;u.y=best.y; }
     }
@@ -2896,7 +2950,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.34</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.35</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>

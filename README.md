@@ -11,6 +11,19 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.35 (2026-07-13) — Cinematic Battlegrounds + Diagonal Movement
+A battle-map overhaul plus a movement upgrade.
+
+**Bigger, square maps.** Battlefields are now roughly square (~20–26 per side) instead of short-and-wide — a proper arena with room to maneuver.
+
+**Muster on a random edge.** The company no longer always starts on the left. On open battles (slay/hunt) you deploy on a random edge — a corner or the middle of some side — and the enemy pods deploy in the quarter farthest from wherever you landed. Directional missions (escort a wagon, guard charges, seize a point) still start you on the west edge with your objective.
+
+**Cohesive battlegrounds with a centerpiece.** Maps are built around one honest feature and clear lanes rather than scattered noise: a **river** with two bridges, the walled **ruins of an old fort** (rubble walls, corner columns, a raised keep) with gate gaps, a **hilltop** ringed with standing stones, a mountain **pass**, dense **woods** around a central clearing, or a pillaged **hamlet** of ruined houses around a well. Cover comes in clean clumps, so travel lanes read clearly.
+
+**Plateaus.** Elevated ground now plateaus properly: stepping up onto it costs one extra movement at the single-tile slope edge, and the flat top is normal-cost ground you can cross freely (and it can hold its own terrain). No more paying a climb tax on every tile of a hill. High ground is drawn more legibly, too.
+
+**Diagonals cost 1.5.** Movement is now 8-directional — a diagonal step costs 1.5 movement (an orthogonal step still costs 1), so your reach forms an octagon. You can't cut a diagonal corner between two solid walls, and melee now strikes any of the 8 neighbors (diagonals included), so standing corner-to-corner is a real engagement. Enemies use it too, closing the distance on the diagonal instead of the long way round.
+
 ## v0.34 (2026-07-13) — Enemies Double-Move to Close (When They Have a Reason)
 Corrects the previous turn's over-caution. Enemies now **can** double-move — a melee foe that's engaged or pursuing but can't reach anyone this turn spends its turn on a **second move** to close the gap (a dash, like the player's, no attack after). It only happens when they have a reason: it's gated to the combat body, so a foe that's **on patrol never double-moves**, and a foe that can already reach an attack just moves and strikes. Patrols are back to **full-speed** wandering (the earlier gentle-cap was a mistake). Net effect: distant enemies commit and run you down once they're onto you, instead of ambling one move at a time — but unaware patrols still move at a normal, non-aggressive pace.
 
