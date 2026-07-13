@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.28</title>
+<title>GRAVEBORNE — alpha v0.29</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -259,6 +259,8 @@ const FEATS={
  warcry:{n:'War-Cry',d:'COMMANDER. Ability (once per battle): enemies within 2 are shaken (−10 to hit next round); allies within 2 shed a rattle.',leader:true},
  skirmisher:{n:'Skirmisher',d:'After you attack, take a full move at +1 speed — strike and fade, even if you already moved.'},
  rally:{n:'Rally',d:'COMMANDER. Ability: steady an adjacent ally — clear their rattle and grant +10 hit next turn.',leader:true},
+ smokebomb:{n:'Smoke Bomb',d:'Ability (once per battle): drop a choking cloud — enemies within 2 are blinded (−10 to hit) until their next turn.'},
+ garrote:{n:'Underkingdom Garrote',d:'+15 hit and +2 damage against an isolated target (no allies adjacent to it).'},
 };
 const CLASSES={
  fighter:{n:'Fighter', wpns:['shortsword','spear','axe','mace'], hp:[12,15],skl:[3,5],spd:[3,4],res:[30,42],arm:[0,1], start:'shieldwall', martial:true,
@@ -273,6 +275,9 @@ const CLASSES={
  acolyte:{n:'Ash Acolyte', wpns:['shortsword','spear'], hp:[9,12],skl:[3,5],spd:[3,5],res:[28,40],arm:[0,1], start:'ashfire',
    feats:['ashfire','veindrink','bonespears','ashward','executioner','fleet'],
    d:'Reads the Blight and answers it. Every rank of it a bill that comes due.'},
+ shade:{n:'Underkingdom Shade', wpns:['shortsword','shortsword','spear'], hp:[9,12],skl:[4,6],spd:[5,6],res:[30,42],arm:[0,1], start:'smokebomb', martial:true,
+   feats:['smokebomb','garrote','skirmisher','fleet','duelist','executioner'],
+   d:'A runner of the buried kingdom. Kills from the smoke and is gone before the body drops — no graft, no corruption, just craft.'},
 };
 const LEADER_FEATS=['warcry','rally']; // only the Commander is offered these
 function classFeatPool(s){ const c=CLASSES[s.cls]||CLASSES.fighter; let p=c.feats.slice(); if(s.commander)p=p.concat(LEADER_FEATS); return p; }
@@ -657,6 +662,12 @@ function makeSoldier(clsKey){
           weapon:pick(C.wpns),wMod:0,wName:null,armor:ri(C.arm[0],C.arm[1]),feats:(C.start?[C.start]:[]),xp:0,level:1,bonds:[],battles:0,
           rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0};
 }
+function makeCinderling(){ // the rare underkingdom smoke-runner: fights as a guest, joins if they live
+  const s=makeSoldier('shade');
+  s.name=pick(['Cinderling','Ashfoot','the Smokewalker','Emrane Deepborn','Vessk of the Under-Roads']);
+  s.cinderling=true; s.guest=true; s.hp=s.maxhp;
+  return s;
+}
 function addTrait(s,id){
   if(s.traits.includes(id)||s.traits.length>=3)return false;
   s.traits.push(id);
@@ -978,6 +989,14 @@ function weeklyTick(){
   if(S.story&&S.story.stage>=5&&S.agents.filter(a=>a.kind==='hunters').length<(S.story.stage>=6?2:1)&&chance(25)){
     spawnAgent('hunters',randomWildHex(),{str:S.story.stage>=6?14:12});
     log('Grey riders again, asking after your banner in the villages.','blight');
+  }
+  // rare: a hunted underkingdom smoke-runner surfaces — rescue them (win with them alive) and they join
+  if(S.week>=4&&S.roster.length<ROSTER_CAP&&!S.contracts.some(c=>c.cinderling)&&chance(7)){
+    const r=S.regions.filter(x=>!x.swallowed).sort((a,b)=>a.pressure-b.pressure)[0];
+    if(r){ const anchor=contractAnchor(r.id,'hunt')||{q:REGION_DEFS[r.id].q,r:REGION_DEFS[r.id].r};
+      S.contracts.push({id:nid(),type:'hunt',regionId:r.id,pay:35,danger:Math.max(1,dangerOf(r)),q:anchor.q,r:anchor.r,expires:S.week+3,obj:'slay',cinderling:true,cname:'The Hunted Stranger'});
+      log(`Rumor: a stranger who moves by ashfall and smoke is cornered in ${r.name}. Reach them before the grey riders do — such a one, in your debt, is worth ten swords.`,'wk');
+    }
   }
   // the King dies; Vell moves; you are sent for
   if(S.story&&S.story.stage===8&&S.story.heirWeek&&S.week>=S.story.heirWeek+3){
@@ -1388,6 +1407,9 @@ function startBattle(contract,squadIds){
     const c=B.ritualCenter||{x:Math.floor(GW*0.62),y:ri(2,GH-3)};
     B.objTile={x:c.x,y:c.y}; const t=tileAt(B,c.x,c.y); if(t&&bImpass(t.t))t.t='grass';
   }
+  // a rescued Underkingdom shade fights at your side as a guest — permanently yours if they survive the victory
+  if(contract.cinderling&&S.roster.length<ROSTER_CAP){ const g=makeCinderling(); S.roster.push(g); squadIds=squadIds.concat(g.id); B.cinderlingId=g.id;
+    blog(B,'A stranger in ash-grey slips out of the smoke to fight at your side.'); }
   // player units — deploy in the left columns, spread around centre
   const pcy0=Math.max(0,Math.floor(GH/2)-Math.ceil(squadIds.length/2));
   squadIds.forEach((id,i)=>{
@@ -1397,7 +1419,7 @@ function startBattle(contract,squadIds){
     B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,cmdr:!!s.commander,
       weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
       dbl:!!(CLASSES[s.cls]&&CLASSES[s.cls].martial&&s.level>=5),
-      moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,mendUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
+      moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,mendUsed:false,smokeUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
   });
   // enemies — patrolling pods on generic hunts; flat deploy for set-pieces & aggro objectives
   const danger=contract.danger;
@@ -1586,6 +1608,7 @@ function reachable(B,u,bonus){
 }
 function distC(a,b){return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y));}
 function adjacent(a,b){return Math.abs(a.x-b.x)+Math.abs(a.y-b.y)===1;}
+function isIsolated(B,def){ return !B.units.some(z=>z!==def&&z.hp>0&&!z.fled&&!z.prop&&z.kind===def.kind&&distC(z,def)<=1); } // no same-side ally adjacent
 function hasLOS(B,a,b){
   let x0=a.x,y0=a.y;
   const x1=b.x,y1=b.y;
@@ -1670,6 +1693,7 @@ function hitChance(B,att,def){
   let h=65+att.skl*3-def.spd*2+w.hitB;
   if(w.rng===1&&att.feats.includes('duelist'))h+=10;
   if(w.rng>1&&att.feats.includes('deadeye'))h+=10;
+  if(att.feats.includes('garrote')&&isIsolated(B,def))h+=15; // underkingdom garrote: strike the cut-off
   h-=bCover(tileAt(B,def.x,def.y).t);                 // brush/tree cover
   const eh=elevAt(B,att.x,att.y)-elevAt(B,def.x,def.y);
   if(eh>0)h+=6; else if(eh<0)h-=4;                     // high ground vs uphill
@@ -1706,6 +1730,7 @@ function dmgOf(B,att,def){
   let d=ri(w.lo,w.hi)+(att.dmgBonus||0);
   if(att.feats.includes('executioner')&&def.hp<def.maxhp/2)d+=2;
   if(att.feats.includes('berserker')&&att.hp<att.maxhp/2)d+=2;
+  if(att.feats.includes('garrote')&&isIsolated(B,def))d+=2;
   if(att.feats.includes('bonecarver')&&def.undead)d+=3;
   if((att.traits||[]).includes('blightmarked')&&def.undead)d+=2;
   if(def.graveId&&att.kind==='pc'&&att.feats.includes('vengeful')&&isBondedToGrave(att,def.graveId))d+=2;
@@ -1790,6 +1815,7 @@ function applyDeath(B,u){
 function killSoldier(s){
   s.alive=false;
   removeFromRoster(s);
+  if(s.guest){ S.chronicle.push(`Week ${S.week}: the underkingdom shade fell before it could be sworn in.`); return; } // a guest who never joined leaves no grave
   const snap={maxhp:s.maxhp,skl:s.skl,spd:s.spd,weapon:s.weapon,wMod:s.wMod,armor:s.armor,feats:s.feats.slice(),level:s.level,
               dmgBonus:s.dmgBonus||0,ashPromised:!!s.ashPromised,corr:s.corr||0};
   const bonds=s.bonds.map(b=>b.id);
@@ -1897,6 +1923,7 @@ function unitAbilities(u){
   if(w.cleave)out.push({k:'cleave',label:'🪓 Cleave',range:w.reach?2:1,side:'enemy',tip:'Strike for reduced damage, then carry the blow into one enemy standing next to your target.'});
   if(f.includes('rally'))out.push({k:'rally',label:'✚ Rally',range:1,side:'ally',tip:'Steady an adjacent ally: clear rattle, +10 hit next turn.'});
   if(f.includes('warcry')&&!u.warcryUsed)out.push({k:'warcry',label:'⚑ War-Cry',range:0,side:'self',tip:'Once/battle: shake enemies within 2 (−10 hit next round); allies within 2 shed a rattle.'});
+  if(f.includes('smokebomb')&&!u.smokeUsed)out.push({k:'smokebomb',label:'☁ Smoke Bomb',range:0,side:'self',tip:'Once/battle: blind enemies within 2 (−10 to hit) until their next turn.'});
   return out;
 }
 function unitAbility(u){ const a=unitAbilities(u); return a.length?a[0]:null; }       // first/primary — kept for callers that want a default
@@ -1983,6 +2010,12 @@ function execAbility(B,u,ab,t){
     fx.push({type:'float',x:u.x,y:u.y,txt:'WAR-CRY',color:'#c9a227'}); blog(B,`${u.name} bellows — the enemy line flinches.`);
     B.aim=null; return;
   }
+  if(ab.k==='smokebomb'){
+    u.smokeUsed=true; u.acted=true; let n=0;
+    for(const z of B.units){ if(z.hp<=0||z.fled)continue; if(isEnemy(u,z)&&distC(u,z)<=2){z.warcried=true;n++;} }
+    fx.push({type:'float',x:u.x,y:u.y,txt:'SMOKE',color:'#7d93a3'}); blog(B,`${u.name} vanishes in a burst of ash — ${n} of the enemy grope blind.`);
+    B.aim=null; return;
+  }
 }
 function doCast(B,att,def){
   noticeAttack(B,att,def);
@@ -2039,6 +2072,12 @@ function endBattle(outcome){
   B.over=true;B.outcome=outcome;
   const contract=S.contracts.find(c=>c.id===B.contractId);
   const region=S.regions[B.regionId];
+  // the rescued Underkingdom shade: joins for good if it lived and you won; otherwise it slips back into the smoke
+  if(B.cinderlingId){ const g=soldierById(B.cinderlingId); const gu=g?B.units.find(u=>u.kind==='pc'&&u.ref===g.id):null;
+    if(g){ if(outcome==='victory'&&gu&&gu.hp>0&&!gu.fled){ g.guest=false; delete g.cinderling; g.hp=Math.max(1,gu.hp);
+        queueModal(()=>showModal('The Shade Stays',`<p>The stranger wipes ash from a blade and studies your banner a long moment. “The Under-Roads are closed to me now,” ${esc(g.name)} says. “Yours will do.”</p><p><b>${esc(g.name)} joins the company.</b></p>`,[{label:'Welcome them',cls:'primary',fn:()=>closeModal()}]));
+      } else { removeFromRoster(g); log('The shade melts back into the smoke without a word.'); } }
+  }
   // survivors sync + xp + battles count
   const deployed=[];
   for(const u of B.units){
@@ -2797,7 +2836,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.28</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.29</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>

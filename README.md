@@ -11,6 +11,16 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.29 (2026-07-13) — The Cinderling: a Rare Underkingdom Recruit
+Sometimes, from **week 4 on**, a rumor surfaces (rare, ~7%/week): a stranger who "moves by ashfall and smoke" is cornered by grey riders. Take **The Hunted Stranger** contract and an **Underkingdom Shade** fights at your side as a guest you control — and if they're **alive when you win**, they join the company for good. Lose, retreat, or let them fall, and they're gone (a guest leaves no grave).
+
+The Shade is a new class — a glass skirmisher (high SKL/SPD, thin HP/armour, **no Ash graft, no corruption**): the anti-Conclave craft to the Ash Acolyte's bargain. Their kit:
+- **☁ Smoke Bomb** (starter, once/battle): drop a choking cloud — enemies within 2 are **blinded (−10 to hit)** until their next turn.
+- **Underkingdom Garrote**: **+15 hit and +2 damage** against an **isolated** target (no ally adjacent to it) — punishing anyone who strays from the line.
+- Plus Skirmisher/Fleet/Duelist/Executioner from level-ups, and (being martial) **Double Strike at level 5**.
+
+Only surfaces when you have room in the company (roster < 12).
+
 ## v0.28 (2026-07-13) — A Bigger Company & Earned Upgrades
 Progression is less "pay coin, get stronger" and more "do the work, unlock the capability."
 - **Bigger company.** The roster cap is now **12** (was 6), so you can keep a bench — rotate the wounded out, hold reserves against your own rising dead. You still **muster at most 6** to any single battle.
