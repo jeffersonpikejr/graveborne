@@ -11,6 +11,12 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.25 (2026-07-13) — Every Ability Usable, Skirmisher Fixed, Terrain Inspector
+Three combat-clarity fixes.
+- **Multiple abilities are all usable now.** The action bar only ever showed one ability button (the highest-priority one), so a soldier who knew, say, both Sanctuary and an Ash graft could only reach the Ash one — the heal was stranded. It now shows **one button per ability**; you still get one action a turn, but you choose which. Toggle the ability you want, or press F for the first.
+- **Skirmisher no longer costs you mobility.** The old "free step" was a single tile *and it overrode your normal move* — so attacking first with a Skirmisher gave you **less** reach than a plain soldier. It's now a proper **full move at +1 speed** after you attack (even if you already moved) — strike and fade, the way it should read.
+- **New terrain inspector (👁).** There was no way to see what a square actually did. A new eyeball toggle in the action bar turns on inspect mode: tap any square to read its **terrain effects** — cover values, movement cost, line-of-sight blocking, blight damage, high/low-ground bonuses — and, if occupied, the **occupant's stats** (visible units only; fog still hides the unseen). Works on any turn; the inspected tile is highlighted.
+
 ## v0.24 (2026-07-13) — Initiative Tracker Respects Fog of War
 The turn-order strip listed *every* unit by name — including enemy squads you hadn't spotted yet, spoiling what waited in the fog. It now applies the same fog gate as the map: an enemy only appears in the tracker once it's in your line of sight. Your soldiers and any discovered foes show; undiscovered pods stay off the strip until a scout catches sight of them, then they populate in real time. No count, no names, no free intel.
 
