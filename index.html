@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.20</title>
+<title>GRAVEBORNE — alpha v0.21</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -885,7 +885,8 @@ function travelTo(q,r,contractId){
     else queueModal(()=>showModal('On the ground',
       `<p>${esc(CONTRACT_TYPES[c.type].desc.replace('{r}',S.regions[c.regionId].name))}</p>
        <p style="color:#c9b48a">⚑ <b>${OBJECTIVES[c.obj||'slay'].n}</b> — ${esc(OBJECTIVES[c.obj||'slay'].d)}</p>
-       <p class="hint"><span class="pay">${c.pay}c</span> on completion. Danger ${'☠'.repeat(c.danger)}.</p>`,
+       <p class="hint"><span class="pay">${c.pay}c</span> on completion. Danger ${'☠'.repeat(c.danger)}.</p>
+       ${S.graves.some(g=>g.state==='risen'&&g.regionId===c.regionId)?`<p style="color:#b08bc9">⚰ Your dead walks ${esc(S.regions[c.regionId].name)} — it may rise into this fight, beyond the skulls.</p>`:''}`,
       [{label:'Muster and fight',cls:'primary',fn:()=>{closeModal(); pickSquad(sq=>startBattle(c,sq));}},
        {label:'Not today',fn:()=>closeModal()}]));
   } else {
@@ -1257,7 +1258,8 @@ function makeWaypoints(B,home,r){
   return wps.length>1?wps:[{x:home.x,y:home.y}];
 }
 function deployPods(B,contract,ct,danger){
-  const podN=clamp(1+danger+((contract.type==='hold'||S.regions[B.regionId].swallowed)?1:0),2,5);
+  // pod count tracks the skull rating: N skulls → N or N+1 pods (danger 1 → 1–2, danger 2 → 2–3, danger 3 → 3–4)
+  const podN=clamp(danger+(chance(50)?1:0),1,5);
   const homes=pickHomes(B,podN); B.pods=[]; B.raised=0;
   const dks=doctrinesFor(contract,danger);
   const nonCoven=dks.filter(k=>k!=='coven'); const covenChoices=nonCoven.length?nonCoven:dks;
@@ -2632,7 +2634,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.20</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.21</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2767,10 +2769,10 @@ function contractScout(c){ // scout-report preview of what waits on a contract (
   const danger=c.danger||1, reg=S.regions[c.regionId], swallowed=reg&&reg.swallowed, obj=c.obj||'slay';
   const podEl=['slay','capture','assassinate'].includes(obj)&&!c.ambush&&!c.caravanRaid&&!c.story&&!c.reckoning&&!c.comp;
   if(!podEl){ const n=clamp(2+danger+(c.type==='hold'?1:0),3,7); return `≈${n} enemies in a fixed line`; }
-  const podN=clamp(1+danger+((c.type==='hold'||swallowed)?1:0),2,5);
+  const lo=clamp(danger,1,5), hi=clamp(danger+1,1,5); // matches deployPods: N or N+1 pods
   const names=doctrinesFor(c,danger).map(k=>POD_DOCTRINES[k].n);
   const coven=danger>=3&&doctrinesFor(c,danger).includes('coven');
-  return `${podN} roaming pod${podN>1?'s':''} — ${names.join(', ')}${coven?'; a Blight-mage coven may ride with them':''}`;
+  return `${lo}–${hi} roaming pods — ${names.join(', ')}${coven?'; a Blight-mage coven may ride with them':''}`;
 }
 window.QMBUY=function(what){
   if(atSettlement()===null)return;
@@ -2875,6 +2877,7 @@ function selectedPanel(){
       <div class="bg">${esc(ct.desc.replace('{r}',reg.name))}</div>
       <div class="bg" style="color:#c9b48a">⚑ ${ob.n} — ${esc(ob.d)}</div>
       <div class="statline">Danger <span class="skull">${'☠'.repeat(c.danger)}</span> · <span class="pay">${c.pay}c</span> · ${here?'you are here':dys+' day'+(dys>1?'s':'')+' away'}</div>
+      ${S.graves.some(g=>g.state==='risen'&&g.regionId===c.regionId)?`<div class="bg" style="color:#b08bc9">⚰ Your dead walks ${esc(reg.name)} — it may rise into this fight, beyond the skulls.</div>`:''}
       <button class="primary" ${S.roster.length?'':'disabled'} onclick="TAKE(${c.id})">${here?'Muster and fight':'Take contract — ride out'}</button></div>`;
   }
   if(!here&&!c)html+=`<div style="margin-top:6px"><button onclick="TRAVEL(${q},${r})" ${p&&S.roster.length?'':'disabled'}>${p?`Travel here (${dys} day${dys>1?'s':''})`:'No road leads there'}</button></div>`;
