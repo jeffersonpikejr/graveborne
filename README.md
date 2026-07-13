@@ -11,6 +11,13 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.28 (2026-07-13) — A Bigger Company & Earned Upgrades
+Progression is less "pay coin, get stronger" and more "do the work, unlock the capability."
+- **Bigger company.** The roster cap is now **12** (was 6), so you can keep a bench — rotate the wounded out, hold reserves against your own rising dead. You still **muster at most 6** to any single battle.
+- **Weapon & armour upgrades are unlocked, not assumed.** Reforging weapons and fitting armour start **locked**. Recover the **Blacksmith's Anvil** (a ruin-forge you seize) to unlock reforging, and the **Armorsmith's Tools** (a stranded wagon you escort home) to unlock fitting — both posted as **Quartermaster commissions** you take like any contract. Soldier cards show 🔒 chips until you've earned each. (Existing campaigns are grandfathered — you don't lose access mid-run.)
+- **Party size comes from a rescue, not a purchase.** The +1-field upgrades are gone from the coin shop; instead, **Rescue the Quartermaster** on a protect-the-convoy commission to widen your battle line (up to the field cap of 6). The Quartermaster panel now splits into mission **Commissions** and coin **Supplies**.
+- **Ash grafts only where the Blight is.** Relic grafts were dropping on any purge/delve/reclaim — including clean, low-pressure frontier jobs. Now they only appear where the Blight actually bites: swallowed or high-pressure regions, blighted ground, or burn/reconsecrate objectives. Steel companies stay Steel unless they go looking in the dark.
+
 ## v0.27 (2026-07-13) — Double Strike & Cleave-as-a-Choice
 Two combat-depth changes.
 - **Martial capstone — Double Strike.** At **level 5**, Fighters and Rangers strike **twice** on a basic attack (two independent hit/damage rolls — a Ranger looses two arrows). It kicks in mid-battle the moment they ding 5, and it never wastes the second swing on an already-dead target. Clerics (support/heal) and Ash Acolytes (casters) are excluded by design. The soldier's battle card shows a **⚔ Double Strike** flag.

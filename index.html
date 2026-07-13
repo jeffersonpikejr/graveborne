@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.27</title>
+<title>GRAVEBORNE — alpha v0.28</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -331,6 +331,7 @@ function doctrinesFor(contract,danger){
   if(!ks.length) ks=Object.keys(POD_DOCTRINES).filter(k=>POD_DOCTRINES[k].for.includes(contract.type)&&!POD_DOCTRINES[k].vip);
   return ks.length?ks:['risen'];
 }
+const ROSTER_CAP=12; // the company can employ up to 12 — but you still muster at most partyCap() (≤6) to any one battle
 const CONTRACT_TYPES={
  patrol:{n:'Road Patrol',employer:'Karsk',desc:'Clear brigands from the {r} road.',pool:['brigand','brigand','archer','cutthroat','deserter'],base:40},
  purge:{n:'Purge the Risen',employer:'Karsk',desc:'Put down the dead walking in {r}.',pool:['husk','husk','hound','acolyte','shieldman'],base:55},
@@ -617,7 +618,7 @@ function newGame(){
   uid=1;
   S={week:1,day:0,coin:100,prov:15,renown:0,over:false,actOne:false,
      roster:[],hirePool:[],contracts:[],graves:[],regions:[],log:[],battle:null,chronicle:[],
-     partyUp:0,scouted:false,kits:0,horns:0,
+     partyUp:0,scouted:false,kits:0,horns:0,unlocks:{reforge:false,armor:false},
      bondCounts:{},usedBg:[],usedNames:[],agents:[],deserters:[],hexes:null,caravan:null};
   S.regions=REGION_DEFS.map((d,i)=>({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-8,8)),swallowed:false}));
   genWorld();
@@ -720,6 +721,8 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
   if(S.scouted===undefined){ S.scouted=false; touched=true; }
   if(S.kits===undefined){ S.kits=0; touched=true; }
   if(S.horns===undefined){ S.horns=0; touched=true; }
+  // pre-v0.28: smith/armorer unlocks. Grandfather existing campaigns to unlocked so mid-run players aren't suddenly cut off.
+  if(!S.unlocks){ S.unlocks={reforge:true,armor:true}; touched=true; }
   if(S.story&&S.roster.length&&!S.roster.some(x=>x.commander)){ ensureCommander(); touched=true; }
   // pre-v0.9 saves already at stage 5: schedule the barrow meeting
   if(S.story&&S.story.stage===5&&!S.story.meetWeek){
@@ -733,6 +736,8 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
 /* ============================== STRATEGY LAYER ============================== */
 function dangerOf(region){ return region.swallowed?3:(region.pressure>=70?3:region.pressure>=40?2:1); }
 function worldTier(){ return Math.floor((S.week||1)/3); } // difficulty heartbeat: tier 0 (wk1-2), 1 (wk3-5), 2 (wk6-8), 3 (wk9-11)…
+// Ash grafts are only found where the Blight actually is — a clean, low-pressure region yields no relics
+function isBlightField(B,region){ return region.swallowed || region.pressure>=40 || B.obj==='burn' || B.obj==='reclaim' || (S.hexes&&Object.values(S.hexes).some(h=>h.region===region.id&&h.blighted)); }
 function genContracts(){
   // top-up semantics: contracts persist until fought or expired, so travel can't orphan them
   S.contracts=S.contracts.filter(c=>(c.expires||99)>S.week&&!(S.regions[c.regionId].swallowed&&c.type!=='delve'));
@@ -1030,13 +1035,13 @@ function atSettlement(){ const h=caravanHex(); return h&&h.setl!==null?h.setl:nu
 function provCost(){ return atSettlement()===3?6:10; } // Karsk Gate feeds its own
 function buyProv(){ if(atSettlement()===null)return; const c=provCost(); if(S.coin>=c){S.coin-=c;S.prov+=5;log(`Bought 5 provisions for ${c}c${atSettlement()===3?' — Karsk Gate prices':''}.`);save();render();} }
 function armorCost(a){ const c=ARMORS[a].cost; return (S.story&&S.story.heir==='aldric')?Math.round(c*0.8):c; }
-function buyArmor(id){ const s=soldierById(id); if(!s)return; const next=ARMORS[s.armor+1]; if(!next)return;
+function buyArmor(id){ if(!(S.unlocks&&S.unlocks.armor))return; const s=soldierById(id); if(!s)return; const next=ARMORS[s.armor+1]; if(!next)return;
   const c=armorCost(s.armor+1);
   if(S.coin>=c){ S.coin-=c; s.armor++; log(`${s.name} fitted with ${next.n}${S.story&&S.story.heir==='aldric'?' — quartermaster’s rates':''}.`); save(); render(); } }
 function hire(idx){
   const h=S.hirePool[idx]; if(!h)return;
   if(atSettlement()===null){ log('Hiring happens in settlements. Reach a town first.','bad'); render(); return; }
-  if(S.roster.length>=6){ log('The caravan holds six. No more.','bad'); render(); return; }
+  if(S.roster.length>=ROSTER_CAP){ log(`The caravan is full (${ROSTER_CAP}). No more.`,'bad'); render(); return; }
   const cost=hireCost(h);
   if(S.coin<cost) return;
   S.coin-=cost; S.hirePool.splice(idx,1); S.roster.push(h);
@@ -1356,7 +1361,7 @@ function startBattle(contract,squadIds){
   const ct=CONTRACT_TYPES[contract.type];
   const B={contractId:contract.id,type:contract.type,regionId:region.id,round:1,units:[],bodies:[],tiles:[],
            queue:[],qi:0,sel:null,over:false,outcome:null,revGraveIds:[],log:[],ambush:!!contract.ambush,
-           danger:contract.danger||1,peek:false,peekTile:null,
+           danger:contract.danger||1,peek:false,peekTile:null,qmReward:contract.qm||null,
            pay:contract.pay,agentId:contract.agentId||null,
            obj:contract.obj||'slay',objRounds:6,capProgress:0,objFailed:false,objTile:null,weather:null,aim:null,leaderStyle:null,
            poolKeys:CONTRACT_TYPES[contract.type].pool,caravanRaid:!!contract.caravanRaid,wagonsLost:0,
@@ -2101,7 +2106,16 @@ function endBattle(outcome){
         finaleVictory();
       }
     }
-    if(!B.ambush&&(B.type==='purge'||B.type==='delve'||B.type==='reclaim')&&chance(B.obj==='capture'?45:30)){
+    // Quartermaster commission payoffs — permanent capabilities earned by mission, not bought with coin
+    if(B.qmReward){ S.unlocks=S.unlocks||{reforge:false,armor:false};
+      if(B.qmReward==='reforge'&&!S.unlocks.reforge){ S.unlocks.reforge=true;
+        queueModal(()=>showModal('The Anvil Recovered','<p>Your smith sets the recovered anvil in the caravan bed and spits on the coals. <b>Weapons can be reforged</b> at any settlement now.</p>',[{label:'At last',cls:'primary',fn:()=>closeModal()}])); }
+      else if(B.qmReward==='armor'&&!S.unlocks.armor){ S.unlocks.armor=true;
+        queueModal(()=>showModal('The Armorer’s Tools','<p>The armorer’s kit is yours — punches, rivets, and a battered mail-mandrel. <b>The company can be fitted for armor</b> at any settlement now.</p>',[{label:'Good',cls:'primary',fn:()=>closeModal()}])); }
+      else if(B.qmReward==='party'&&(S.partyUp||0)<2){ S.partyUp=(S.partyUp||0)+1;
+        queueModal(()=>showModal('The Quartermaster Lives',`<p>You cut the Quartermaster free of the ambush. Grateful and organized, they stretch the baggage train — <b>you can field ${partyCap()} to a battle</b> now.</p>`,[{label:'Onward',cls:'primary',fn:()=>closeModal()}])); }
+    }
+    if(!B.ambush&&(B.type==='purge'||B.type==='delve'||B.type==='reclaim')&&isBlightField(B,region)&&chance(B.obj==='capture'?45:30)){
       queueModal(()=>relicModal(pick(['ashfire','veindrink','bonespears','ashward'])));
     }
     if(B.type==='reclaim'&&!B.ambush){
@@ -2783,7 +2797,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.27</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.28</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2906,12 +2920,12 @@ function soldierCard(s,inHire,idx){
       ${s.traits&&s.traits.length?`<div class="featline traitchip">${s.traits.map(t=>`<span class="tt" data-tip="${esc(TRAITS[t].d)}">${TRAITS[t].n}</span>`).join(' · ')}</div>`:''}
       ${s.corr?`<div class="featline corrchip"><span class="tt" data-tip="Corruption: the graft feeds on use. At 4 and 7 it takes something back — and her revenant will be stronger for it.">Corruption ${s.corr}</span></div>`:''}
       ${inHire?`<button ${S.coin<hireCost(s)?'disabled':''} onclick="HIRE(${idx})">Hire — ${hireCost(s)}c</button>`
-              :`${nextArm?`<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${nextArm.n} (${armorCost(s.armor+1)}c)</button>`:''}${(WEAPONS[s.weapon]&&WEAPONS[s.weapon].up&&atSettlement()!==null)?`<button ${S.coin<reforgeCost()?'disabled':''} onclick="REFORGE(${s.id})" title="Reforge to a finer weapon at the smithy">Reforge → ${WEAPONS[WEAPONS[s.weapon].up].n} (${reforgeCost()}c)</button>`:''}`}
+              :`${nextArm?((S.unlocks&&S.unlocks.armor)?`<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${nextArm.n} (${armorCost(s.armor+1)}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Armorsmith's Tools on a Quartermaster commission to fit heavier armor.">🔒 Armorsmith's Tools</span>`):''}${(WEAPONS[s.weapon]&&WEAPONS[s.weapon].up&&atSettlement()!==null)?((S.unlocks&&S.unlocks.reforge)?`<button ${S.coin<reforgeCost()?'disabled':''} onclick="REFORGE(${s.id})" title="Reforge to a finer weapon at the smithy">Reforge → ${WEAPONS[WEAPONS[s.weapon].up].n} (${reforgeCost()}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Blacksmith's Anvil on a Quartermaster commission to reforge weapons.">🔒 Blacksmith's Anvil</span>`):''}`}
     </div>
   </div>`;
 }
 function reforgeCost(){ return (S.story&&S.story.heir==='aldric')?36:45; }
-window.REFORGE=function(id){ const s=soldierById(id); if(!s)return; const w=WEAPONS[s.weapon]; if(!w||!w.up||atSettlement()===null)return; const c=reforgeCost(); if(S.coin<c)return; S.coin-=c; s.weapon=w.up; s.wName=null; log(`${s.name}’s ${w.n} is reforged into a ${WEAPONS[w.up].n}.`,'good'); save(); render(); };
+window.REFORGE=function(id){ if(!(S.unlocks&&S.unlocks.reforge))return; const s=soldierById(id); if(!s)return; const w=WEAPONS[s.weapon]; if(!w||!w.up||atSettlement()===null)return; const c=reforgeCost(); if(S.coin<c)return; S.coin-=c; s.weapon=w.up; s.wName=null; log(`${s.name}’s ${w.n} is reforged into a ${WEAPONS[w.up].n}.`,'good'); save(); render(); };
 window.SHRINE=function(){ const h=caravanHex(); if(!h||h.feat!=='shrine'||S.coin<30)return; S.coin-=30; const r=S.regions[h.region]; r.pressure=Math.max(3,r.pressure-12); repAdd('folk',3); blightCreep(); log(`You kneel at the shrine and give coin to the rite. The Blight loosens its grip on ${r.name} (−12 pressure).`,'good'); save(); render(); };
 function partyUpCost(){ return (S.partyUp||0)>=2?null:((S.partyUp||0)===0?100:200); } // 4→5 costs 100, 5→6 costs 200
 function contractScout(c){ // scout-report preview of what waits on a contract (deterministic; exact pods roll at battle start)
@@ -2925,11 +2939,25 @@ function contractScout(c){ // scout-report preview of what waits on a contract (
 }
 window.QMBUY=function(what){
   if(atSettlement()===null)return;
-  if(what==='party'){ const c=partyUpCost(); if(!c||S.coin<c)return; S.coin-=c; S.partyUp=(S.partyUp||0)+1; log(`The company swells — you can field ${partyCap()} in the field now.`,'good'); }
-  else if(what==='scout'){ if(S.scouted||S.coin<40)return; S.coin-=40; S.scouted=true; log('Scouts ride out — the pods waiting on every posted contract are marked, until you march.','good'); }
+  if(what==='scout'){ if(S.scouted||S.coin<40)return; S.coin-=40; S.scouted=true; log('Scouts ride out — the pods waiting on every posted contract are marked, until you march.','good'); }
   else if(what==='kit'){ if(S.coin<35)return; S.coin-=35; S.kits=(S.kits||0)+1; log('A chirurgeon’s kit joins the baggage train.'); }
   else if(what==='horn'){ if(S.coin<30)return; S.coin-=30; S.horns=(S.horns||0)+1; log('A war horn joins the baggage train.'); }
   else return;
+  save(); render();
+};
+const QM_QUESTS={
+  reforge:{cname:"Recover the Blacksmith's Anvil", type:'delve', obj:'capture', hook:'Seize the ruin-forge and haul its anvil home — after that your smith can reforge steel.'},
+  armor:  {cname:"Recover the Armorsmith's Tools", type:'patrol', obj:'escort', hook:'Walk the stranded armorer’s wagon home — then your company can be fitted for heavier armor.'},
+  party:  {cname:'Rescue the Quartermaster', type:'patrol', obj:'protect', hook:'The Quartermaster is pinned down. Bring them out alive and the company can field one more sword.'},
+};
+window.QMQUEST=function(kind){
+  if(atSettlement()===null)return;
+  const meta=QM_QUESTS[kind]; if(!meta)return;
+  if(S.contracts.some(c=>c.qm===kind))return; // already posted
+  const r=S.regions.filter(x=>!x.swallowed).sort((a,b)=>a.pressure-b.pressure)[0]; if(!r)return;
+  const anchor=contractAnchor(r.id,meta.type)||{q:REGION_DEFS[r.id].q,r:REGION_DEFS[r.id].r};
+  S.contracts.push({id:nid(),type:meta.type,regionId:r.id,pay:45,danger:Math.max(1,dangerOf(r)),q:anchor.q,r:anchor.r,expires:S.week+5,obj:meta.obj,qm:kind,cname:meta.cname});
+  log(`Commission posted — ${meta.cname}. Look for the ⚑ in ${r.name}.`,'wk');
   save(); render();
 };
 window.HIRE=hire; window.BUYARM=buyArmor; window.BUYPROV=buyProv; window.WEEK=()=>advanceDays(7);
@@ -2939,7 +2967,7 @@ function renderCompany(){
   const graves=S.graves.slice().reverse();
   const risen=S.graves.filter(g=>g.state==='risen');
   return header()+mobileTabBar()+`<div id="main" data-mtab="${mobileTab}">
-    <div class="col" id="rosterCol"><h2>The Company (${S.roster.length}/6)</h2>
+    <div class="col" id="rosterCol"><h2>The Company (${S.roster.length}/${ROSTER_CAP})</h2>
       ${S.roster.map(s=>soldierCard(s,false)).join('')||'<p class="hint">No one left. Hire, or the banner falls.</p>'}
       <h2 style="margin-top:12px">Sellswords for hire</h2>
       ${setl!==null?(S.hirePool.map((h,i)=>soldierCard(h,true,i)).join('')||'<p class="hint">No one this week.</p>'):'<p class="hint">Sellswords wait in towns, not on the road. Reach a ⌂ settlement.</p>'}
@@ -2959,8 +2987,11 @@ function renderCompany(){
         </div>
         <div class="hint" style="margin-top:5px">Weekly: wages 3c/head, 1 provision/head, wounds mend. The world moves while you rest — and while you travel.</div>
         ${setl!==null?`<div class="qm" style="margin-top:7px;border-top:1px solid var(--line);padding-top:6px">
-          <div class="hint" style="color:var(--gold);margin-bottom:3px">⚒ Quartermaster — one-time purchases</div>
-          ${partyUpCost()?`<button ${S.coin<partyUpCost()?'disabled':''} onclick="QMBUY('party')" title="Permanently field one more soldier in every battle.">➕ Party ${partyCap()}→${partyCap()+1} (${partyUpCost()}c)</button>`:`<span class="hint">Company at full strength (6).</span>`}
+          <div class="hint" style="color:var(--gold);margin-bottom:3px">⚒ Quartermaster — commissions (earned by mission)</div>
+          ${((S.partyUp||0)<2)?(S.contracts.some(c=>c.qm==='party')?`<span class="hint">⏳ Rescue the Quartermaster — commissioned (find the ⚑)</span>`:`<button onclick="QMQUEST('party')" title="${esc(QM_QUESTS.party.hook)}">📜 Commission — Rescue the Quartermaster (+1 field)</button>`):`<span class="hint">Field cap maxed (6 / battle).</span>`}
+          ${(!(S.unlocks&&S.unlocks.reforge))?(S.contracts.some(c=>c.qm==='reforge')?`<span class="hint">⏳ Blacksmith’s Anvil — commissioned</span>`:`<button onclick="QMQUEST('reforge')" title="${esc(QM_QUESTS.reforge.hook)}">📜 Commission — Recover the Blacksmith’s Anvil (unlock reforge)</button>`):''}
+          ${(!(S.unlocks&&S.unlocks.armor))?(S.contracts.some(c=>c.qm==='armor')?`<span class="hint">⏳ Armorsmith’s Tools — commissioned</span>`:`<button onclick="QMQUEST('armor')" title="${esc(QM_QUESTS.armor.hook)}">📜 Commission — Recover the Armorsmith’s Tools (unlock armor)</button>`):''}
+          <div class="hint" style="color:var(--gold);margin:6px 0 3px">Supplies (coin)</div>
           <button ${S.coin<40||S.scouted?'disabled':''} onclick="QMBUY('scout')" title="Reveal the enemy pods waiting on every posted contract. Spent the moment you begin any mission.">${S.scouted?'✓ Scouts afield':'🔭 Scout Report (40c)'}</button>
           <button ${S.coin<35?'disabled':''} onclick="QMBUY('kit')" title="Consumable. Choose it at muster: your squad deploys at full HP.">🩹 Chirurgeon’s Kit (35c)${(S.kits||0)?` ·×${S.kits}`:''}</button>
           <button ${S.coin<30?'disabled':''} onclick="QMBUY('horn')" title="Consumable. Choose it at muster: enemies open the battle shaken (−10 to hit, round one).">📯 War Horn (30c)${(S.horns||0)?` ·×${S.horns}`:''}</button>
