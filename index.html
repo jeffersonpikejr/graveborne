@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.18</title>
+<title>GRAVEBORNE — alpha v0.19</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -260,16 +260,16 @@ const FEATS={
  rally:{n:'Rally',d:'COMMANDER. Ability: steady an adjacent ally — clear their rattle and grant +10 hit next turn.',leader:true},
 };
 const CLASSES={
- fighter:{n:'Fighter', wpns:['shortsword','spear','axe','mace'], hp:[12,15],skl:[3,5],spd:[3,4],res:[30,42],arm:[0,1],
+ fighter:{n:'Fighter', wpns:['shortsword','spear','axe','mace'], hp:[12,15],skl:[3,5],spd:[3,4],res:[30,42],arm:[0,1], start:'shieldwall',
    feats:['duelist','shieldwall','bulwark','berserker','executioner','reaper','stalwart'],
    d:'Line-breaker. Steel, and the stubbornness to stand in it.'},
- ranger:{n:'Ranger', wpns:['bow','bow','spear'], hp:[10,13],skl:[3,5],spd:[4,5],res:[30,40],arm:[0,1],
+ ranger:{n:'Ranger', wpns:['bow','bow','spear'], hp:[10,13],skl:[3,5],spd:[4,5],res:[30,40],arm:[0,1], start:'deadeye',
    feats:['deadeye','fleet','skirmisher','executioner','duelist','hook'],
    d:'Eyes on the treeline. Kills what it can before it closes.'},
- cleric:{n:'Cleric', wpns:['mace','spear','shortsword'], hp:[11,14],skl:[2,4],spd:[3,4],res:[38,48],arm:[0,2],
+ cleric:{n:'Cleric', wpns:['mace','spear','shortsword'], hp:[11,14],skl:[2,4],spd:[3,4],res:[38,48],arm:[0,2], start:'sanctuary',
    feats:['sanctuary','medic','stalwart','bonecarver','shieldwall','bulwark','vengeful'],
    d:'Field-surgeon and last rites both. Holds the line’s soul together.'},
- acolyte:{n:'Ash Acolyte', wpns:['shortsword','spear'], hp:[9,12],skl:[3,5],spd:[3,5],res:[28,40],arm:[0,1],
+ acolyte:{n:'Ash Acolyte', wpns:['shortsword','spear'], hp:[9,12],skl:[3,5],spd:[3,5],res:[28,40],arm:[0,1], start:'ashfire',
    feats:['ashfire','veindrink','bonespears','ashward','executioner','fleet'],
    d:'Reads the Blight and answers it. Every rank of it a bill that comes due.'},
 };
@@ -598,11 +598,12 @@ function newGame(){
   uid=1;
   S={week:1,day:0,coin:100,prov:15,renown:0,over:false,actOne:false,
      roster:[],hirePool:[],contracts:[],graves:[],regions:[],log:[],battle:null,chronicle:[],
+     partyUp:0,scouted:false,kits:0,horns:0,
      bondCounts:{},usedBg:[],usedNames:[],agents:[],deserters:[],hexes:null,caravan:null};
   S.regions=REGION_DEFS.map((d,i)=>({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-8,8)),swallowed:false}));
   genWorld();
   S.caravan={q:REGION_DEFS[1].q,r:REGION_DEFS[1].r};
-  ['fighter','ranger','cleric'].forEach(c=>S.roster.push(makeSoldier(c))); // a founding spread of archetypes
+  ['fighter','ranger','cleric','acolyte'].forEach(c=>S.roster.push(makeSoldier(c))); // a founding spread — one of each archetype
   // The founding grave: the company already has one debt walking. Guarantees the
   // signature loop fires by week ~3 regardless of play style (inherited-revenant prologue).
   const fd=makeSoldier();
@@ -633,7 +634,7 @@ function makeSoldier(clsKey){
   const bgIdx=pick(choices); S.usedBg.push(bgIdx);
   const maxhp=ri(C.hp[0],C.hp[1]);
   return {id:nid(),name,cls,bg:bgIdx,hp:maxhp,maxhp,skl:ri(C.skl[0],C.skl[1]),spd:ri(C.spd[0],C.spd[1]),res:ri(C.res[0],C.res[1]),
-          weapon:pick(C.wpns),wMod:0,wName:null,armor:ri(C.arm[0],C.arm[1]),feats:(cls==='cleric'?['sanctuary']:[]),xp:0,level:1,bonds:[],battles:0,
+          weapon:pick(C.wpns),wMod:0,wName:null,armor:ri(C.arm[0],C.arm[1]),feats:(C.start?[C.start]:[]),xp:0,level:1,bonds:[],battles:0,
           rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0};
 }
 function addTrait(s,id){
@@ -695,6 +696,11 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
   for(const arr of [S.roster,S.hirePool,S.deserters]) for(const p of (arr||[])){
     if(!p.cls){ p.cls=(p.feats||[]).some(f=>FEATS[f]&&FEATS[f].ash)?'acolyte':(p.feats||[]).includes('medic')?'cleric':(WEAPONS[p.weapon]||{}).rng>1?'ranger':'fighter'; touched=true; }
   }
+  // pre-v0.19: quartermaster state (party upgrades + consumables)
+  if(S.partyUp===undefined){ S.partyUp=0; touched=true; }
+  if(S.scouted===undefined){ S.scouted=false; touched=true; }
+  if(S.kits===undefined){ S.kits=0; touched=true; }
+  if(S.horns===undefined){ S.horns=0; touched=true; }
   if(S.story&&S.roster.length&&!S.roster.some(x=>x.commander)){ ensureCommander(); touched=true; }
   // pre-v0.9 saves already at stage 5: schedule the barrow meeting
   if(S.story&&S.story.stage===5&&!S.story.meetWeek){
@@ -1361,6 +1367,10 @@ function startBattle(contract,squadIds){
   for(const g of revs){ if(g&&g.state==='risen') spawnRevenant(B,g); }
   buildQueue(B);
   S.battle=B;
+  // quartermaster loadout & scouting are spent the moment the mission begins
+  const lo=S._loadout||{}; S._loadout=null; S.scouted=false;
+  if(lo.kit&&(S.kits||0)>0){ S.kits--; B.units.forEach(u=>{ if(u.kind==='pc')u.hp=u.maxhp; }); blog(B,'The chirurgeon’s kit does its work — the squad marches in whole.'); }
+  if(lo.horn&&(S.horns||0)>0){ S.horns--; B.units.forEach(u=>{ if(u.kind==='foe'&&!u.prop)u.warcried=true; }); blog(B,'The war horn sounds across the field — the enemy line opens shaken.'); }
   log(`Contract taken: ${ct.n} in ${region.name}.`);
   // callout modals at battle start
   for(const gId of B.revGraveIds){
@@ -2615,7 +2625,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.18</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.19</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2745,6 +2755,25 @@ function soldierCard(s,inHire,idx){
 function reforgeCost(){ return (S.story&&S.story.heir==='aldric')?36:45; }
 window.REFORGE=function(id){ const s=soldierById(id); if(!s)return; const w=WEAPONS[s.weapon]; if(!w||!w.up||atSettlement()===null)return; const c=reforgeCost(); if(S.coin<c)return; S.coin-=c; s.weapon=w.up; s.wName=null; log(`${s.name}’s ${w.n} is reforged into a ${WEAPONS[w.up].n}.`,'good'); save(); render(); };
 window.SHRINE=function(){ const h=caravanHex(); if(!h||h.feat!=='shrine'||S.coin<30)return; S.coin-=30; const r=S.regions[h.region]; r.pressure=Math.max(3,r.pressure-12); repAdd('folk',3); blightCreep(); log(`You kneel at the shrine and give coin to the rite. The Blight loosens its grip on ${r.name} (−12 pressure).`,'good'); save(); render(); };
+function partyUpCost(){ return (S.partyUp||0)>=2?null:((S.partyUp||0)===0?100:200); } // 4→5 costs 100, 5→6 costs 200
+function contractScout(c){ // scout-report preview of what waits on a contract (deterministic; exact pods roll at battle start)
+  const danger=c.danger||1, reg=S.regions[c.regionId], swallowed=reg&&reg.swallowed, obj=c.obj||'slay';
+  const podEl=['slay','capture','assassinate'].includes(obj)&&!c.ambush&&!c.caravanRaid&&!c.story&&!c.reckoning&&!c.comp;
+  if(!podEl){ const n=clamp(2+danger+(c.type==='hold'?1:0),3,7); return `≈${n} enemies in a fixed line`; }
+  const podN=clamp(1+danger+((c.type==='hold'||swallowed)?1:0),2,5);
+  const names=doctrinesFor(c,danger).map(k=>POD_DOCTRINES[k].n);
+  const coven=danger>=3&&doctrinesFor(c,danger).includes('coven');
+  return `${podN} roaming pod${podN>1?'s':''} — ${names.join(', ')}${coven?'; a Blight-mage coven may ride with them':''}`;
+}
+window.QMBUY=function(what){
+  if(atSettlement()===null)return;
+  if(what==='party'){ const c=partyUpCost(); if(!c||S.coin<c)return; S.coin-=c; S.partyUp=(S.partyUp||0)+1; log(`The company swells — you can field ${partyCap()} in the field now.`,'good'); }
+  else if(what==='scout'){ if(S.scouted||S.coin<40)return; S.coin-=40; S.scouted=true; log('Scouts ride out — the pods waiting on every posted contract are marked, until you march.','good'); }
+  else if(what==='kit'){ if(S.coin<35)return; S.coin-=35; S.kits=(S.kits||0)+1; log('A chirurgeon’s kit joins the baggage train.'); }
+  else if(what==='horn'){ if(S.coin<30)return; S.coin-=30; S.horns=(S.horns||0)+1; log('A war horn joins the baggage train.'); }
+  else return;
+  save(); render();
+};
 window.HIRE=hire; window.BUYARM=buyArmor; window.BUYPROV=buyProv; window.WEEK=()=>advanceDays(7);
 function renderCompany(){
   const ch=caravanHex();
@@ -2771,6 +2800,13 @@ function renderCompany(){
           <button onclick="BUYPROV()" ${setl===null||S.coin<provCost()?'disabled':''} title="${setl===null?'Markets are in settlements':''}">Provisions ×5 (${provCost()}c)</button>
         </div>
         <div class="hint" style="margin-top:5px">Weekly: wages 3c/head, 1 provision/head, wounds mend. The world moves while you rest — and while you travel.</div>
+        ${setl!==null?`<div class="qm" style="margin-top:7px;border-top:1px solid var(--line);padding-top:6px">
+          <div class="hint" style="color:var(--gold);margin-bottom:3px">⚒ Quartermaster — one-time purchases</div>
+          ${partyUpCost()?`<button ${S.coin<partyUpCost()?'disabled':''} onclick="QMBUY('party')" title="Permanently field one more soldier in every battle.">➕ Party ${partyCap()}→${partyCap()+1} (${partyUpCost()}c)</button>`:`<span class="hint">Company at full strength (6).</span>`}
+          <button ${S.coin<40||S.scouted?'disabled':''} onclick="QMBUY('scout')" title="Reveal the enemy pods waiting on every posted contract. Spent the moment you begin any mission.">${S.scouted?'✓ Scouts afield':'🔭 Scout Report (40c)'}</button>
+          <button ${S.coin<35?'disabled':''} onclick="QMBUY('kit')" title="Consumable. Choose it at muster: your squad deploys at full HP.">🩹 Chirurgeon’s Kit (35c)${(S.kits||0)?` ·×${S.kits}`:''}</button>
+          <button ${S.coin<30?'disabled':''} onclick="QMBUY('horn')" title="Consumable. Choose it at muster: enemies open the battle shaken (−10 to hit, round one).">📯 War Horn (30c)${(S.horns||0)?` ·×${S.horns}`:''}</button>
+        </div>`:''}
         ${ch&&ch.feat==='shrine'&&!S.regions[ch.region].swallowed?`<button class="storybtn" style="border-color:#5f7a3a;color:#9ab86f" ${S.coin<30?'disabled':''} onclick="SHRINE()">☨ Kneel at the shrine — 30c to push back the Blight in ${esc(S.regions[ch.region].name)} (−12 pressure, +Folk)</button>`:''}
         ${S.story&&S.story.stage===1&&setl===3&&cmdr()?`<button class="storybtn" onclick="SNEAK()">🕯 The Palace — the princess pays for discreet swords. Find a way in.</button>`:''}
         ${S.story&&S.story.stage===1&&setl!==3?`<div class="hint" style="margin-top:5px;color:#c9a9e0">Story: reach <b>Karsk Gate</b> — the princess Maren pays for discreet swords.</div>`:''}
@@ -2791,7 +2827,7 @@ function renderCompany(){
       <h2>Standing</h2>
       <div class="card">${repRow('Karsk','karsk','#7d93a3')}${repRow('The Folk','folk','#9ab86f')}${repRow('The Conclave','conclave','#b08bc9')}</div>
       <h2>Contracts</h2>
-      ${S.contracts.map(c=>`<div class="statline" style="cursor:pointer" onclick="HEX(${c.q},${c.r})"><span style="color:${c.story?'#b08bc9':'var(--gold)'}">!</span> ${esc(c.cname||CONTRACT_TYPES[c.type].n)} <span class="hint">(${OBJECTIVES[c.obj||'slay'].n})</span> — <span class="pay">${c.pay}c</span> · ${esc(S.regions[c.regionId].name)}</div>`).join('')||'<p class="hint">Nothing posted. Rest a week.</p>'}
+      ${S.contracts.map(c=>`<div class="statline" style="cursor:pointer" onclick="HEX(${c.q},${c.r})"><span style="color:${c.story?'#b08bc9':'var(--gold)'}">!</span> ${esc(c.cname||CONTRACT_TYPES[c.type].n)} <span class="hint">(${OBJECTIVES[c.obj||'slay'].n})</span> — <span class="pay">${c.pay}c</span> · ${esc(S.regions[c.regionId].name)}</div>${S.scouted?`<div class="hint" style="margin:0 0 3px 14px;color:#8fb0c9">🔭 ${contractScout(c)}</div>`:''}`).join('')||'<p class="hint">Nothing posted. Rest a week.</p>'}
       <h2 style="margin-top:8px">Rumors</h2>
       ${risen.map(g=>`<div class="statline" style="color:#b08bc9;cursor:pointer" onclick="${(()=>{const a=S.agents.find(a=>a.kind==='revenant'&&a.graveId===g.id);return a?`HEX(${a.q},${a.r})`:''})()}">⚰ ${esc(g.name)} walks ${esc(S.regions[g.regionId].name)}${g.iter?` · improved ×${g.iter}`:''} — <i>${esc(g.hook)}</i></div>`).join('')||'<p class="hint">Your dead are quiet — the ones you kept.</p>'}
       ${(S.deserters&&S.deserters.length)?`<h2 style="margin-top:8px">Deserters</h2>${S.deserters.map(d=>`<div class="statline" style="cursor:pointer;color:#a8b7c4" onclick="HEX(${REGION_DEFS[d.town].q},${REGION_DEFS[d.town].r})">⚐ ${esc(d.name)}${d.wasCommander?' — your old Commander':''} · ${esc(REGION_DEFS[d.town].town)} · ${Math.max(0,d.weekGone+4-S.week)} wk to find them</div>`).join('')}`:''}
@@ -2845,15 +2881,22 @@ window.TAKE=function(cid){
   travelTo(c.q,c.r,cid);
 };
 window.TRAVEL=function(q,r){ travelTo(q,r,null); };
+function partyCap(){ return 4+(S.partyUp||0); } // base 4; quartermaster upgrades raise it to 5 then 6
 function pickSquad(cb){
   const picked=new Set();
+  const loadout={kit:false,horn:false};
   const build=()=>{
+    const cap=partyCap();
     const list=S.roster.map(s=>`<button class="pick" onclick="TOG(${s.id})">${picked.has(s.id)?'☑':'☐'} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(WEAPONS[s.weapon].n)}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}</button>`).join('');
-    return `<p class="hint">Pick up to 4. The wounded die faster — and what dies unrecovered comes back.</p>${list}`;
+    let items='';
+    if((S.kits||0)>0) items+=`<button class="pick" onclick="LOAD('kit')">${loadout.kit?'☑':'☐'} 🩹 Chirurgeon’s Kit — deploy at full HP (×${S.kits})</button>`;
+    if((S.horns||0)>0) items+=`<button class="pick" onclick="LOAD('horn')">${loadout.horn?'☑':'☐'} 📯 War Horn — enemies open the fight shaken (×${S.horns})</button>`;
+    return `<p class="hint">Pick up to ${cap} (${picked.size}/${cap}). The wounded die faster — and what dies unrecovered comes back.</p>${list}${items?`<div class="hint" style="margin-top:8px">Bring consumables (spent only if you march):</div>${items}`:''}`;
   };
-  window.TOG=function(id){ if(picked.has(id))picked.delete(id); else if(picked.size<4)picked.add(id); activeModal.html=build(); render(); };
+  window.TOG=function(id){ if(picked.has(id))picked.delete(id); else if(picked.size<partyCap())picked.add(id); activeModal.html=build(); render(); };
+  window.LOAD=function(k){ loadout[k]=!loadout[k]; activeModal.html=build(); render(); };
   showModal('Muster the squad',build(),[
-    {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; closeModal(); cb([...picked]); }},
+    {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; S._loadout={kit:loadout.kit&&(S.kits||0)>0,horn:loadout.horn&&(S.horns||0)>0}; closeModal(); cb([...picked]); }},
     {label:'Not yet',fn:()=>closeModal()}]);
 }
 const TILE_BG={grass:'#2e2a20',road:'#3d352a',bridge:'#4c3f2d',brush:'#2b301f',tree:'#222c19',boulder:'#413a30',rubble:'#3a352c',column:'#3a352c',stone:'#332f28',water:'#20262e'};
