@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.19</title>
+<title>GRAVEBORNE — alpha v0.20</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1233,15 +1233,22 @@ function aiInvestigate(B,u,pod){
 }
 function podsEligible(B,contract){ return ['slay','capture','assassinate'].includes(B.obj)&&!B.ambush&&!B.caravanRaid&&!contract.story&&!contract.reckoning; }
 function pickHomes(B,podN){
-  const homes=[]; const minSp=Math.max(4,Math.floor(GW/(podN+1))); let guard=0;
-  while(homes.length<podN&&guard++<400){
-    const x=ri(Math.floor(GW*0.32),GW-2), y=ri(1,GH-2), t=tileAt(B,x,y);
-    if(!t||bImpass(t.t)||x<5)continue;
-    if(B.objTile&&B.objTile.x===x&&B.objTile.y===y)continue;
-    if(homes.some(h=>distC(h,{x,y})<minSp))continue;
-    homes.push({x,y});
+  // Spread pods as far apart as the battlefield allows, so spotting one squad doesn't auto-wake its
+  // neighbours (shout radius 6) — the player gets to pull and fight them piecemeal. Farthest-point
+  // placement over the enemy half maximises separation for any pod count; it's fine if they later
+  // patrol into each other. Falls back only if there are genuinely no open tiles.
+  const x0=5, x1=GW-2, y0=1, y1=GH-2, cands=[];
+  for(let x=Math.max(x0,Math.floor(GW*0.28));x<=x1;x++) for(let y=y0;y<=y1;y++){
+    const t=tileAt(B,x,y);
+    if(t&&!bImpass(t.t)&&!(B.objTile&&B.objTile.x===x&&B.objTile.y===y)) cands.push({x,y});
   }
-  while(homes.length<podN){ const p=placeOpen(B,Math.floor(GW*0.4),GW-2); homes.push({x:p.x,y:p.y}); }
+  if(!cands.length){ const h=[]; while(h.length<podN)h.push(placeOpen(B,Math.floor(GW*0.4),GW-2)); return h; }
+  const homes=[pick(cands)];
+  while(homes.length<podN){
+    let best=cands[0],bestD=-1;                          // pick the tile farthest from every pod placed so far
+    for(const c of cands){ let d=1e9; for(const h of homes)d=Math.min(d,distC(c,h)); if(d>bestD){bestD=d;best=c;} }
+    homes.push(best);
+  }
   return homes;
 }
 function makeWaypoints(B,home,r){
@@ -2625,7 +2632,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.19</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.20</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
