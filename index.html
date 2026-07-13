@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.33</title>
+<title>GRAVEBORNE — alpha v0.34</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1308,8 +1308,7 @@ function noticeAttack(B,att,def){ if(B.podsActive&&def&&def.kind==='foe'&&def.po
 function aiPatrol(B,u,pod){
   const wp=(u.ai==='anchor')?pod.home:(pod.waypoints[pod.wi]||pod.home);
   if(distC(u,wp)<=1){ pod.wi=(pod.wi+1)%Math.max(1,pod.waypoints.length); }
-  else { // unaware patrol = a gentle idle wander (capped), NOT a full-speed advance — that's reserved for a charge
-    const steps=reachCosts(B,u,Math.min(2,moveBudget(u))); if(steps.length){ steps.sort((a,b)=>distC(a,wp)-distC(b,wp)); u.x=steps[0].x;u.y=steps[0].y; } }
+  else { const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>distC(a,wp)-distC(b,wp)); u.x=steps[0].x;u.y=steps[0].y; } }  // patrol at full speed; no double-move (unaware)
   u.moved=true;u.acted=true;
 }
 function aiInvestigate(B,u,pod){
@@ -2474,6 +2473,17 @@ function aiAct(u){
   const nowRange=attackTargets(B,u);
   const hit=nowRange.includes(target)?target:(nowRange.sort((a,b)=>a.hp-b.hp)[0]||null);
   if(hit) doAttack(B,u,hit);
+  else if(target&&w.rng===1&&!nowRange.length){
+    // couldn't reach anyone this turn — a melee foe with a reason to close (it's engaged/pursuing, never on patrol)
+    // spends its turn on a SECOND move: a double-move to close the gap, just like the player's dash (no attack after)
+    const steps=reachable(B,u);
+    if(steps.length){
+      const coh=s=>(centroid?Math.max(0,distC(s,centroid)-(pod.radius+2))*1.5:0);
+      steps.sort((a,b)=>((Math.abs(a.x-target.x)+Math.abs(a.y-target.y))+coh(a))-((Math.abs(b.x-target.x)+Math.abs(b.y-target.y))+coh(b)));
+      const best=steps[0];
+      if((Math.abs(best.x-target.x)+Math.abs(best.y-target.y))<(Math.abs(u.x-target.x)+Math.abs(u.y-target.y))){ u.x=best.x;u.y=best.y; }
+    }
+  }
   if(!B.over){ render(); nextTurn(); }
 }
 
@@ -2886,7 +2896,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.33</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.34</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>

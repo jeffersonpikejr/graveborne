@@ -11,6 +11,9 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.34 (2026-07-13) — Enemies Double-Move to Close (When They Have a Reason)
+Corrects the previous turn's over-caution. Enemies now **can** double-move — a melee foe that's engaged or pursuing but can't reach anyone this turn spends its turn on a **second move** to close the gap (a dash, like the player's, no attack after). It only happens when they have a reason: it's gated to the combat body, so a foe that's **on patrol never double-moves**, and a foe that can already reach an attack just moves and strikes. Patrols are back to **full-speed** wandering (the earlier gentle-cap was a mistake). Net effect: distant enemies commit and run you down once they're onto you, instead of ambling one move at a time — but unaware patrols still move at a normal, non-aggressive pace.
+
 ## v0.33 (2026-07-13) — Softer Move Tiles, Cleaner Scout Mode, Gentler Patrols
 Polish + an AI check.
 - **Softer movement outlines.** The blue (move) and gold (dash) tile rings are now more transparent for a lighter touch, and the **gold ring is solid** like the blue rather than dashed — the two are distinguished by colour, not line style.
