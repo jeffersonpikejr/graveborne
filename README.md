@@ -11,6 +11,12 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.33 (2026-07-13) — Softer Move Tiles, Cleaner Scout Mode, Gentler Patrols
+Polish + an AI check.
+- **Softer movement outlines.** The blue (move) and gold (dash) tile rings are now more transparent for a lighter touch, and the **gold ring is solid** like the blue rather than dashed — the two are distinguished by colour, not line style.
+- **Scout mode hides the action outlines.** With the 👁 inspect toggle on, the blue/gold move rings and the red attack markers disappear, so it's obvious that tapping a square only reads it — it won't move or attack.
+- **Enemies don't double-move — confirmed, and patrols now idle.** Checked: enemies never dash (they use a single movement budget, never move twice), and protect/caravan missions correctly field enemies that pursue the objective. But patrolling squads were wandering at *full* speed, which read as purposeful. **Unaware patrols now wander gently (a capped idle drift)**; full-speed movement is reserved for a charge (once they've spotted you) or an alerted search.
+
 ## v0.32 (2026-07-13) — Movement-Color Fix & Honest Bow Range
 Two follow-ups to the squad-tactics rework.
 - **Once your action is spent, movement stays gold.** Previously, if you dashed (spending your action to move into the gold tiles) and had movement left over, the remaining tiles reverted to blue — implying you could still act. They now stay **gold** whenever the action is gone (from a dash or an attack), so the color always tells the truth: blue = you'll keep your action, gold = your action is/was spent.

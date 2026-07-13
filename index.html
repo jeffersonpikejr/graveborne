@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.32</title>
+<title>GRAVEBORNE — alpha v0.33</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -102,8 +102,8 @@
   .repbar>div{position:absolute;top:0;bottom:0}
   .traitchip{color:#c98a5a}
   .corrchip{color:#b08bc9}
-  .tile.moveable{outline:2px solid rgba(90,150,220,.7);outline-offset:-2px}   /* blue: reach with movement, action kept */
-  .tile.dashable{outline:2px dashed rgba(201,162,39,.6);outline-offset:-2px}  /* gold: reach only by dashing (spends action) */
+  .tile.moveable{outline:2px solid rgba(90,150,220,.42);outline-offset:-2px}   /* blue: reach with movement, action kept */
+  .tile.dashable{outline:2px solid rgba(201,162,39,.38);outline-offset:-2px}   /* gold: reach only by dashing (spends action) */
   .tile.attackable{outline:2px solid rgba(163,59,46,.7);outline-offset:-2px}
   .tile.blockedshot{outline:2px dashed rgba(163,59,46,.42);outline-offset:-2px}  /* in range, but line of sight blocked */
   .tile .terr{position:absolute;top:1px;left:3px;color:#5c5545;font-size:10px}
@@ -1308,7 +1308,8 @@ function noticeAttack(B,att,def){ if(B.podsActive&&def&&def.kind==='foe'&&def.po
 function aiPatrol(B,u,pod){
   const wp=(u.ai==='anchor')?pod.home:(pod.waypoints[pod.wi]||pod.home);
   if(distC(u,wp)<=1){ pod.wi=(pod.wi+1)%Math.max(1,pod.waypoints.length); }
-  else { const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>distC(a,wp)-distC(b,wp)); u.x=steps[0].x;u.y=steps[0].y; } }
+  else { // unaware patrol = a gentle idle wander (capped), NOT a full-speed advance — that's reserved for a charge
+    const steps=reachCosts(B,u,Math.min(2,moveBudget(u))); if(steps.length){ steps.sort((a,b)=>distC(a,wp)-distC(b,wp)); u.x=steps[0].x;u.y=steps[0].y; } }
   u.moved=true;u.acted=true;
 }
 function aiInvestigate(B,u,pod){
@@ -2885,7 +2886,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.32</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.33</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3222,21 +3223,22 @@ function renderBattle(){
   TSCUR=TS; B._ts=TS;
   // blue = reachable while KEEPING your action; gold = reachable only by spending your action.
   // once the action is spent (you dashed or attacked), any leftover movement stays gold — never reverts to blue.
+  // in inspect/scout mode (B.peek) clicking a tile only reads it — so hide every action affordance (move/attack/cast)
   const mp=isPC?(u.mp||0):0;
   let blueMoves=[], goldMoves=[];
-  if(isPC&&!B.aim){
+  if(isPC&&!B.aim&&!B.peek){
     if(u.acted){ goldMoves = mp>0?reachCosts(B,u,mp):[]; }                 // action gone → leftover move is gold
     else { blueMoves = mp>0?reachCosts(B,u,mp):[];
       goldMoves = reachCosts(B,u,mp+moveBudget(u)).filter(g=>!blueMoves.some(b=>b.x===g.x&&b.y===g.y)); }
   }
   const abs=isPC?unitAbilities(u):[];
-  const aiming=isPC&&B.aim?abilityByKey(u,B.aim):null;
-  const targets=isPC&&!u.acted&&!B.aim?attackTargets(B,u):[];
+  const aiming=isPC&&B.aim&&!B.peek?abilityByKey(u,B.aim):null;
+  const targets=isPC&&!u.acted&&!B.aim&&!B.peek?attackTargets(B,u):[];
   const casts=aiming?B.units.filter(t=>abilityValidTarget(B,u,aiming,t)):[];
   // a ranged unit's effective reach this turn (weapon range, +1 on high ground, capped in weather) — used to flag
   // enemies that ARE in range but whose line of sight is blocked, so the archer's range doesn't feel bugged
   const uw=isPC?wOf(u):null;
-  const uRangedReach=(isPC&&!u.acted&&!B.aim&&uw&&uw.rng>1)?((B.weather?Math.min(uw.rng,3):uw.rng)+(elevAt(B,u.x,u.y)===2?1:0)):0;
+  const uRangedReach=(isPC&&!u.acted&&!B.aim&&!B.peek&&uw&&uw.rng>1)?((B.weather?Math.min(uw.rng,3):uw.rng)+(elevAt(B,u.x,u.y)===2?1:0)):0;
   // threat overlay for an inspected enemy: everywhere it could move + strike next turn
   const iu=B.inspect?B.units.find(z=>z.uid===B.inspect&&z.hp>0&&!z.fled):null;
   const threat=new Set();
@@ -3324,7 +3326,7 @@ function renderBattle(){
       <div class="wline">${WPN_ICON[show.weapon]||'⚔'} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng+(B.weather&&sw.rng>3?` <span style="color:#aab3c0">(${Math.min(sw.rng,3)+(elevAt(B,show.x,show.y)===2?1:0)} in this ${B.weather==='fog'?'fog':'ash-haze'})</span>`:(elevAt(B,show.x,show.y)===2?` <span style="color:var(--gold)">(${sw.rng+1} on high ground)</span>`:'')):''}</div>
       <div class="featline">✦ ${featChips(show.feats)}</div>
       ${iu?`<div class="hint">Red-hatched tiles: everywhere it can reach and strike next turn. Tap it again to dismiss.</div>`
-        :isPC?`<div class="hint">${aiming?esc((aiming.label||'').replace(/^\S+\s/,'').toUpperCase())+': tap a '+(aiming.side==='ally'?'blue-rimmed ally':'purple-rimmed target')+'. ':''}${(u.mp||0)>0?'Blue tiles: move (keeps your action). ':''}${!u.acted?'Gold-dashed tiles: dash there (spends your action). Tap a red-rimmed enemy to strike. ':''}Tap another soldier to command them. Move can split around your action — move, strike, then move again.<br><span style="opacity:.7">Keys: Space end phase · B brace · F ability · R retreat · Esc cancel</span></div>`
+        :isPC?`<div class="hint">${aiming?esc((aiming.label||'').replace(/^\S+\s/,'').toUpperCase())+': tap a '+(aiming.side==='ally'?'blue-rimmed ally':'purple-rimmed target')+'. ':''}${(u.mp||0)>0?'Blue tiles: move (keeps your action). ':''}${!u.acted?'Gold tiles: dash there (spends your action). Tap a red-rimmed enemy to strike. ':''}Tap another soldier to command them. Move can split around your action — move, strike, then move again.<br><span style="opacity:.7">Keys: Space end phase · B brace · F ability · R retreat · Esc cancel</span></div>`
         :'<div class="hint">Tap one of your soldiers to command them.</div>'}
     </div>`:'';
   if(B.peekTile) insp=tileDesc(B,B.peekTile.x,B.peekTile.y)+insp;
