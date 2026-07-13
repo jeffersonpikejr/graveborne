@@ -11,6 +11,14 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.30 (2026-07-13) — Milestone Hardening (Adversarial Review Fixes)
+A multi-agent adversarial review of the v0.26–v0.29 milestone surfaced five confirmed bugs, all fixed here:
+- **(major) Raising the dead no longer restarts the round.** The Blight-Mage's and Blight-Sorcerer's raise called `buildQueue()` mid-turn, which reset the initiative index and cleared everyone's move/action flags — replaying the round and handing bonus turns to both sides. The raised unit now simply joins the tail of the current round. (This was a latent bug in the mage since v0.17, caught because the new sorcerer reproduced the pattern.)
+- **(minor) Set-piece elites stay off the easy contracts.** The new Conclave Circle (Blight-Sorcerer) and Blight Warhost (Blight-Troll) doctrines now require danger 2+, so they never spawn on the deliberately-safe danger-1 frontier fight.
+- **(minor) Cleave kills count.** A kill via the Cleave ability now credits Reaper stacks and the battle-kill tally, like any other kill.
+- **(minor) No unlock from a failed rescue.** Quartermaster commission rewards (party/armour) are no longer granted if the protect/escort charges all died.
+- **(minor) The frontier floor respects fixed contracts.** The danger-1 guarantee no longer overwrites the pay/danger of a Quartermaster, Cinderling, or story contract — it clamps a plain contract instead.
+
 ## v0.29 (2026-07-13) — The Cinderling: a Rare Underkingdom Recruit
 Sometimes, from **week 4 on**, a rumor surfaces (rare, ~7%/week): a stranger who "moves by ashfall and smoke" is cornered by grey riders. Take **The Hunted Stranger** contract and an **Underkingdom Shade** fights at your side as a guest you control — and if they're **alive when you win**, they join the company for good. Lose, retreat, or let them fall, and they're gone (a guest leaves no grave).
 

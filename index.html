@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.29</title>
+<title>GRAVEBORNE — alpha v0.30</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -325,8 +325,8 @@ const POD_DOCTRINES={
  shieldwall:{n:'Karsk Shieldwall', comp:['shieldman','pikeman','shieldman','pikeman'], for:['patrol','hold']},
  coven:{n:'Ebon Coven', comp:['blightmage','husk','husk'], for:['purge','delve','hold'], vip:true, minDanger:3},
  risen:{n:'Risen Tide', comp:['graveguard','husk','husk','husk'], for:['purge','delve','hunt']},
- conclave:{n:'Conclave Circle', comp:['blightsorc','graveguard','husk','husk'], for:['purge','delve','hold'], vip:true, minTier:2},
- warhost:{n:'Blight Warhost', comp:['blighttroll','graveguard','husk','husk'], for:['purge','delve','hunt'], vip:true, minTier:2},
+ conclave:{n:'Conclave Circle', comp:['blightsorc','graveguard','husk','husk'], for:['purge','delve','hold'], vip:true, minTier:2, minDanger:2},
+ warhost:{n:'Blight Warhost', comp:['blighttroll','graveguard','husk','husk'], for:['purge','delve','hunt'], vip:true, minTier:2, minDanger:2},
 };
 function doctrinesFor(contract,danger){
   const T=worldTier();
@@ -774,9 +774,10 @@ function genContracts(){
   // frontier floor: as regions pressurise past danger 1, always keep ONE easy contract open on the softest
   // still-held region, so a green company always has somewhere to cut its teeth (pay drops with the danger).
   if(!S.contracts.some(c=>c.danger===1)){
-    const front=S.regions.filter(r=>!r.swallowed).sort((a,b)=>a.pressure-b.pressure)[0];
-    if(front){ const fc=S.contracts.find(c=>c.regionId===front.id);
-      if(fc&&fc.danger>1){ fc.danger=1; fc.pay=Math.round((CONTRACT_TYPES[fc.type].base+15)*(1+front.pressure/150)); fc.frontier=true; }
+    const isPlain=c=>!c.qm&&!c.cinderling&&!c.story&&!c.reckoning; // never re-tune a fixed-reward commission/story contract
+    for(const front of S.regions.filter(r=>!r.swallowed).sort((a,b)=>a.pressure-b.pressure)){
+      const fc=S.contracts.find(c=>c.regionId===front.id&&isPlain(c));
+      if(fc&&fc.danger>1){ fc.danger=1; fc.pay=Math.round((CONTRACT_TYPES[fc.type].base+15)*(1+front.pressure/150)); fc.frontier=true; break; }
     }
   }
 }
@@ -1974,7 +1975,7 @@ function execAbility(B,u,ab,t){
     u.acted=true; B.aim=null; return;
   }
   if(ab.k==='cleave'){
-    const credit=(z)=>{ if(z.hp<=0){ applyDeath(B,z); if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } };
+    const credit=(z)=>{ if(z.hp<=0){ applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } };
     const h=hitChance(B,u,t);
     if(ri(1,100)<=h){
       const d=Math.max(1,Math.floor(dmgOf(B,u,t)*0.6));   // reduced primary — the price of hitting two
@@ -2145,8 +2146,8 @@ function endBattle(outcome){
         finaleVictory();
       }
     }
-    // Quartermaster commission payoffs — permanent capabilities earned by mission, not bought with coin
-    if(B.qmReward){ S.unlocks=S.unlocks||{reforge:false,armor:false};
+    // Quartermaster commission payoffs — permanent capabilities earned by mission, not bought with coin (not if the charges died)
+    if(B.qmReward&&!B.objFailed){ S.unlocks=S.unlocks||{reforge:false,armor:false};
       if(B.qmReward==='reforge'&&!S.unlocks.reforge){ S.unlocks.reforge=true;
         queueModal(()=>showModal('The Anvil Recovered','<p>Your smith sets the recovered anvil in the caravan bed and spits on the coals. <b>Weapons can be reforged</b> at any settlement now.</p>',[{label:'At last',cls:'primary',fn:()=>closeModal()}])); }
       else if(B.qmReward==='armor'&&!S.unlocks.armor){ S.unlocks.armor=true;
@@ -2272,7 +2273,7 @@ function enemyCasterTurn(B,u,pod,pcs){
   if((u.raiseCd||0)<=0 && (B.raised||0)<5 && foeCount(B)<MAXFOES && chance(65)){
     const spot=nearOpen(B,u.x,u.y,2);
     if(spot){ const hk=spawnEnemy(B,'husk',1,false); hk.x=spot.x;hk.y=spot.y;hk.podId=u.podId; if(pod)pod.members.push(hk.uid);
-      B.raised=(B.raised||0)+1; u.raiseCd=3; buildQueue(B);
+      B.raised=(B.raised||0)+1; u.raiseCd=3; B.queue.push(hk.uid);   // tail of THIS round — never buildQueue mid-turn (it resets qi and replays everyone)
       blog(B,`${u.name} spreads its hands — the ground heaves, and a husk claws its way up to serve.`);
       if(!B.over){render();nextTurn();} return; }
   }
@@ -2298,7 +2299,7 @@ function enemySorcererTurn(B,u,pod,pcs){
   if((u.raiseCd||0)<=0 && (B.raised||0)<4 && foeCount(B)<MAXFOES && chance(55)){
     const spot=nearOpen(B,u.x,u.y,2);
     if(spot){ const gg=spawnEnemy(B,'graveguard',1,false); gg.x=spot.x;gg.y=spot.y;gg.podId=u.podId; if(pod)pod.members.push(gg.uid);
-      B.raised=(B.raised||0)+1; u.raiseCd=4; buildQueue(B);
+      B.raised=(B.raised||0)+1; u.raiseCd=4; B.queue.push(gg.uid);   // tail of THIS round — never buildQueue mid-turn (it resets qi and replays everyone)
       blog(B,`${u.name} chants low — the earth splits and a graveguard rises armored for war.`);
       if(!B.over){render();nextTurn();} return; }
   }
@@ -2836,7 +2837,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.29</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.30</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
