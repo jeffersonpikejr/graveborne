@@ -11,6 +11,9 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.24 (2026-07-13) — Initiative Tracker Respects Fog of War
+The turn-order strip listed *every* unit by name — including enemy squads you hadn't spotted yet, spoiling what waited in the fog. It now applies the same fog gate as the map: an enemy only appears in the tracker once it's in your line of sight. Your soldiers and any discovered foes show; undiscovered pods stay off the strip until a scout catches sight of them, then they populate in real time. No count, no names, no free intel.
+
 ## v0.23 (2026-07-13) — Nest Births 3× Rarer
 Cut the Blight-nest birth-rate to a third across every difficulty. It still scales with the skulls, just far slower now: **danger 3 every 3rd round** (was every round), **danger 2 every 6th**, **danger 1 every 9th**. Burning the nest is about closing on it, not out-attriting an endless tide.
 

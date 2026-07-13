@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.23</title>
+<title>GRAVEBORNE — alpha v0.24</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -2637,7 +2637,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.23</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.24</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3026,6 +3026,7 @@ function renderBattle(){
   }
   grid+=`${B.weather?'<div class="fogveil"></div>':''}</div></div>`;
   const q=B.queue.map((id,i)=>{const z=B.units.find(x=>x.uid===id);if(!z||z.hp<=0||z.fled)return '';
+    if(z.kind==='foe'&&B._vis&&!B._vis.has(z.x+','+z.y))return ''; // fog of war: don't spoil enemies the company hasn't spotted yet
     return `<div class="qitem ${i===B.qi?'cur':''} ${z.graveId?'rev':''}">${i===B.qi?'▶ ':''}${esc(z.name)} (${z.hp})</div>`;}).join('');
   const show=iu||u;
   const sw=show?wOf(show):null;
