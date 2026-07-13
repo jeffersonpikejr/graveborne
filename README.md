@@ -11,6 +11,11 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.27 (2026-07-13) — Double Strike & Cleave-as-a-Choice
+Two combat-depth changes.
+- **Martial capstone — Double Strike.** At **level 5**, Fighters and Rangers strike **twice** on a basic attack (two independent hit/damage rolls — a Ranger looses two arrows). It kicks in mid-battle the moment they ding 5, and it never wastes the second swing on an already-dead target. Clerics (support/heal) and Ash Acolytes (casters) are excluded by design. The soldier's battle card shows a **⚔ Double Strike** flag.
+- **Cleave is now a decision, not a freebie.** Axes/great-axes/halberds no longer auto-splash into a neighbour on every hit. Instead they get a **🪓 Cleave** ability: strike your target for **reduced** damage and carry the blow into one enemy standing adjacent to it — you choose the trade of single-target power for hitting two. A plain attack is clean single-target. (Enemies lost their free auto-cleave in the bargain, which the v0.26 escalation more than makes up for.)
+
 ## v0.26 (2026-07-13) — The World Hardens: Time-Based Escalation & New Blight Horrors
 Mid/late game was flattening out — danger 2 and 3 felt only mildly worse than 1, and easy contracts vanished by week 5. This makes the world escalate on a clock, not just on region pressure.
 - **World tier** rises every ~3 weeks (`worldTier()` = floor(week/3)). It's the new difficulty heartbeat, independent of where you fight.

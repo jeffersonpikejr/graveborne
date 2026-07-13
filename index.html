@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.26</title>
+<title>GRAVEBORNE — alpha v0.27</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -261,10 +261,10 @@ const FEATS={
  rally:{n:'Rally',d:'COMMANDER. Ability: steady an adjacent ally — clear their rattle and grant +10 hit next turn.',leader:true},
 };
 const CLASSES={
- fighter:{n:'Fighter', wpns:['shortsword','spear','axe','mace'], hp:[12,15],skl:[3,5],spd:[3,4],res:[30,42],arm:[0,1], start:'shieldwall',
+ fighter:{n:'Fighter', wpns:['shortsword','spear','axe','mace'], hp:[12,15],skl:[3,5],spd:[3,4],res:[30,42],arm:[0,1], start:'shieldwall', martial:true,
    feats:['duelist','shieldwall','bulwark','berserker','executioner','reaper','stalwart'],
-   d:'Line-breaker. Steel, and the stubbornness to stand in it.'},
- ranger:{n:'Ranger', wpns:['bow','bow','spear'], hp:[10,13],skl:[3,5],spd:[4,5],res:[30,40],arm:[0,1], start:'deadeye',
+   d:'Line-breaker. Steel, and the stubbornness to stand in it. At veterancy (Lv 5) their blows come twice.'},
+ ranger:{n:'Ranger', wpns:['bow','bow','spear'], hp:[10,13],skl:[3,5],spd:[4,5],res:[30,40],arm:[0,1], start:'deadeye', martial:true,
    feats:['deadeye','fleet','skirmisher','executioner','duelist','hook'],
    d:'Eyes on the treeline. Kills what it can before it closes.'},
  cleric:{n:'Cleric', wpns:['mace','spear','shortsword'], hp:[11,14],skl:[2,4],spd:[3,4],res:[38,48],arm:[0,2], start:'sanctuary',
@@ -1120,6 +1120,8 @@ function grantXp(s,amt){
   s.xp+=amt;
   while(s.level<5&&s.xp>=XP_LVL[s.level]){
     s.level++;
+    // martial capstone: dinging level 5 grants Double Strike for the rest of THIS battle too, not just the next
+    if(s.level>=5&&CLASSES[s.cls]&&CLASSES[s.cls].martial&&S.battle){ const du=S.battle.units.find(x=>x.kind==='pc'&&x.ref===s.id); if(du)du.dbl=true; }
     const stat=pick(['maxhp','skl','spd','res']);
     if(stat==='maxhp'){s.maxhp+=2;s.hp+=2;
       if(S.battle){const bu=S.battle.units.find(x=>x.kind==='pc'&&x.ref===s.id); if(bu){bu.maxhp+=2;bu.hp+=2;}}
@@ -1389,6 +1391,7 @@ function startBattle(contract,squadIds){
     for(let tries=0;tries<30&&(bImpass(tileAt(B,px,py).t)||unitAt(B,px,py));tries++){py=clamp(py+1,0,GH-1); if(py===GH-1)px=(px+1)%2;}
     B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,cmdr:!!s.commander,
       weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
+      dbl:!!(CLASSES[s.cls]&&CLASSES[s.cls].martial&&s.level>=5),
       moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,mendUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
   });
   // enemies — patrolling pods on generic hunts; flat deploy for set-pieces & aggro objectives
@@ -1714,37 +1717,32 @@ function dmgOf(B,att,def){
 }
 function doAttack(B,att,def){
   noticeAttack(B,att,def);   // a struck patroller's pod wakes (and shouts) even from stealth
-  const h=hitChance(B,att,def);
   const w=wOf(att);
-  if(w.rng>1) fx.push({type:'arrow',fx:att.x,fy:att.y,tx:def.x,ty:def.y});
-  if(ri(1,100)<=h){
-    const d=dmgOf(B,att,def);
-    def.hp-=d;
-    fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:'-'+d,color:'#e0593f'});
-    blog(B,`${att.name} hits ${def.name} for ${d} (${h}%).`);
-    if(w.rng===1&&att.feats.includes('veindrink')&&att.hp>0){
-      att.hp=Math.min(att.maxhp,att.hp+2);
-      fx.push({type:'float',x:att.x,y:att.y,txt:'+2',color:'#b08bc9'});
-      if(att.kind==='pc'){const ps=soldierById(att.ref); if(ps)ps.hp=att.hp;}
-    }
-    if(def.hp>0&&def.hp<=3&&def.kind==='pc')def.nearDeath=true;
-    if(def.hp<=0){ applyDeath(B,def); if(att.feats.includes('reaper'))att.reaper++;
-      att.bkills=(att.bkills||0)+1;
-      if(att.kind==='pc'){const s=soldierById(att.ref); if(s){s.kills++; grantXp(s,def.xpv||3);
-        if(att.feats.includes('veindrink'))addCorruption(s,1);}} }
-    if(w.cleave&&!B.over){
-      const extra=B.units.filter(t=>t!==def&&t.hp>0&&!t.fled&&isEnemy(att,t)&&adjacent(t,def)).slice(0,2);
-      for(const t of extra){ if(B.over)break;
-        const cd=Math.max(1,Math.floor(dmgOf(B,att,t)/2));
-        t.hp-=cd; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+cd,color:'#e0593f'});
-        blog(B,`  …the blow cleaves into ${t.name} for ${cd}.`);
-        if(t.hp<=0){ applyDeath(B,t); if(att.kind==='pc'){const s2=soldierById(att.ref); if(s2){s2.kills++; grantXp(s2,t.xpv||3);}} }
+  function strike(){
+    const h=hitChance(B,att,def);
+    if(w.rng>1) fx.push({type:'arrow',fx:att.x,fy:att.y,tx:def.x,ty:def.y});
+    if(ri(1,100)<=h){
+      const d=dmgOf(B,att,def);
+      def.hp-=d;
+      fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:'-'+d,color:'#e0593f'});
+      blog(B,`${att.name} hits ${def.name} for ${d} (${h}%).`);
+      if(w.rng===1&&att.feats.includes('veindrink')&&att.hp>0){
+        att.hp=Math.min(att.maxhp,att.hp+2);
+        fx.push({type:'float',x:att.x,y:att.y,txt:'+2',color:'#b08bc9'});
+        if(att.kind==='pc'){const ps=soldierById(att.ref); if(ps)ps.hp=att.hp;}
       }
+      if(def.hp>0&&def.hp<=3&&def.kind==='pc')def.nearDeath=true;
+      if(def.hp<=0){ applyDeath(B,def); if(att.feats.includes('reaper'))att.reaper++;
+        att.bkills=(att.bkills||0)+1;
+        if(att.kind==='pc'){const s=soldierById(att.ref); if(s){s.kills++; grantXp(s,def.xpv||3);
+          if(att.feats.includes('veindrink'))addCorruption(s,1);}} }
+    } else {
+      fx.push({type:'dodge',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:def.defending?'blocked':'dodged',color:'#7d93a3'});
+      blog(B,`${att.name} misses ${def.name} (${h}%).`);
     }
-  } else {
-    fx.push({type:'dodge',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:def.defending?'blocked':'dodged',color:'#7d93a3'});
-    blog(B,`${att.name} misses ${def.name} (${h}%).`);
   }
+  strike();
+  if(att.dbl && !B.over && def.hp>0 && !def.fled){ strike(); }   // martial Double Strike (level 5): a second swing
   att.acted=true;
   if(att.kind==='pc'&&(att.feats||[]).includes('skirmisher')&&!att.skirmished){ att.skirmished=true; att.skirmish=true; }
 }
@@ -1891,6 +1889,7 @@ function unitAbilities(u){
   if(f.includes('sanctuary')&&!u.mendUsed)out.push({k:'sanctuary',label:'✚ Sanctuary',range:0,side:'self',tip:'Heal all allies within 2 (incl. you) for 4 HP — once per battle.'});
   if(f.includes('medic')&&!u.medicUsed)out.push({k:'medic',label:'✚ Field Medic',range:1,side:'ally',tip:'Heal an adjacent ally 5 HP (once per battle).'});
   if(w.bash)out.push({k:'bash',label:'⛊ Shield Bash',range:1,side:'enemy',tip:'Bash an adjacent enemy: knock them back and stagger them (they lose their next turn).'});
+  if(w.cleave)out.push({k:'cleave',label:'🪓 Cleave',range:w.reach?2:1,side:'enemy',tip:'Strike for reduced damage, then carry the blow into one enemy standing next to your target.'});
   if(f.includes('rally'))out.push({k:'rally',label:'✚ Rally',range:1,side:'ally',tip:'Steady an adjacent ally: clear rattle, +10 hit next turn.'});
   if(f.includes('warcry')&&!u.warcryUsed)out.push({k:'warcry',label:'⚑ War-Cry',range:0,side:'self',tip:'Once/battle: shake enemies within 2 (−10 hit next round); allies within 2 shed a rattle.'});
   return out;
@@ -1940,6 +1939,26 @@ function execAbility(B,u,ab,t){
     fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'staggered',color:'#7d93a3'});
     blog(B,`${u.name} bashes ${t.name} back and staggers them.`);
     if(t.hp<=0){applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}}
+    u.acted=true; B.aim=null; return;
+  }
+  if(ab.k==='cleave'){
+    const credit=(z)=>{ if(z.hp<=0){ applyDeath(B,z); if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } };
+    const h=hitChance(B,u,t);
+    if(ri(1,100)<=h){
+      const d=Math.max(1,Math.floor(dmgOf(B,u,t)*0.6));   // reduced primary — the price of hitting two
+      t.hp-=d; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+d,color:'#e0593f'});
+      blog(B,`${u.name} cleaves ${t.name} for ${d} (${h}%).`);
+      if(t.hp>0&&t.hp<=3&&t.kind==='pc')t.nearDeath=true;
+      credit(t);
+      if(!B.over){ // carry the blow into one enemy adjacent to the primary target
+        const z=B.units.find(x=>x!==t&&x.hp>0&&!x.fled&&isEnemy(u,x)&&adjacent(x,t));
+        if(z){ noticeAttack(B,u,z); const cd=Math.max(1,Math.floor(dmgOf(B,u,z)*0.6));
+          z.hp-=cd; fx.push({type:'flash',uid:z.uid},{type:'float',x:z.x,y:z.y,txt:'-'+cd,color:'#e0593f'});
+          blog(B,`  …the swing carries into ${z.name} for ${cd}.`);
+          if(z.hp>0&&z.hp<=3&&z.kind==='pc')z.nearDeath=true; credit(z);
+        }
+      }
+    } else { fx.push({type:'dodge',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:t.defending?'blocked':'dodged',color:'#7d93a3'}); blog(B,`${u.name}’s cleave goes wide of ${t.name} (${h}%).`); }
     u.acted=true; B.aim=null; return;
   }
   if(ab.k==='rally'){ t.rattled=0; t.rallied=true; fx.push({type:'float',x:t.x,y:t.y,txt:'steady',color:'#9ab86f'}); blog(B,`${u.name} rallies ${t.name} — steady now.`); u.acted=true; B.aim=null; return; }
@@ -2764,7 +2783,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.26</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.27</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3164,7 +3183,7 @@ function renderBattle(){
     else showFace=`<div class="face" style="float:right">${enemyFace(show.ekey,44)}</div>`;
   }
   let insp=show?`<div class="card">${showFace}<span class="nm">${esc(show.name)}</span>${iu?' <span class="tag revtag">scouting</span>':''}
-      <div class="statline">HP ${show.hp}/${show.maxhp} · SKL ${show.skl} · SPD ${show.spd}${show.shakenBy?' · <span class="skull">SHAKEN −10</span>':''}${show.rattled?' · rattled×'+show.rattled+' (−'+(show.rattled*5)+')':''}${show.defending?' · bracing':''}</div>
+      <div class="statline">HP ${show.hp}/${show.maxhp} · SKL ${show.skl} · SPD ${show.spd}${show.dbl?' · <span style="color:var(--gold)">⚔ Double Strike</span>':''}${show.shakenBy?' · <span class="skull">SHAKEN −10</span>':''}${show.rattled?' · rattled×'+show.rattled+' (−'+(show.rattled*5)+')':''}${show.defending?' · bracing':''}</div>
       <div class="wline">${WPN_ICON[show.weapon]||'⚔'} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng:''}</div>
       <div class="featline">✦ ${featChips(show.feats)}</div>
       ${iu?`<div class="hint">Red-hatched tiles: everywhere it can reach and strike next turn. Tap it again to dismiss.</div>`
