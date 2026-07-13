@@ -11,6 +11,9 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.23 (2026-07-13) — Nest Births 3× Rarer
+Cut the Blight-nest birth-rate to a third across every difficulty. It still scales with the skulls, just far slower now: **danger 3 every 3rd round** (was every round), **danger 2 every 6th**, **danger 1 every 9th**. Burning the nest is about closing on it, not out-attriting an endless tide.
+
 ## v0.22 (2026-07-13) — Blight-Nest Birth-Rate Scales with Danger
 On "Burn the Nest" contracts the nest disgorged a fresh husk/hound **every single round** regardless of the skull rating, which made even a 1-skull burn a grind against an endless tide. The birth-rate now tracks difficulty: **danger 3 still births every round** (the old rate, kept as the ceiling), **danger 2 every 2nd round, danger 1 every 3rd**. Same 7-mobile field cap and same "it won't stop until it burns" win condition — you just aren't drowned on the easy ones while you close on the nest. (Battle now carries its `danger` so objectives can scale off it.)
 
