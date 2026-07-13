@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.17</title>
+<title>GRAVEBORNE — alpha v0.18</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -86,7 +86,8 @@
   #log p{margin:2px 0}
   /* battle */
   #battleTop{display:flex;gap:14px;align-items:center;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
-  #battleWrap{display:flex;gap:10px;padding:10px;align-items:flex-start;flex-wrap:wrap}
+  #actbar{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;flex-wrap:wrap;gap:8px;padding:8px 12px;background:var(--panel);border-top:1px solid var(--gold);z-index:40;margin:0;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+  #battleWrap{display:flex;gap:10px;padding:10px 10px 78px;align-items:flex-start;flex-wrap:wrap}
   #gridwrap{max-width:100%;max-height:68vh;overflow:auto;border:1px solid var(--line);border-radius:3px;background:#0c0a07}
   #grid{display:grid;gap:1px;background:#000;width:max-content}
   /* tile shading via inset shadow (paints UNDER the child unit token, not over it) */
@@ -112,9 +113,11 @@
   .unit .hp>div{height:100%;background:var(--blood)}
   .body{position:absolute;inset:12px;display:flex;align-items:center;justify-content:center;color:#cbb;font-size:14px}
   #sidePanel{flex:0 0 250px}
-  .qitem{padding:2px 6px;border-left:3px solid transparent;font-size:12.5px;color:var(--dim)}
-  .qitem.cur{border-color:var(--gold);color:var(--ink)}
-  .qitem.rev{color:#b08bc9}
+  .initstrip{display:flex;flex-wrap:nowrap;gap:5px;align-items:center;overflow-x:auto;flex:0 1 auto;min-width:0;max-width:100%;padding:1px 0;scrollbar-width:thin}
+  .initstrip::before{content:'Order';color:var(--dim);font-size:10px;letter-spacing:.5px;text-transform:uppercase;margin-right:2px;flex:0 0 auto}
+  .qitem{flex:0 0 auto;padding:1px 7px;border:1px solid var(--line);border-radius:3px;font-size:11.5px;color:var(--dim);white-space:nowrap}
+  .qitem.cur{border-color:var(--gold);color:var(--ink);background:rgba(201,162,39,.14)}
+  .qitem.rev{color:#b08bc9;border-color:#5a4668}
   #grid{position:relative}
   .tile.threat{box-shadow:inset 0 0 0 2px rgba(224,89,63,.4);background-image:repeating-linear-gradient(45deg,rgba(163,59,46,.14) 0 4px,transparent 4px 8px)}
   .unit.foe.current,.unit.undead.current,.unit.rev.current{border-color:#e0593f}
@@ -168,9 +171,9 @@
     .scard .face{flex:0 0 40px}
     #log{margin:0 8px 10px;height:118px}
     #modal{padding:13px 14px}
-    #actbar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:5px;padding:7px 8px;background:var(--panel);border-top:1px solid var(--gold);z-index:40;margin:0}
+    #actbar{gap:5px;padding-left:8px;padding-right:8px;justify-content:stretch;flex-wrap:nowrap}
     #actbar button{flex:1;padding:12px 3px;font-size:13px}
-    #battleWrap{padding-bottom:62px}
+    #battleWrap{padding-bottom:70px}
   }
 </style>
 </head>
@@ -243,6 +246,7 @@ const FEATS={
  stalwart:{n:'Stalwart',d:'+15 resolve'},
  bonecarver:{n:'Bonecarver',d:'+3 damage vs the dead'},
  medic:{n:'Field Medic',d:'Ability: heal adjacent ally 5 HP (once per battle)'},
+ sanctuary:{n:'Sanctuary',d:'Ability: heal all allies within 2 for 4 HP, incl. self (once per battle)'},
  vengeful:{n:'Vengeful',d:'+20 hit, +2 dmg vs revenants of your bonded; immune to their callouts'},
  bulwark:{n:'Bulwark',d:'+1 armor'},
  reaper:{n:'Reaper',d:'Each kill: +5 hit for rest of battle (stacks)'},
@@ -263,7 +267,7 @@ const CLASSES={
    feats:['deadeye','fleet','skirmisher','executioner','duelist','hook'],
    d:'Eyes on the treeline. Kills what it can before it closes.'},
  cleric:{n:'Cleric', wpns:['mace','spear','shortsword'], hp:[11,14],skl:[2,4],spd:[3,4],res:[38,48],arm:[0,2],
-   feats:['medic','stalwart','bonecarver','shieldwall','bulwark','vengeful'],
+   feats:['sanctuary','medic','stalwart','bonecarver','shieldwall','bulwark','vengeful'],
    d:'Field-surgeon and last rites both. Holds the line’s soul together.'},
  acolyte:{n:'Ash Acolyte', wpns:['shortsword','spear'], hp:[9,12],skl:[3,5],spd:[3,5],res:[28,40],arm:[0,1],
    feats:['ashfire','veindrink','bonespears','ashward','executioner','fleet'],
@@ -298,7 +302,7 @@ const ENEMIES={
  archer:{n:'Brigand Archer',hp:6,skl:3,spd:4,w:'bow',arm:0,undead:false,xp:3},
  deserter:{n:'Deserter',hp:11,skl:4,spd:4,w:'axe',arm:1,undead:false,xp:4},
  hound:{n:'Blight-hound',hp:7,skl:4,spd:6,w:'shortsword',arm:0,undead:true,xp:3},
- husk:{n:'Husk',hp:14,skl:2,spd:2,w:'axe',arm:1,undead:true,xp:4},
+ husk:{n:'Husk',hp:10,skl:2,spd:2,w:'axe',arm:1,undead:true,xp:4},
  acolyte:{n:'Conclave Acolyte',hp:7,skl:4,spd:3,w:'bow',arm:0,undead:false,xp:4},
  graveguard:{n:'Graveguard',hp:16,skl:4,spd:3,w:'halberd',arm:2,undead:true,xp:6},
  cutthroat:{n:'Cutthroat',hp:8,skl:4,spd:6,w:'shortsword',arm:0,undead:false,xp:4,ai:'flank'},
@@ -311,12 +315,15 @@ const POD_DOCTRINES={
  warband:{n:'Brigand Warband', comp:['brigand','cutthroat','archer','brigand'], for:['patrol','hunt','hold']},
  outriders:{n:'Hound Outriders', comp:['houndrider','hound','houndrider','hound'], for:['patrol','hunt']},
  shieldwall:{n:'Karsk Shieldwall', comp:['shieldman','pikeman','shieldman','pikeman'], for:['patrol','hold']},
- coven:{n:'Ebon Coven', comp:['blightmage','husk','husk','graveguard'], for:['purge','delve','hold']},
+ coven:{n:'Ebon Coven', comp:['blightmage','husk','husk'], for:['purge','delve','hold']},
  risen:{n:'Risen Tide', comp:['graveguard','husk','husk','husk'], for:['purge','delve','hunt']},
 };
-function doctrinesFor(contract){
-  const ks=Object.keys(POD_DOCTRINES).filter(k=>POD_DOCTRINES[k].for.includes(contract.type));
-  return ks.length?ks:['warband'];
+function doctrinesFor(contract,danger){
+  let ks=Object.keys(POD_DOCTRINES).filter(k=>POD_DOCTRINES[k].for.includes(contract.type));
+  // the Ebon Coven (blight-mage) is a rare, high-danger threat — never on danger 1–2 battles
+  if((danger||1)<3) ks=ks.filter(k=>k!=='coven');
+  if(!ks.length) ks=Object.keys(POD_DOCTRINES).filter(k=>POD_DOCTRINES[k].for.includes(contract.type)&&k!=='coven');
+  return ks.length?ks:['risen'];
 }
 const CONTRACT_TYPES={
  patrol:{n:'Road Patrol',employer:'Karsk',desc:'Clear brigands from the {r} road.',pool:['brigand','brigand','archer','cutthroat','deserter'],base:40},
@@ -626,7 +633,7 @@ function makeSoldier(clsKey){
   const bgIdx=pick(choices); S.usedBg.push(bgIdx);
   const maxhp=ri(C.hp[0],C.hp[1]);
   return {id:nid(),name,cls,bg:bgIdx,hp:maxhp,maxhp,skl:ri(C.skl[0],C.skl[1]),spd:ri(C.spd[0],C.spd[1]),res:ri(C.res[0],C.res[1]),
-          weapon:pick(C.wpns),wMod:0,wName:null,armor:ri(C.arm[0],C.arm[1]),feats:[],xp:0,level:1,bonds:[],battles:0,
+          weapon:pick(C.wpns),wMod:0,wName:null,armor:ri(C.arm[0],C.arm[1]),feats:(cls==='cleric'?['sanctuary']:[]),xp:0,level:1,bonds:[],battles:0,
           rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0};
 }
 function addTrait(s,id){
@@ -1239,12 +1246,16 @@ function makeWaypoints(B,home,r){
 function deployPods(B,contract,ct,danger){
   const podN=clamp(1+danger+((contract.type==='hold'||S.regions[B.regionId].swallowed)?1:0),2,5);
   const homes=pickHomes(B,podN); B.pods=[]; B.raised=0;
-  const dks=doctrinesFor(contract);
+  const dks=doctrinesFor(contract,danger);
+  const nonCoven=dks.filter(k=>k!=='coven'); const covenChoices=nonCoven.length?nonCoven:dks;
+  // the Ebon Coven is a rare set-piece threat: at most ONE pod per battle, and only in a minority of high-danger fights
+  const covenPi=(dks.includes('coven')&&chance(40))?ri(0,podN-1):-1;
   homes.forEach((home,pi)=>{
-    const dk=pick(dks), doc=POD_DOCTRINES[dk];
+    const dk=(pi===covenPi)?'coven':pick(covenChoices), doc=POD_DOCTRINES[dk];
     const radius=ri(3,4);
     const pod={id:pi,state:'patrol',doctrine:dk,dname:doc.n,home,radius,waypoints:makeWaypoints(B,home,radius),wi:ri(0,3),members:[],lastSeen:null,spotterUid:null};
-    const size=clamp(2+(danger>=2?1:0)+ri(0,1),2,doc.comp.length);
+    // most pods are two (sometimes three) low-level foes; only danger-3 fights field bigger squads
+    const size=clamp(2+(danger>=3?1:0)+(chance(30)?1:0),2,doc.comp.length);
     for(let i=0;i<size;i++){ if(foeCount(B)>=MAXFOES)break;
       const u=spawnEnemy(B,doc.comp[i],danger,false);      // doctrine-ordered composition (special unit first)
       const spot=nearOpen(B,home.x,home.y,3)||home; u.x=spot.x;u.y=spot.y;u.podId=pi;
@@ -1301,7 +1312,7 @@ function startBattle(contract,squadIds){
     for(let tries=0;tries<30&&(bImpass(tileAt(B,px,py).t)||unitAt(B,px,py));tries++){py=clamp(py+1,0,GH-1); if(py===GH-1)px=(px+1)%2;}
     B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,cmdr:!!s.commander,
       weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
-      moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
+      moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,mendUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
   });
   // enemies — patrolling pods on generic hunts; flat deploy for set-pieces & aggro objectives
   const danger=contract.danger;
@@ -1762,10 +1773,12 @@ function unitAbility(u){
   if(f.includes('bonespears'))return {k:'bonespears',label:'☠ Bone Spears',range:3,side:'enemy',ranged:true,tip:'Range 3, 3–5 dmg, roots the target (no move next turn). +1 corruption.'};
   if(f.includes('ashward'))return {k:'ashward',label:'✦ Ashen Ward',range:2,side:'ally',tip:'Ally within 2: +3 armor until their next turn. +1 corruption.'};
   if(f.includes('hook'))return {k:'hook',label:'⤛ Hook',range:2,side:'enemy',tip:'Yank an enemy within 2 one tile toward you; −10 to their hit next turn.'};
+  // heals take priority over the weapon's Shield Bash so a mace-wielding cleric always has sustain available
+  if(f.includes('sanctuary')&&!u.mendUsed)return {k:'sanctuary',label:'✚ Sanctuary',range:0,side:'self',tip:'Heal all allies within 2 (incl. you) for 4 HP — once per battle.'};
+  if(f.includes('medic')&&!u.medicUsed)return {k:'medic',label:'✚ Field Medic',range:1,side:'ally',tip:'Heal an adjacent ally 5 HP (once per battle).'};
   if(w.bash)return {k:'bash',label:'⛊ Shield Bash',range:1,side:'enemy',tip:'Bash an adjacent enemy: knock them back and stagger them (they lose their next turn).'};
   if(f.includes('rally'))return {k:'rally',label:'✚ Rally',range:1,side:'ally',tip:'Steady an adjacent ally: clear rattle, +10 hit next turn.'};
   if(f.includes('warcry')&&!u.warcryUsed)return {k:'warcry',label:'⚑ War-Cry',range:0,side:'self',tip:'Once/battle: shake enemies within 2 (−10 hit next round); allies within 2 shed a rattle.'};
-  if(f.includes('medic')&&!u.medicUsed)return {k:'medic',label:'✚ Field Medic',range:1,side:'ally',tip:'Heal an adjacent ally 5 HP (once per battle).'};
   return null;
 }
 function abilityValidTarget(B,u,ab,t){
@@ -1813,6 +1826,13 @@ function execAbility(B,u,ab,t){
   }
   if(ab.k==='rally'){ t.rattled=0; t.rallied=true; fx.push({type:'float',x:t.x,y:t.y,txt:'steady',color:'#9ab86f'}); blog(B,`${u.name} rallies ${t.name} — steady now.`); u.acted=true; B.aim=null; return; }
   if(ab.k==='medic'){ t.hp=Math.min(t.maxhp,t.hp+5); const as=soldierById(t.ref); if(as)as.hp=t.hp; u.medicUsed=true; fx.push({type:'float',x:t.x,y:t.y,txt:'+5',color:'#9ab86f'}); blog(B,`${u.name} binds ${t.name}’s wounds (+5).`); u.acted=true; B.aim=null; return; }
+  if(ab.k==='sanctuary'){
+    u.mendUsed=true; u.acted=true; let n=0;
+    for(const z of B.units){ if(z.hp<=0||z.fled||z.prop)continue;
+      if(z.kind===u.kind&&distC(u,z)<=2){ z.hp=Math.min(z.maxhp,z.hp+4); const as=soldierById(z.ref); if(as)as.hp=z.hp; fx.push({type:'float',x:z.x,y:z.y,txt:'+4',color:'#9ab86f'}); n++; } }
+    blog(B,`${u.name} calls the light down — ${n} of the wounded steady (+4).`);
+    B.aim=null; return;
+  }
   if(ab.k==='warcry'){
     u.warcryUsed=true; u.acted=true;
     for(const z of B.units){ if(z.hp<=0||z.fled)continue;
@@ -2517,11 +2537,18 @@ function render(){
     html+=`<div id="modalBack"><div id="modal"><h2>${esc(activeModal.title)}</h2>${activeModal.html}
       <div class="btns">${activeModal.btns.map((b,i)=>`<button class="${b.cls||''}" ${b.disabled?'disabled':''} onclick="MODALBTN(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
   }
+  // capture the current camera BEFORE innerHTML wipes the scroll container, so we can hold it steady when we shouldn't move
+  const _pcam=S.battle?(()=>{const g=document.getElementById('gridwrap');return g?{l:g.scrollLeft,t:g.scrollTop}:null;})():null;
   app.innerHTML=html;
   const lg=document.getElementById('log'); if(lg)lg.scrollTop=0;
   // keep the acting unit in view on scrolling battle maps
-  if(S.battle){ const gw=document.getElementById('gridwrap'); const cu=curUnit(S.battle);
-    if(gw&&cu){ const ts=(S.battle._ts||40)+1; gw.scrollLeft=clamp(cu.x*ts-gw.clientWidth/2,0,1e5); gw.scrollTop=clamp(cu.y*ts-gw.clientHeight/2,0,1e5); } }
+  if(S.battle){ const B=S.battle; const gw=document.getElementById('gridwrap'); const cu=curUnit(B);
+    // only follow the player's own units, or a foe the player can actually see — never scroll to an enemy hidden by fog
+    const canCenter=cu&&(cu.kind!=='foe'||(B._vis&&B._vis.has(cu.x+','+cu.y)));
+    if(gw){
+      if(cu&&canCenter){ const ts=(B._ts||40)+1; gw.scrollLeft=clamp(cu.x*ts-gw.clientWidth/2,0,1e5); gw.scrollTop=clamp(cu.y*ts-gw.clientHeight/2,0,1e5); }
+      else if(_pcam){ gw.scrollLeft=_pcam.l; gw.scrollTop=_pcam.t; } // hold the player's view — don't snap to a corner or reveal an unseen foe
+    } }
   playFx();
 }
 function playFx(){
@@ -2588,7 +2615,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.17</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.18</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -2966,14 +2993,14 @@ function renderBattle(){
       <span class="stat" style="color:var(--gold)">⚑ <b>${OBJECTIVES[B.obj].n}</b>${objProg}</span>
       ${B.weather?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Ranged attacks capped at range 3; enemies beyond 5 tiles are hidden">${B.weather==='fog'?'FOG':'ASH-HAZE'}</span>`:''}
       ${isPC?`<span class="pips">Move ${u.moved?'—':'●'} · Action ${u.acted?'—':'●'}</span>`:'<span class="hint">enemy turn…</span>'}
-      <span style="flex:1"></span>
+      <span class="initstrip" title="Turn order — the active unit is highlighted">${q}</span>
       <span id="actbar">
       ${ab?`<button ${isPC&&!u.acted?'':'disabled'} onclick="MEDIC()" title="${esc(ab.tip)}">${B.aim===ab.k?'Cancel':ab.label}</button>`:''}
       <button ${isPC&&!u.acted?'':'disabled'} onclick="DEFEND()" title="Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled)">🛡 Brace</button>
       <button class="primary" ${isPC?'':'disabled'} onclick="ENDT()">End Turn ⏎</button>
       <button class="danger" ${isPC?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen comrades are carried out only if a living soldier stands beside their body.">Retreat</button></span></div>
     <div id="battleWrap">${grid}
-      <div class="col" id="sidePanel"><h2>Initiative</h2>${q}<h2 style="margin-top:8px">Unit</h2>${insp}
+      <div class="col" id="sidePanel"><h2>Unit</h2>${insp}
         <h2 style="margin-top:8px">Field log</h2><div style="font-size:12px;max-height:180px;overflow-y:auto">${B.log.map(m=>`<p style="margin:2px 0">${m}</p>`).join('')}</div>
       </div></div>`;
 }
