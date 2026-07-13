@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.25</title>
+<title>GRAVEBORNE — alpha v0.26</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -311,19 +311,24 @@ const ENEMIES={
  pikeman:{n:'Levy Pikeman',hp:11,skl:4,spd:3,w:'spear',arm:1,undead:false,xp:4},
  blightmage:{n:'Blight-Mage',hp:9,skl:4,spd:3,w:'shortsword',arm:0,undead:false,xp:9,ai:'caster'},
  houndrider:{n:'Hound-Rider',hp:9,skl:4,spd:7,w:'bow',arm:1,undead:false,xp:6,ai:'kite'},
+ blightsorc:{n:'Blight-Sorcerer',hp:12,skl:6,spd:3,w:'shortsword',arm:0,undead:false,xp:14,ai:'sorcerer'},
+ blighttroll:{n:'Blight-Troll',hp:34,skl:5,spd:3,w:'greataxe',arm:2,undead:true,xp:16,regen:4},
 };
 const POD_DOCTRINES={
  warband:{n:'Brigand Warband', comp:['brigand','cutthroat','archer','brigand'], for:['patrol','hunt','hold']},
  outriders:{n:'Hound Outriders', comp:['houndrider','hound','houndrider','hound'], for:['patrol','hunt']},
  shieldwall:{n:'Karsk Shieldwall', comp:['shieldman','pikeman','shieldman','pikeman'], for:['patrol','hold']},
- coven:{n:'Ebon Coven', comp:['blightmage','husk','husk'], for:['purge','delve','hold']},
+ coven:{n:'Ebon Coven', comp:['blightmage','husk','husk'], for:['purge','delve','hold'], vip:true, minDanger:3},
  risen:{n:'Risen Tide', comp:['graveguard','husk','husk','husk'], for:['purge','delve','hunt']},
+ conclave:{n:'Conclave Circle', comp:['blightsorc','graveguard','husk','husk'], for:['purge','delve','hold'], vip:true, minTier:2},
+ warhost:{n:'Blight Warhost', comp:['blighttroll','graveguard','husk','husk'], for:['purge','delve','hunt'], vip:true, minTier:2},
 };
 function doctrinesFor(contract,danger){
-  let ks=Object.keys(POD_DOCTRINES).filter(k=>POD_DOCTRINES[k].for.includes(contract.type));
-  // the Ebon Coven (blight-mage) is a rare, high-danger threat — never on danger 1–2 battles
-  if((danger||1)<3) ks=ks.filter(k=>k!=='coven');
-  if(!ks.length) ks=Object.keys(POD_DOCTRINES).filter(k=>POD_DOCTRINES[k].for.includes(contract.type)&&k!=='coven');
+  const T=worldTier();
+  const ok=k=>{const d=POD_DOCTRINES[k]; return d.for.includes(contract.type) && (!d.minDanger||(danger||1)>=d.minDanger) && (!d.minTier||T>=d.minTier);};
+  let ks=Object.keys(POD_DOCTRINES).filter(ok);
+  // never leave the pool empty, and never fall back to a rare VIP doctrine
+  if(!ks.length) ks=Object.keys(POD_DOCTRINES).filter(k=>POD_DOCTRINES[k].for.includes(contract.type)&&!POD_DOCTRINES[k].vip);
   return ks.length?ks:['risen'];
 }
 const CONTRACT_TYPES={
@@ -568,6 +573,19 @@ function enemyFace(key,size){
         <circle cx="41" cy="54" r="3" fill="#b08bc9"/><circle cx="59" cy="54" r="3" fill="#b08bc9"/>
         <path d="M28 68 L18 62 M72 68 L82 62" stroke="#33291c" stroke-width="2.5"/>
         <path d="M40 76 l4 5 M50 78 l0 6 M60 76 l-4 5" stroke="#d8cdb8" stroke-width="1.8"/>`; break;
+    case 'blightsorc':
+      s=`<path d="M50 3 Q90 18 84 88 L16 88 Q10 18 50 3 Z" fill="#241a30" stroke="#17130e" stroke-width="2.5"/>
+        <ellipse cx="50" cy="54" rx="20" ry="20" fill="#080610"/>
+        <circle cx="42" cy="53" r="3.5" fill="#c88bff"><animate attributeName="opacity" values="1;.3;1" dur="1.6s" repeatCount="indefinite"/></circle>
+        <circle cx="58" cy="53" r="3.5" fill="#c88bff"><animate attributeName="opacity" values="1;.3;1" dur="1.6s" repeatCount="indefinite"/></circle>
+        <path d="M50 30 l-9 -14 M50 30 l9 -14 M50 26 l0 -16" stroke="#7a4fa3" stroke-width="2.5" fill="none"/>
+        <circle cx="50" cy="80" r="6" fill="#9a6fc9"><animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite"/></circle>`; break;
+    case 'blighttroll':
+      s=`<path d="M50 8 Q84 14 82 60 Q80 92 50 92 Q20 92 18 60 Q16 14 50 8 Z" fill="#3b4636" stroke="#17130e" stroke-width="3"/>
+        <path d="M30 30 L22 14 L38 26 Z M70 30 L78 14 L62 26 Z" fill="#3b4636" stroke="#17130e" stroke-width="2.2"/>
+        <circle cx="40" cy="52" r="4" fill="#9a6fc9"/><circle cx="60" cy="52" r="4" fill="#9a6fc9"/>
+        <path d="M36 70 l6 -4 6 4 6 -4 6 4" fill="none" stroke="#cbb89a" stroke-width="2.4"/>
+        <path d="M26 44 q6 6 0 12 M74 44 q-6 6 0 12" stroke="#6b4a95" stroke-width="2" fill="none" opacity=".7"/>`; break;
     default: return enemyFace('brigand',size);
   }
   return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${s}</svg>`;
@@ -714,6 +732,7 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
 
 /* ============================== STRATEGY LAYER ============================== */
 function dangerOf(region){ return region.swallowed?3:(region.pressure>=70?3:region.pressure>=40?2:1); }
+function worldTier(){ return Math.floor((S.week||1)/3); } // difficulty heartbeat: tier 0 (wk1-2), 1 (wk3-5), 2 (wk6-8), 3 (wk9-11)…
 function genContracts(){
   // top-up semantics: contracts persist until fought or expired, so travel can't orphan them
   S.contracts=S.contracts.filter(c=>(c.expires||99)>S.week&&!(S.regions[c.regionId].swallowed&&c.type!=='delve'));
@@ -735,6 +754,14 @@ function genContracts(){
     const rk=ct.employer==='Karsk'?'karsk':ct.employer==='Village elders'?'folk':null;
     if(rk&&S.rep){ if(S.rep[rk]>=25)pay=Math.round(pay*1.15); else if(S.rep[rk]<=-25)pay=Math.round(pay*0.75); }
     S.contracts.push({id:nid(),type,regionId:r.id,pay,danger,q:anchor.q,r:anchor.r,expires:S.week+2,obj:rollObjective(type)});
+  }
+  // frontier floor: as regions pressurise past danger 1, always keep ONE easy contract open on the softest
+  // still-held region, so a green company always has somewhere to cut its teeth (pay drops with the danger).
+  if(!S.contracts.some(c=>c.danger===1)){
+    const front=S.regions.filter(r=>!r.swallowed).sort((a,b)=>a.pressure-b.pressure)[0];
+    if(front){ const fc=S.contracts.find(c=>c.regionId===front.id);
+      if(fc&&fc.danger>1){ fc.danger=1; fc.pay=Math.round((CONTRACT_TYPES[fc.type].base+15)*(1+front.pressure/150)); fc.frontier=true; }
+    }
   }
 }
 function contractAnchor(regionId,type){
@@ -1288,24 +1315,31 @@ function deployPods(B,contract,ct,danger){
   // pod count tracks the skull rating: N skulls → N or N+1 pods (danger 1 → 1–2, danger 2 → 2–3, danger 3 → 3–4)
   const podN=clamp(danger+(chance(50)?1:0),1,5);
   const homes=pickHomes(B,podN); B.pods=[]; B.raised=0;
+  const T=worldTier();
   const dks=doctrinesFor(contract,danger);
-  const nonCoven=dks.filter(k=>k!=='coven'); const covenChoices=nonCoven.length?nonCoven:dks;
-  // the Ebon Coven is a rare set-piece threat: at most ONE pod per battle, and only in a minority of high-danger fights
-  const covenPi=(dks.includes('coven')&&chance(40))?ri(0,podN-1):-1;
+  // "VIP" doctrines (mage/sorcerer/troll set-pieces) are rare — at most ONE pod per battle
+  const vip=dks.filter(k=>POD_DOCTRINES[k].vip); const plain=dks.filter(k=>!POD_DOCTRINES[k].vip);
+  const vipChoices=plain.length?plain:dks;
+  const vipPi=(vip.length&&chance(40))?ri(0,podN-1):-1; const vipDk=vip.length?pick(vip):null;
   homes.forEach((home,pi)=>{
-    const dk=(pi===covenPi)?'coven':pick(covenChoices), doc=POD_DOCTRINES[dk];
+    const dk=(pi===vipPi&&vipDk)?vipDk:pick(vipChoices), doc=POD_DOCTRINES[dk];
     const radius=ri(3,4);
     const pod={id:pi,state:'patrol',doctrine:dk,dname:doc.n,home,radius,waypoints:makeWaypoints(B,home,radius),wi:ri(0,3),members:[],lastSeen:null,spotterUid:null};
-    // most pods are two (sometimes three) low-level foes; only danger-3 fights field bigger squads
-    const size=clamp(2+(danger>=3?1:0)+(chance(30)?1:0),2,doc.comp.length);
+    // pods grow with the skull rating and, later, with the world tier — full comps come out mid/late game
+    const size=clamp(2+(danger>=3?1:0)+(T>=2?1:0)+(chance(30)?1:0),2,doc.comp.length);
     for(let i=0;i<size;i++){ if(foeCount(B)>=MAXFOES)break;
       const u=spawnEnemy(B,doc.comp[i],danger,false);      // doctrine-ordered composition (special unit first)
       const spot=nearOpen(B,home.x,home.y,3)||home; u.x=spot.x;u.y=spot.y;u.podId=pi;
-      if(danger>=3&&i===size-1&&u.ai!=='caster'){u.hp+=3;u.maxhp+=3;u.skl+=1;u.name='Veteran '+u.name;}
+      // last member is promoted to an elite at danger 3 OR mid-game; the buff scales with tier
+      if((danger>=3||T>=2)&&i===size-1&&u.ai!=='caster'&&u.ai!=='sorcerer'){
+        const hb=3+2*Math.max(0,T-2); u.hp+=hb; u.maxhp+=hb; u.skl+=1;
+        if(T>=3&&WEAPONS[u.weapon]&&WEAPONS[u.weapon].up)u.weapon=WEAPONS[u.weapon].up;
+        u.name=(T>=4?'Elite ':'Veteran ')+u.name;
+      }
       pod.members.push(u.uid);
     }
-    // a caster's melee packmates become its bodyguards — they screen the VIP and hold formation
-    if(podMembers(B,pod).some(m=>m.ai==='caster'))
+    // a caster/sorcerer's melee packmates become its bodyguards — they screen the VIP and hold formation
+    if(podMembers(B,pod).some(m=>m.ai==='caster'||m.ai==='sorcerer'))
       podMembers(B,pod).forEach(m=>{ if(!m.ai||m.ai==='charge') m.ai='anchor'; });
     B.pods.push(pod);
   });
@@ -1416,10 +1450,37 @@ function startBattle(contract,squadIds){
   }
   render(); pumpModals(); maybeAI();
 }
+// Time-based enemy upgrades: as the world tier climbs (every ~3 weeks) foes gain randomized buffs,
+// so the mid/late game stays sharp even as the company grows in power. Each candidate rolls independently;
+// probability ramps the deeper past its tier gate. wMod (danger) and these STACK — intended late-game creep.
+const TIER_UPGRADES={
+  husk:      [{t:1,tag:'Ironbound',arm:1},{t:2,tag:'Bloated',hp:5}],
+  hound:     [{t:1,tag:'Feral',spd:1,skl:1}],
+  houndrider:[{t:1,weaponUp:true},{t:2,tag:'Feral',spd:1}],
+  brigand:   [{t:1,weaponUp:true},{t:2,tag:'Hardened',arm:1}],
+  cutthroat: [{t:1,weaponUp:true},{t:2,spd:1}],
+  deserter:  [{t:1,weaponUp:true},{t:2,tag:'Hardened',arm:1}],
+  archer:    [{t:2,weaponUp:true}],
+  acolyte:   [{t:2,weaponUp:true}],
+  pikeman:   [{t:1,weaponUp:true}],
+  shieldman: [{t:1,weaponUp:true},{t:2,arm:1}],
+  graveguard:[{t:2,tag:'Dread',arm:1,hp:5}],
+  blightmage:[{t:2,tag:'Elder',skl:1,hp:3}],
+};
+function applyTierUpgrades(u,key,tier){
+  const list=TIER_UPGRADES[key]; if(!list)return; let named=false;
+  for(const up of list){ if(tier<up.t)continue;
+    if(!chance(Math.round(clamp(0.30*(tier-up.t+1),0,0.85)*100)))continue;
+    if(up.hp){u.hp+=up.hp;u.maxhp+=up.hp;} if(up.arm)u.arm+=up.arm; if(up.skl)u.skl+=up.skl; if(up.spd)u.spd+=up.spd;
+    if(up.weaponUp&&WEAPONS[u.weapon]&&WEAPONS[u.weapon].up)u.weapon=WEAPONS[u.weapon].up;
+    if(up.tag&&!named){u.name=up.tag+' '+u.name;named=true;}
+  }
+}
 function spawnEnemy(B,key,danger,flank){
   const e=ENEMIES[key];
   const u={uid:nid(),kind:'foe',ekey:key,name:e.n,hp:e.hp+danger,maxhp:e.hp+danger,skl:e.skl,spd:e.spd,res:35,
-    weapon:e.w,wMod:danger>=3?1:0,arm:e.arm,feats:[],traits:[],undead:e.undead,ai:e.ai||null,podId:null,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:e.xp,graveId:null};
+    weapon:e.w,wMod:danger>=3?1:0,arm:e.arm,feats:[],traits:[],undead:e.undead,ai:e.ai||null,regen:e.regen||0,podId:null,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:e.xp,graveId:null};
+  applyTierUpgrades(u,key,worldTier());
   placeFoe(B,u,flank); B.units.push(u);
   return u;
 }
@@ -1486,6 +1547,8 @@ function blightTick(B){
     if(u.hp<=0||u.fled)continue;
     if(tileAt(B,u.x,u.y).blighted&&!u.undead&&!u.prop){ u.hp-=2; u.blightBit=true; blog(B,`${u.name} is seared by blighted ground (2).`);
       if(u.hp<=0) applyDeath(B,u); }
+    // Blight-Trolls knit their wounds shut each round — you have to burst them down
+    if(u.regen&&u.hp>0&&u.hp<u.maxhp){ const before=u.hp; u.hp=Math.min(u.maxhp,u.hp+u.regen); if(u.hp>before)blog(B,`${u.name}’s blighted flesh knits shut (+${u.hp-before}).`); }
   }
   checkEnd(B);
 }
@@ -2147,6 +2210,36 @@ function enemyCasterTurn(B,u,pod,pcs){
   if(tgt)enemyBlightBolt(B,u,tgt);
   if(!B.over){render();nextTurn();}
 }
+function enemySorcererTurn(B,u,pod,pcs){
+  // 1) BLIGHT NOVA — armor-ignoring AoE; check BEFORE retreating, so a cluster of blades is a target, not a threat
+  const inRad=pcs.filter(p=>distC(u,p)<=2);
+  if((u.novaCd||0)<=0 && inRad.length>=2){
+    inRad.forEach(p=>{ const d=ri(2,4); p.hp-=d; fx.push({type:'flash',uid:p.uid},{type:'float',x:p.x,y:p.y,txt:'-'+d,color:'#c88bff'}); if(p.hp>0&&p.hp<=3&&p.kind==='pc')p.nearDeath=true; if(p.hp<=0)applyDeath(B,p); });
+    u.novaCd=3; blog(B,`${u.name} throws its arms wide — a nova of blight erupts, and armor means nothing.`);
+    if(!B.over){render();nextTurn();} return;
+  }
+  if(u.novaCd>0)u.novaCd--;
+  // survive: with nova unavailable, back off from anyone at knifing range
+  const near2=pcs.filter(p=>distC(u,p)<=2);
+  if(near2.length){ const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>minDistTo(pcs,b)-minDistTo(pcs,a)); if(minDistTo(pcs,steps[0])>minDistTo(pcs,u)){u.x=steps[0].x;u.y=steps[0].y;} } }
+  // 2) RAISE a graveguard — stronger than the mage's husk; shares the battle raise-cap
+  if((u.raiseCd||0)<=0 && (B.raised||0)<4 && foeCount(B)<MAXFOES && chance(55)){
+    const spot=nearOpen(B,u.x,u.y,2);
+    if(spot){ const gg=spawnEnemy(B,'graveguard',1,false); gg.x=spot.x;gg.y=spot.y;gg.podId=u.podId; if(pod)pod.members.push(gg.uid);
+      B.raised=(B.raised||0)+1; u.raiseCd=4; buildQueue(B);
+      blog(B,`${u.name} chants low — the earth splits and a graveguard rises armored for war.`);
+      if(!B.over){render();nextTurn();} return; }
+  }
+  if(u.raiseCd>0)u.raiseCd--;
+  // 3) STRONGER BOLT — range 5, 4–7 damage, ignores armor
+  const tgt=pcs.filter(p=>distC(u,p)>=1&&distC(u,p)<=5&&hasLOS(B,u,p)).sort((a,b)=>a.hp-b.hp)[0];
+  if(tgt){ const h=clamp(70+u.skl*3-tgt.spd*2,35,92); fx.push({type:'arrow',fx:u.x,fy:u.y,tx:tgt.x,ty:tgt.y});
+    if(ri(1,100)<=h){ const d=ri(4,7); tgt.hp-=d; fx.push({type:'flash',uid:tgt.uid},{type:'float',x:tgt.x,y:tgt.y,txt:'-'+d,color:'#c88bff'});
+      blog(B,`${u.name} hurls a lance of blightfire at ${tgt.name} for ${d} — armor is no help.`);
+      if(tgt.hp>0&&tgt.hp<=3&&tgt.kind==='pc')tgt.nearDeath=true; if(tgt.hp<=0)applyDeath(B,tgt); }
+    else blog(B,`${u.name}’s blightlance splits the air past ${tgt.name}.`); }
+  if(!B.over){render();nextTurn();}
+}
 function enemyKiteTurn(B,u,pcs){
   const adj=pcs.filter(p=>distC(u,p)<2);
   if(adj.length){ const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>minDistTo(pcs,b)-minDistTo(pcs,a)); if(minDistTo(pcs,steps[0])>1){u.x=steps[0].x;u.y=steps[0].y;} } } // ride clear of the blades
@@ -2187,6 +2280,7 @@ function aiAct(u){
     if(pod.state==='alert'&&!podHasLOS(B,pod,pcs.concat(charges))){ aiInvestigate(B,u,pod); if(!B.over){render();nextTurn();} return; }
     // ENGAGED — each role executes its doctrine's job, and the squad fights as a squad
     if(u.ai==='caster'){ return enemyCasterTurn(B,u,pod,pcs); }
+    if(u.ai==='sorcerer'){ return enemySorcererTurn(B,u,pod,pcs); }
     if(u.ai==='kite'){ return enemyKiteTurn(B,u,pcs); }
     if(u.ai==='anchor'){ const g=guardTurn(B,u,pod,pcs); if(g)return; } // screen the caster; else fall through to advance
   }
@@ -2670,7 +2764,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.25</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.26</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
