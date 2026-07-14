@@ -11,6 +11,19 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.43 (2026-07-14) — Z-Levels: Slopes & Cliffs
+Elevation is now a real, Dwarf-Fortress-style z-level system rather than a flat modifier. Every tile sits at a discrete height, and the difference between neighbours decides how you move:
+
+- **Level (Δ0)** — flat ground, normal cost.
+- **One level (Δ1) = a slope.** You can walk it, but crossing that threshold costs the extra movement.
+- **Two or more (Δ2+) = a cliff.** Impassable on foot — you path around it, climb a ramp, or get shoved off it.
+
+Terrain now builds in these steps. **Stepped hills and crags** rise z1→2→3 as walkable slopes (the ritual field's shrine now sits atop a proper climbable crag; ruined keeps are sometimes fortified heights). **Bluffs and mesas** stand with sheer cliff sides and a single ramp up — high ground you have to earn. The quarry's terraces, the causeway, and the pit all obey the same rules.
+
+The map reads the terrain for you: higher ground catches light, low ground sinks into shadow, each terrace edge shows a lit lip and a shadow, and **cliff faces are drawn as thick dark drops**. Inspect any tile to see its z-level and which sides are slopes vs cliffs.
+
+Height still helps in a fight — attacking downhill hits harder, archers see and shoot farther from high ground, and a hill blocks line of sight past it. And a **shield-bash can now shove an enemy off a cliff** for a hard fall (heavy damage; a chasm is still an outright kill). Every generated map was checked to remain fully traversable.
+
 ## v0.42 (2026-07-14) — Mobile Battle UI Pass
 The immersive battle HUD was built desktop-first; this pass makes it right on a phone.
 

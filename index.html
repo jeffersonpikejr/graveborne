@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.42</title>
+<title>GRAVEBORNE — alpha v0.43</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -158,9 +158,7 @@
     #actbarImm{gap:5px} #actbarImm button{padding:6px 9px}
     #zoombtns{bottom:6px} #zoombtns button{width:38px;height:38px}
   }
-  /* tile shading via inset shadow (paints UNDER the child unit token, not over it) */
-  .tile.hi{box-shadow:inset 0 4px 0 rgba(216,180,104,.34),inset 0 0 0 200px rgba(233,214,160,.11)}
-  .tile.lo{box-shadow:inset 0 0 10px rgba(0,0,0,.55),inset 0 0 0 200px rgba(0,0,0,.2)}
+  /* elevation shading is drawn per-tile in elevArt() (an SVG overlay under the unit token) */
   .tile.fogseen{box-shadow:inset 0 0 0 200px rgba(6,5,3,.62)}
   .tile.fogseen .decor{opacity:.5}
   .tile.fogdark{background:#0c0a07 !important;cursor:default}
@@ -1296,6 +1294,9 @@ const bLOS=t=>!!(BT[t]&&BT[t].los);
 const bCover=t=>(BT[t]&&BT[t].cover)||0;
 const bMv=t=>(BT[t]&&BT[t].mv)||1;
 function elevAt(B,x,y){const t=tileAt(B,x,y);return t?(t.elev==null?1:t.elev):1;}
+// DF-style z-levels: adjacent tiles one level apart are joined by a SLOPE (walkable, +1 to cross); a gap of 2+
+// levels is a CLIFF — impassable on foot, you path around it (or shove someone off it).
+function isCliff(za,zb){ return Math.abs(za-zb)>=2; }
 const TILE_NAMES={grass:'Open ground',road:'Road',bridge:'Bridge',brush:'Brush',tree:'Dense trees',mire:'Mire',boulder:'Boulder',rubble:'Ruined wall',column:'Fallen column',stone:'Standing stone',water:'Water',chasm:'Chasm'};
 function tileDesc(B,x,y){ // inspect-mode readout: what this square does, and who stands on it
   const t=tileAt(B,x,y); if(!t)return '<div class="card"><span class="hint">Off the map.</span></div>';
@@ -1309,8 +1310,15 @@ function tileDesc(B,x,y){ // inspect-mode readout: what this square does, and wh
   }
   if(t.blighted) fx.push('Blighted: 2 damage each turn you end here; +1 movement to enter.');
   const e=(t.elev==null?1:t.elev);
-  if(e===2) fx.push('High ground: +6 to hit those below · +1 bow range · +1 sight · blocks sight past it · +1 to climb.');
-  else if(e===0) fx.push('Low ground: exposed — anyone on higher ground gets +6 to hit you.');
+  if(e>1) fx.push(`High ground (z${e}): +6 to hit those below · +1 bow range & sight · blocks sight past it.`);
+  else if(e<1) fx.push(`Low ground (z${e}): exposed — anyone higher gets +6 to hit you.`);
+  if(!bImpass(t.t)){                                          // slope vs cliff on each side (z-levels)
+    const nb=[['N',x,y-1],['S',x,y+1],['E',x+1,y],['W',x-1,y]].filter(([d,nx,ny])=>tileAt(B,nx,ny));
+    const slopes=nb.filter(([d,nx,ny])=>Math.abs(elevAt(B,nx,ny)-e)===1).map(n=>n[0]);
+    const cliffs=nb.filter(([d,nx,ny])=>isCliff(elevAt(B,nx,ny),e)).map(n=>n[0]);
+    if(slopes.length) fx.push(`Slope to the ${slopes.join('/')} — a 1-level step, +1 to cross.`);
+    if(cliffs.length) fx.push(`Cliff to the ${cliffs.join('/')} — a sheer drop of 2+ levels; no crossing on foot.`);
+  }
   const u=unitAt(B,x,y); let unit='';
   if(u&&u.prop){ unit=`<div class="statline" style="margin-top:4px">Holds <b>${esc(u.name)}</b>.</div>`; }
   else if(u&&!(u.kind==='foe'&&B._vis&&!B._vis.has(u.x+','+u.y))){
@@ -1338,6 +1346,13 @@ function genBattleMap(B,bhex,region){
   // a broad flat-topped PLATEAU: the interior is elev 2 (flat — normal move cost across the top); only the single-tile
   // ring where it meets the ground is the +1 "slope" (the elevation-change cost in reachCosts). No 2-tile gradients.
   const plateau=(cx,cy,rx,ry,e)=>{ for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){ const dx=(x-cx)/(rx||1),dy=(y-cy)/(ry||1); if(dx*dx+dy*dy<=1){ const t=T(x,y); if(t)t.elev=(e==null?2:e); } } };
+  // a STEPPED hill: concentric rings rising 1 level at a time to `height`, so every edge is a walkable slope (fully climbable high ground)
+  const hill=(cx,cy,rx,ry,height)=>{ height=height||3; for(let lvl=2;lvl<=height;lvl++){ const g=lvl-2; plateau(cx,cy,(rx||3)-g*1.1,(ry||3)-g*1.1,lvl); } };
+  // a flat-topped MESA at z3: its sides drop 2 levels (cliffs — impassable), with ONE ramp stepping 1→2→3 up a random face
+  const mesa=(cx,cy,rx,ry)=>{ plateau(cx,cy,rx,ry,3);
+    const dir=pick([[1,0],[-1,0],[0,1],[0,-1]]); let px=Math.round(cx),py=Math.round(cy);
+    while(T(px+dir[0],py+dir[1])&&elevAt(B,px+dir[0],py+dir[1])>=3){px+=dir[0];py+=dir[1];}   // px,py = rim tile on that side
+    for(let a=-1;a<=1;a++){ const wx=px+dir[0]+(dir[0]?0:a),wy=py+dir[1]+(dir[1]?0:a),tt=T(wx,wy); if(tt&&tt.elev<2&&!bImpass(tt.t))tt.elev=2; } };
   const wallRect=(x0,y0,x1,y1,feat)=>{ for(let x=x0;x<=x1;x++){ [y0,y1].forEach(y=>{const t=T(x,y); if(t&&chance(82))t.t=feat;}); } for(let y=y0;y<=y1;y++){ [x0,x1].forEach(x=>{const t=T(x,y); if(t&&chance(82))t.t=feat;}); } };
   const gate=(x0,y0,x1,y1)=>{ const side=pick(['t','b','l','r']); if(side==='t'||side==='b'){ const gx=ri(x0+1,x1-1),gy=side==='t'?y0:y1; for(let d=-1;d<=1;d++){const t=T(gx+d,gy); if(t)t.t='grass';} } else { const gy=ri(y0+1,y1-1),gx=side==='l'?x0:x1; for(let d=-1;d<=1;d++){const t=T(gx,gy+d); if(t)t.t='grass';} } };
 
@@ -1366,19 +1381,20 @@ function genBattleMap(B,bhex,region){
     // an old fort — a walled keep with gate gaps, a raised inner foundation, corner columns; rubble as cover outside
     const fw=Math.round(GW*0.4),fh=Math.round(GH*0.4);
     const fx0=Math.round(cxc-fw/2),fy0=Math.round(cyc-fh/2),fx1=fx0+fw,fy1=fy0+fh;
-    plateau(cxc,cyc,fw*0.32,fh*0.32);                            // the raised inner keep (a plateau)
+    if(chance(35))hill(cxc,cyc,fw*0.34,fh*0.34,3); else plateau(cxc,cyc,fw*0.32,fh*0.32); // the inner keep — sometimes a fortified stepped height
     wallRect(fx0,fy0,fx1,fy1,'rubble'); gate(fx0,fy0,fx1,fy1); gate(fx0,fy0,fx1,fy1);
     [[fx0,fy0],[fx1,fy0],[fx0,fy1],[fx1,fy1]].forEach(([x,y])=>{ const t=T(x,y); if(t)t.t='column'; });
     for(let i=0;i<ri(2,4);i++){const t=T(ri(fx0+1,fx1-1),ri(fy0+1,fy1-1)); if(t&&t.t==='grass'&&t.elev===1&&chance(45))t.t='column';}
     scatter('rubble',ri(2,3),2,3);
   } else if(theme==='ritual'){
-    plateau(cxc,cyc,GW*0.2,GH*0.2);                             // the hilltop (Weathertop)
+    hill(cxc,cyc,GW*0.2,GH*0.2,3);                              // a stepped crag rising to the shrine (Weathertop) — climbable z1→2→3
     for(let a=0;a<10;a++){ const t=T(clamp(Math.round(cxc+Math.cos(a/10*6.283)*GW*0.23),0,GW-1),clamp(Math.round(cyc+Math.sin(a/10*6.283)*GH*0.23),0,GH-1)); if(t&&t.t==='grass'&&chance(75))t.t='stone'; }
     B.ritualCenter={x:Math.round(cxc),y:Math.round(cyc)};
     scatter('brush',ri(2,3),2,3); for(let i=0;i<ri(2,3);i++){const t=randOpen(3); if(t)t.t='boulder';}
   } else if(theme==='pass'){
     for(let x=1;x<GW-1;x++){ for(let d=0;d<ri(1,2);d++){ if(chance(72)){const t=T(x,d); if(t)t.t='boulder';} if(chance(72)){const t=T(x,GH-1-d); if(t)t.t='boulder';} } }
-    for(let i=0;i<ri(1,2);i++){ const t=randOpen(3); if(t)plateau(t.x,t.y,ri(3,4),ri(2,3)); }   // ledges above the corridor
+    for(let i=0;i<ri(1,2);i++){ const t=randOpen(3); if(t)hill(t.x,t.y,ri(3,4),ri(2,3),3); }   // climbable ledges above the corridor
+    if(chance(55)){ const t=randOpen(4); if(t)mesa(t.x,t.y,ri(2,3),ri(2,3)); }                 // a sheer bluff — cliff sides, one ramp up
     scatter('boulder',ri(1,2),1,2);
   } else if(theme==='woods'){
     scatter('tree',ri(6,9),2,4);                                // groves…
@@ -1414,7 +1430,7 @@ function genBattleMap(B,bhex,region){
     // open killing ground broken by boulder cover-islands and low ruined walls — a ranged-duel map
     for(let i=0;i<ri(5,8);i++){ const t=randOpen(3); if(t)cluster('boulder',t.x,t.y,ri(1,2),ri(1,2),75); }
     for(let h=0;h<ri(2,3);h++){ const hy=ri(3,GH-4),hx=ri(2,Math.max(2,GW-7)),len=ri(3,6); for(let d=0;d<len;d++){const t=T(hx+d,hy); if(t&&t.t==='grass'&&chance(70))t.t='rubble';} } // low field walls
-    if(chance(45)){ const p=randOpen(3); if(p)plateau(p.x,p.y,ri(3,4),ri(2,3)); }  // an occasional low rise
+    if(chance(60)){ const p=randOpen(4); if(p)(chance(50)?mesa(p.x,p.y,ri(2,3),ri(2,3)):hill(p.x,p.y,ri(3,4),ri(2,3),3)); }  // a bluff (cliff sides) or a climbable rise
     scatter('brush',ri(3,5),1,2);
   } else if(theme==='menhir'){
     // a blight-menhir field: cracked standing stones seed a corruption that SPREADS across the ground each round.
@@ -1435,7 +1451,7 @@ function genBattleMap(B,bhex,region){
       const nCross=ri(1,2); for(let i=0;i<nCross;i++){ const by=y0+Math.round((y1-y0)*(i+1)/(nCross+1)); for(let o=-lo-1;o<=hi+1;o++){const t=T(clamp(cx+o,0,GW-1),by); if(t&&t.t==='chasm')t.t='road';} } }
     scatter('boulder',ri(2,4),1,2); scatter('brush',ri(2,3),1,2);   // scree along the ledges
   } else { // fields — open, with one honest centerpiece and hedgerows that shape the lanes
-    if(chance(55)){ const p=randOpen(3); if(p)plateau(p.x,p.y,ri(3,5),ri(3,4)); }              // a hillock
+    if(chance(60)){ const p=randOpen(4); if(p){ const r=ri(1,10); if(r<=3)mesa(p.x,p.y,ri(2,3),ri(2,3)); else if(r<=6)hill(p.x,p.y,ri(3,5),ri(3,4),3); else plateau(p.x,p.y,ri(3,5),ri(3,4)); } } // a bluff, a stepped hill, or a gentle rise
     else { const w=randOpen(3); if(w)cluster('water',w.x,w.y,ri(3,4),ri(2,3),90); }            // …or a pond
     for(let h=0;h<ri(2,3);h++){ const hy=ri(3,GH-4),hx=ri(2,Math.max(2,GW-9)),len=ri(4,8); for(let d=0;d<len;d++){ const t=T(hx+d,hy); if(t&&t.t==='grass'&&chance(72))t.t='brush'; } }
     scatter('tree',ri(1,2),2,3); for(let i=0;i<ri(1,2);i++){const t=randOpen(3); if(t)t.t='boulder';}
@@ -1475,7 +1491,7 @@ function nearOpen(B,x,y,rad){ for(let r=0;r<=rad;r++)for(let dy=-r;dy<=r;dy++)fo
 /* ============================== ENEMY PODS — patrolling squads with their own sight ============================== */
 const MAXFOES=14;
 function foeCount(B){return B.units.filter(u=>u.kind==='foe'&&!u.prop&&u.hp>0).length;}
-function podFov(B,m){return (B.weather?4:5)+(elevAt(B,m.x,m.y)===2?1:0);} // one tile shorter than the player's — the company out-scouts patrols by a hair
+function podFov(B,m){return (B.weather?4:5)+(elevAt(B,m.x,m.y)>=2?1:0);} // one tile shorter than the player's — the company out-scouts patrols by a hair
 function podMembers(B,pod){return pod.members.map(id=>B.units.find(u=>u.uid===id)).filter(m=>m&&m.hp>0&&!m.fled);}
 function podNearestDist(B,pod,pt){let d=1e9;for(const m of podMembers(B,pod))d=Math.min(d,distC(m,pt));return d;}
 function podHasLOS(B,pod,list){ for(const m of podMembers(B,pod)){ const R=podFov(B,m); for(const p of list){ if(distC(m,p)<=R&&hasLOS(B,m,p))return true; } } return false; }
@@ -1524,6 +1540,7 @@ function reachableRegion(B,sx,sy){
   while(q.length){ const [x,y]=q.pop();
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){ const nx=x+dx,ny=y+dy,t=tileAt(B,nx,ny);
       if(!t||bImpass(t.t)||seen.has(nx+','+ny))continue;
+      if(isCliff(elevAt(B,nx,ny),elevAt(B,x,y)))continue;     // a cliff bounds the walkable region
       if(dx&&dy){ const a=tileAt(B,x+dx,y),b=tileAt(B,x,y+dy); if((!a||bImpass(a.t))&&(!b||bImpass(b.t)))continue; }
       seen.add(nx+','+ny); q.push([nx,ny]); } }
   return seen;
@@ -1917,9 +1934,11 @@ function reachCosts(B,u,budget){
       if(x<0||y<0||x>=GW||y>=GH)continue;
       const t=tileAt(B,x,y);
       if(bImpass(t.t)||unitAt(B,x,y))continue;
+      const dz=Math.abs(elevAt(B,x,y)-elevAt(B,c.x,c.y));
+      if(dz>=2)continue;                                       // a cliff — can't climb or drop 2+ z-levels on foot
       const diag=dx!==0&&dy!==0;
       if(diag){ const ca=tileAt(B,c.x+dx,c.y),cb=tileAt(B,c.x,c.y+dy); if((!ca||bImpass(ca.t))&&(!cb||bImpass(cb.t)))continue; } // can't slip diagonally through a solid corner
-      let step=bMv(t.t)*(diag?1.5:1); if(t.blighted)step+=1; if(Math.abs(elevAt(B,x,y)-elevAt(B,c.x,c.y))>=1)step+=1; // diagonals cost 1.5×
+      let step=bMv(t.t)*(diag?1.5:1); if(t.blighted)step+=1; if(dz===1)step+=1; // diagonals ×1.5; the 1-level slope crossing costs the extra
       const nd=c.d+step, k=x+','+y;
       if(nd<=budget+1e-9&&(best[k]===undefined||nd<best[k])){ best[k]=nd; const ex=out.find(o=>o.x===x&&o.y===y); if(ex)ex.cost=nd; else out.push({x,y,cost:nd}); q.push({x,y,d:nd}); }
     }
@@ -2002,13 +2021,13 @@ function objTick(B){
 function wOf(u){const w=WEAPONS[u.weapon]||WEAPONS.shortsword;return {n:w.n,lo:w.lo+(u.wMod||0),hi:w.hi+(u.wMod||0),rng:w.rng+((u.feats.includes('deadeye')&&w.rng>1)?1:0),hitB:w.hitB,reach:!!w.reach,cleave:!!w.cleave,bash:!!w.bash,armor:w.armor||0};}
 // effective ranged range after weather: fog/ash-haze cap it to 3, rain shaves 1 off (a lighter penalty). Min 2 so ranged still works.
 function wxCap(B,base){ let r=B.weather?Math.min(base,3):base; if(B.rain)r=Math.max(2,r-1); return r; }
-function rangeNote(B,base,x,y){ const eff=wxCap(B,base)+(elevAt(B,x,y)===2?1:0); if(eff===base)return '';
+function rangeNote(B,base,x,y){ const eff=wxCap(B,base)+(elevAt(B,x,y)>=2?1:0); if(eff===base)return '';
   const lower=eff<base, why=B.weather?(B.weather==='fog'?'fog':'ash-haze'):(B.rain?'rain':''), ctx=lower?(why?'in this '+why:''):'on high ground';
   return ` <span style="color:${lower?'#aab3c0':'var(--gold)'}">(${eff}${ctx?' '+ctx:''})</span>`; }
 function inWeaponRange(B,att,def){
   const w=wOf(att);
   const dx=Math.abs(att.x-def.x),dy=Math.abs(att.y-def.y),man=dx+dy,cheb=Math.max(dx,dy);
-  if(w.rng>1){ let rng=wxCap(B,w.rng); if(elevAt(B,att.x,att.y)===2)rng+=1; return cheb>=2&&cheb<=rng&&hasLOS(B,att,def); }
+  if(w.rng>1){ let rng=wxCap(B,w.rng); if(elevAt(B,att.x,att.y)>=2)rng+=1; return cheb>=2&&cheb<=rng&&hasLOS(B,att,def); }
   if(w.reach){ return (cheb<=1&&man>=1)||(cheb===2&&(dx===0||dy===0||dx===dy)); } // 8 neighbours + a 2-tile poke (straight or diagonal)
   return cheb===1; // plain melee: any of the 8 neighbours (diagonals included)
 }
@@ -2296,9 +2315,18 @@ function execAbility(B,u,ab,t){
       u.acted=true; B.aim=null; return;
     }
     t.hp-=d; t.stunned=true;
-    if(land&&!bImpass(land.t)&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
-    fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'staggered',color:'#7d93a3'});
-    blog(B,`${u.name} bashes ${t.name} back and staggers them.`);
+    const dropLv=land?elevAt(B,t.x,t.y)-elevAt(B,nx,ny):0;   // + = shoved to lower ground
+    if(land&&!bImpass(land.t)&&!unitAt(B,nx,ny)&&dropLv<2&&dropLv>-2){   // normal shove: flat, or up/down a 1-level slope
+      t.x=nx; t.y=ny; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'staggered',color:'#7d93a3'});
+      blog(B,`${u.name} bashes ${t.name} back and staggers them.`);
+    } else if(land&&!bImpass(land.t)&&!unitAt(B,nx,ny)&&dropLv>=2){       // shoved off a CLIFF — a hard fall (heavy damage, not the instakill of a chasm)
+      const fd=dropLv*2+ri(0,2); t.hp-=fd; t.x=nx; t.y=ny;
+      fx.push({type:'flash',uid:t.uid},{type:'float',x:nx,y:ny,txt:`−${fd} FELL`,color:'#e0593f'});
+      blog(B,`${u.name} bashes ${t.name} off a ${dropLv}-level drop — a hard landing (${d+fd}).`);
+    } else {                                                             // nowhere to go (wall, unit, or a cliff rising in the way) — staggered in place
+      fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'staggered',color:'#7d93a3'});
+      blog(B,`${u.name} bashes ${t.name} — staggered, but held their ground.`);
+    }
     if(t.hp<=0){applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}}
     u.acted=true; B.aim=null; return;
   }
@@ -3169,7 +3197,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.42</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.43</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3510,11 +3538,29 @@ function tileArt(t,x,y,tile){
   if(t==='grass'||t==='road')return `<svg class="decor" viewBox="0 0 46 46">${groundTex(x,y,t)}${tile&&tile.deco?decoInner(tile.deco,x,y):''}</svg>`;
   return '';
 }
+// z-level overlay (painted under the unit token): tints the ground by height, draws thick dark CLIFF faces on any
+// side that drops 2+ levels, and thinner shadow rims on 1-level SLOPE edges — so the terrain's shape reads at a glance.
+function elevArt(B,x,y,t){
+  const e=(t.elev==null?1:t.elev);
+  const N=elevAt(B,x,y-1),So=elevAt(B,x,y+1),E=elevAt(B,x+1,y),W=elevAt(B,x-1,y);
+  let s='';
+  if(e>1) s+=`<rect width="46" height="46" fill="#f1e7cd" opacity="${Math.min(.44,(e-1)*0.2).toFixed(3)}"/>`;       // higher ground catches more light
+  else if(e<1) s+=`<rect width="46" height="46" fill="#04060a" opacity="${Math.min(.56,(1-e)*0.27).toFixed(3)}"/>`;  // low ground sinks into shadow
+  // a shadow on every DOWNHILL edge (the drop) — thin for a 1-level slope, thick & dark for a 2+ cliff face
+  const drop=(nb,vert,far)=>{ const d=e-nb; if(d<=0)return ''; const cliff=d>=2, op=cliff?.58:.32, w=cliff?8:4, p=far?46-w:0;
+    return vert?`<rect x="0" y="${p}" width="46" height="${w}" fill="#000" opacity="${op}"/>`:`<rect x="${p}" y="0" width="${w}" height="46" fill="#000" opacity="${op}"/>`; };
+  s+=drop(N,true,false)+drop(So,true,true)+drop(W,false,false)+drop(E,false,true);
+  // a lit lip on every UPHILL edge (the base of the step above) — makes each terrace read as a distinct level
+  const lip=(nb,vert,far)=>{ if(nb-e!==1)return ''; const w=2.5,p=far?46-w:0;
+    return vert?`<rect x="0" y="${p}" width="46" height="${w}" fill="#f6edd4" opacity=".36"/>`:`<rect x="${p}" y="0" width="${w}" height="46" fill="#f6edd4" opacity=".36"/>`; };
+  s+=lip(N,true,false)+lip(So,true,true)+lip(W,false,false)+lip(E,false,true);
+  return s?`<svg class="decor" viewBox="0 0 46 46">${s}</svg>`:'';
+}
 const TERR_DESC={grass:'open ground',road:'a road — quick going',bridge:'a bridge — the only dry crossing',brush:'brush — light cover (−10 to be hit here)',tree:'dense trees — cover and no line of sight through',mire:'mire — soft ground, slow going (costs extra to cross)',chasm:'a chasm — a sheer drop; impassable, but a shield-bash can shove someone over the edge',boulder:'a boulder — impassable, blocks sight',rubble:'ruined wall — impassable, blocks sight',column:'a fallen column — impassable, blocks sight',stone:'a standing stone — impassable, blocks sight',water:'water — impassable'};
 function terrDesc(tile){
   const base=TERR_DESC[tile.t]||'open ground';
   const e=tile.elev==null?1:tile.elev;
-  const el=e===2?' · high ground (+hit, +range for archers, blocks sight past it)':e===0?' · low ground (exposed from above)':'';
+  const el=e>1?` · high ground z${e} (+hit, +range for archers, blocks sight past it)`:e<1?` · low ground z${e} (exposed from above)`:'';
   return base+(tile.blighted?' · blighted (2 dmg/round to the living)':'')+el;
 }
 function computeVis(B){
@@ -3522,7 +3568,7 @@ function computeVis(B){
   const vis=new Set();
   for(const u of B.units){
     if(u.kind==='foe'||u.hp<=0||u.fled)continue; // your soldiers & charges are your eyes
-    const R=R0+(elevAt(B,u.x,u.y)===2?2:0);
+    const R=R0+(elevAt(B,u.x,u.y)>=2?2:0);
     for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++){
       if(Math.max(Math.abs(dx),Math.abs(dy))>R)continue;
       const x=u.x+dx,y=u.y+dy; if(x<0||y<0||x>=GW||y>=GH)continue;
@@ -3555,7 +3601,7 @@ function renderBattle(){
   // a ranged unit's effective reach this turn (weapon range, +1 on high ground, capped in weather) — used to flag
   // enemies that ARE in range but whose line of sight is blocked, so the archer's range doesn't feel bugged
   const uw=isPC?wOf(u):null;
-  const uRangedReach=(isPC&&!u.acted&&!B.aim&&!B.peek&&uw&&uw.rng>1)?(wxCap(B,uw.rng)+(elevAt(B,u.x,u.y)===2?1:0)):0;
+  const uRangedReach=(isPC&&!u.acted&&!B.aim&&!B.peek&&uw&&uw.rng>1)?(wxCap(B,uw.rng)+(elevAt(B,u.x,u.y)>=2?1:0)):0;
   // threat overlay for an inspected enemy: everywhere it could move + strike next turn
   const iu=B.inspect?B.units.find(z=>z.uid===B.inspect&&z.hp>0&&!z.fled):null;
   const threat=new Set();
@@ -3603,8 +3649,8 @@ function renderBattle(){
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
     const e=(t.elev==null?1:t.elev), bg=TILE_BG[t.t]||'#2e2a20';
     const fog=visible?'':(explored?'fogseen':'fogdark');
-    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${e===2?'hi':e===0?'lo':''} ${t.blighted?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
-    if(fog!=='fogdark')grid+=tileArt(t.t,x,y,t);
+    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${t.blighted?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    if(fog!=='fogdark')grid+=tileArt(t.t,x,y,t)+elevArt(B,x,y,t);
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
       const badge=un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
