@@ -11,6 +11,15 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.45 (2026-07-14) — Top-Down Sprites, Contiguous Walls & the Ash-Acolyte Capstone
+A visual overhaul of the battlefield, plus a new endgame spell.
+
+**Soldiers are now top-down sprites.** The front-facing portrait busts are gone from the battle map. Each class is drawn from a high angle — crown of the head, shoulders, gear projected onto the ground — grittier and more legible in the tactical view: the **fighter's** kite shield, sword and steel helm; the **ranger's** hood and longbow arc; the **cleric's** white cross-tabard and mace; the **acolyte's** hood, blight-veined robe and floating ashfire; the **shade's** twin daggers. The commander still flies the banner. (The pre-battle roster keeps the face portraits, so you always know *who* you're mustering.)
+
+**Ruin and fortress walls connect.** Wall tiles now autotile — an adjacent wall makes the masonry join, so ruins read as continuous fortifications instead of scattered blocks. Each wall shows the coursed outer stone, packed-rubble core, and weathered parapet merlons (some crumbled away) of a top-down rampart. Runs, corners, T-junctions and broken sections all form correctly.
+
+**Blight Storm — Ash-Acolyte level-5 capstone.** A 3×3 blight-nova hurled at range 5. Every enemy caught takes 5–8 damage that **ignores armor**, and the ground itself festers into blight. Once per battle, +1 corruption — the acolyte's answer to a clustered enemy line.
+
 ## v0.44 (2026-07-14) — Double Strike as a Choice, Cleric Kit, QM Economy & Polish
 A batch of fixes and reworks.
 

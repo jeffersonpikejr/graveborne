@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.44</title>
+<title>GRAVEBORNE — alpha v0.45</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -630,6 +630,40 @@ function faceInner(f,o){
     s+=`<circle cx="41" cy="54" r="4.2" fill="none" stroke="#b08bc9" stroke-width="1.2" opacity=".7"/><circle cx="59" cy="54" r="4.2" fill="none" stroke="#b08bc9" stroke-width="1.2" opacity=".7"/>`;
   }
   return s;
+}
+// TOP-DOWN battle sprite — the soldier seen from a high angle: crown of head + shoulders + gear projected onto the ground.
+// Grittier & more realistic than the front bust; reads by class silhouette (kite shield, bow arc, mace, ashfire orb, twin daggers) at a glance.
+function pcTopDown(s,size,o){
+  o=o||{}; const rev=!!o.revenant, cls=(s&&s.cls)||'fighter', cmdr=!!(s&&s.commander), K='#0e0b07';
+  const f=(s&&s.face)||{skin:0,hc:0}; const skin=rev?'#9aa396':(SKINS[f.skin]||SKINS[0]);
+  const shadow=`<ellipse cx="23" cy="39" rx="12" ry="3.4" fill="#000" opacity=".34"/>`;
+  const faceSliver=`<path d="M18.6 17.6 Q23 22.4 27.4 17.6 Q26.8 21 23 21.6 Q19.2 21 18.6 17.6 Z" fill="${skin}" stroke="#0e0b07" stroke-width=".5"/>`;
+  let behind='',body='',head='',front='';
+  if(cls==='ranger'){
+    behind=`<path d="M33.5 16 Q41 27 33.5 38" fill="none" stroke="#5a4326" stroke-width="2.2"/><path d="M33.5 16 L33.5 38" stroke="#d8cbaf" stroke-width=".7"/>`; // longbow arc
+    body=`<path d="M12.5 37 Q9.5 23 17 19 L29 19 Q36.5 23 33.5 37 Z" fill="#3f4a2b" stroke="${K}" stroke-width="1.4"/><path d="M20 20 Q18.5 29 18 37 M26 20 Q27.5 29 28 37" fill="none" stroke="#2a331c" stroke-width="1"/><path d="M15 24 L31 24" stroke="#5a4326" stroke-width="1.4" opacity=".8"/>`; // cloak + quiver strap
+    head=`<path d="M23 6.5 L31 19 Q23 23 15 19 Z" fill="#39431f" stroke="${K}" stroke-width="1.3"/><path d="M18.5 17 Q23 20.5 27.5 17 Q26 20 23 20.4 Q20 20 18.5 17 Z" fill="#0f130a"/>`; // pointed hood + dark opening
+  } else if(cls==='cleric'){
+    front=`<g transform="rotate(-20 12 27)"><rect x="10.7" y="25" width="2.5" height="13" rx="1" fill="#6a5a44" stroke="${K}" stroke-width=".5"/><circle cx="12" cy="24" r="3.4" fill="#7a7168" stroke="${K}" stroke-width=".8"/></g>`; // flanged mace
+    body=`<ellipse cx="23" cy="27" rx="8.6" ry="9.6" fill="#8f8f86" stroke="${K}" stroke-width="1.4"/><rect x="19.2" y="19" width="7.6" height="18" fill="#cdc7ba"/><path d="M23 22 v12 M19.6 27 h6.8" stroke="#8a2420" stroke-width="2.2"/>`; // chain torso + white tabard w/ red cross
+    head=`<circle cx="23" cy="15.4" r="6" fill="#9a9a90" stroke="${K}" stroke-width="1.2"/>${faceSliver}`; // coif
+  } else if(cls==='acolyte'){
+    front=`<circle cx="34" cy="30" r="4.8" fill="#7a4fa3" opacity=".45"/><circle cx="34" cy="30" r="2.1" fill="#c69cf0" opacity=".9"/>`; // ashfire orb
+    body=`<path d="M12.5 37 Q9.5 23 17 18.5 L29 18.5 Q36.5 23 33.5 37 Z" fill="#2b2733" stroke="${K}" stroke-width="1.4"/><path d="M20 20 Q22 29 19 37 M26 20 Q24 29 27 37" fill="none" stroke="#7a4fa3" stroke-width="1.1" opacity=".8"/>`; // dark robe + blight veins
+    head=`<path d="M23 6 L31 19 Q23 23 15 19 Z" fill="#241f2c" stroke="${K}" stroke-width="1.3"/><path d="M18.5 17 Q23 20.5 27.5 17 Q26 20 23 20.4 Q20 20 18.5 17 Z" fill="#0c0a10"/><circle cx="20.8" cy="18.4" r="1" fill="#c69cf0"/><circle cx="25.2" cy="18.4" r="1" fill="#c69cf0"/>`; // hood + glowing eyes
+  } else if(cls==='shade'){
+    front=`<rect x="7.4" y="25" width="2.4" height="12" rx="1" fill="#9aa0a6" stroke="${K}" stroke-width=".5" transform="rotate(-24 8.6 31)"/><rect x="36.2" y="25" width="2.4" height="12" rx="1" fill="#9aa0a6" stroke="${K}" stroke-width=".5" transform="rotate(24 37.4 31)"/>`; // twin daggers
+    body=`<ellipse cx="23" cy="27" rx="7.6" ry="9" fill="#26262a" stroke="${K}" stroke-width="1.4"/><path d="M17 23 L29 23" stroke="#3a3a42" stroke-width="1.2"/>`;
+    head=`<path d="M23 7.5 L29 19 Q23 22.5 17 19 Z" fill="#1c1c20" stroke="${K}" stroke-width="1.2"/><path d="M19 17 Q23 20 27 17 Q25.5 19 23 19.4 Q20.5 19 19 17 Z" fill="#08080a"/>`;
+  } else { // fighter — sword + kite shield
+    behind=`<g transform="rotate(22 33 27)"><rect x="31.7" y="23" width="2.7" height="17" rx="1" fill="#b3ab9b" stroke="${K}" stroke-width=".5"/><rect x="29" y="26" width="7.6" height="2.3" rx="1" fill="#8a8272" stroke="${K}" stroke-width=".4"/></g>`; // sword
+    front=`<path d="M5.5 20.5 L13 19 L13.5 30 L9.5 35.5 L5.5 30 Z" fill="#5f5140" stroke="${K}" stroke-width="1.1"/><path d="M9.5 20.5 v13.5 M6.5 27 h6.4" stroke="#3f3423" stroke-width="1.1"/>`; // kite shield
+    body=`<ellipse cx="23" cy="27" rx="8.8" ry="9.8" fill="#565d66" stroke="${K}" stroke-width="1.4"/><path d="M19.5 19.5 L23 37 L26.5 19.5 Z" fill="#7a2620"/><ellipse cx="14.5" cy="23.5" rx="4.6" ry="4" fill="#69707a" stroke="${K}" stroke-width="1.1"/><ellipse cx="31.5" cy="23.5" rx="4.6" ry="4" fill="#69707a" stroke="${K}" stroke-width="1.1"/>`; // steel torso, red surcoat, pauldrons
+    head=`<circle cx="23" cy="15.4" r="6.2" fill="#474e57" stroke="${K}" stroke-width="1.3"/>${faceSliver}<rect x="22.3" y="11.5" width="1.4" height="9.5" rx=".5" fill="#2b3036"/>`; // helm + nasal
+  }
+  const banner=cmdr?`<g transform="rotate(9 30 12)"><rect x="29.2" y="1" width="1.9" height="21" fill="#5a4a32" stroke="${K}" stroke-width=".4"/><path d="M31.1 2 L42.5 4 L38.5 9.5 L42.5 15 L31.1 13 Z" fill="#7a2424" stroke="${K}" stroke-width=".7"/><path d="M34 6 q3 2.5 6 0" stroke="#c9a227" stroke-width="1" fill="none" opacity=".8"/></g>`:'';
+  const revGlow=rev?`<ellipse cx="23" cy="25" rx="16.5" ry="17.5" fill="none" stroke="#7a4fa3" stroke-width="1.6" opacity=".5"/><path d="M17 22 L15 30 M29 22 L31 30" stroke="#7a4fa3" stroke-width="1.2" opacity=".7"/>`:'';
+  return `<svg viewBox="0 0 46 46" width="${size}" height="${size}">${shadow}${banner}${behind}${body}${head}${front}${revGlow}</svg>`;
 }
 function enemyFace(key,size){
   size=size||32;
@@ -1278,7 +1312,7 @@ function featModal(s,opts,stat){
       </div>
       <div class="wline">${WPN_ICON[s.weapon]||'⚔'} <span class="tt" data-tip="${esc(wpnTip(s.weapon,s.wMod))}">${esc(s.wName||WEAPONS[s.weapon].n)}${s.wMod?' +'+s.wMod:''}</span> · 🛡 <span class="tt" data-tip="${esc(armorTip(s.armor))}">${ARMORS[s.armor].n}</span></div>
       <div class="featline">✦ ${featChips(s.feats)}</div>
-      ${s.level>=5?`<p style="margin:6px 0 0;color:var(--gold)">★ Veterancy capstone — ${(CLASSES[s.cls]&&CLASSES[s.cls].martial)?'<b>Double Strike</b>: their basic attacks now land twice.':s.cls==='cleric'?'<b>Healing Aura</b>: a new spell that heals all allies within 2.':'a hardened veteran.'}</p>`:''}
+      ${s.level>=5?`<p style="margin:6px 0 0;color:var(--gold)">★ Veterancy capstone — ${(CLASSES[s.cls]&&CLASSES[s.cls].martial)?'<b>Double Strike</b>: they may strike twice if they hold their ground.':s.cls==='cleric'?'<b>Healing Aura</b>: a new spell that heals all allies within 2.':s.cls==='acolyte'?'<b>Blight Storm</b>: a 3×3 blight-nova hurled at range.':'a hardened veteran.'}</p>`:''}
     </div></div>
     <p class="hint" style="margin-top:8px">Choose a feat — remember: whatever you build, the Blight can give back.</p>`;
   showModal('Veterancy',body,opts.map(f=>({label:`${FEATS[f].n} — ${FEATS[f].d}`,cls:'pick',fn:()=>{
@@ -2283,6 +2317,7 @@ function unitAbilities(u){
   if(f.includes('sanctuary')&&!u.sanctUsed)out.push({k:'sanctuary',label:'☨ Sanctuary',range:2,side:'ally',tip:'Shelter an ally within 2 in sanctuary — no enemy can attack them until your next turn (once per battle).'});
   if(cls==='cleric'&&!u.protectUsed)out.push({k:'protect',label:'✚ Protection',range:2,side:'ally',tip:'Bless an ally within 2: +1 armor for the rest of the battle (once per battle).'});
   if(cls==='cleric'&&lvl>=5&&!u.auraUsed)out.push({k:'healaura',label:'✚ Healing Aura',range:0,side:'self',tip:'Level 5: heal all allies within 2 (incl. you) for 5 HP (once per battle).'});
+  if(cls==='acolyte'&&lvl>=5&&!u.stormUsed)out.push({k:'blightstorm',label:'✵ Blight Storm',range:5,side:'enemy',ranged:true,tip:'Level 5: a 3×3 blight-nova at range 5 — 5–8 damage (ignores armor) to every enemy caught, and the ground festers. +1 corruption. Once per battle.'});
   if(f.includes('medic')&&!u.medicUsed)out.push({k:'medic',label:'✚ Field Medic',range:1,side:'ally',tip:'Heal an adjacent ally 5 HP (once per battle).'});
   if(w.bash)out.push({k:'bash',label:'⛊ Shield Bash',range:1,side:'enemy',tip:'Bash an adjacent enemy: knock them back and stagger them (they lose their next turn).'});
   if(w.cleave)out.push({k:'cleave',label:'🪓 Cleave',range:w.reach?2:1,side:'enemy',tip:'Strike for reduced damage, then carry the blow into one enemy standing next to your target.'});
@@ -2394,6 +2429,19 @@ function execAbility(B,u,ab,t){
     for(const z of B.units){ if(z.hp<=0||z.fled||z.prop)continue;
       if(z.kind===u.kind&&distC(u,z)<=2){ z.hp=Math.min(z.maxhp,z.hp+5); const as=soldierById(z.ref); if(as)as.hp=z.hp; fx.push({type:'float',x:z.x,y:z.y,txt:'+5',color:'#9ab86f'}); n++; } }
     blog(B,`${u.name} calls a healing light down — ${n} of the wounded steady (+5).`);
+    B.aim=null; return;
+  }
+  if(ab.k==='blightstorm'){
+    u.stormUsed=true; u.acted=true; let hit=0;
+    fx.push({type:'float',x:t.x,y:t.y,txt:'BLIGHT STORM',color:'#9a6fc9'});
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){ const tx=t.x+dx,ty=t.y+dy, tt=tileAt(B,tx,ty); if(!tt)continue;
+      if(['grass','brush','mire','road'].includes(tt.t))tt.blighted=true;              // the ground festers
+      const z=unitAt(B,tx,ty); if(z&&z.hp>0&&!z.prop&&isEnemy(u,z)){ const d=ri(5,8); z.hp-=d; hit++;   // ignores armor (raw hp)
+        fx.push({type:'flash',uid:z.uid},{type:'float',x:tx,y:ty,txt:'-'+d,color:'#9a6fc9'});
+        if(z.hp>0&&z.hp<=3&&z.kind==='pc')z.nearDeath=true;
+        if(z.hp<=0){ applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } } }
+    blog(B,`${u.name} tears the Blight open — a storm of ash and rot boils across the ground (${hit} caught).`);
+    if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);}             // the graft always takes its due
     B.aim=null; return;
   }
   if(ab.k==='warcry'){
@@ -3234,7 +3282,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.44</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.45</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3597,6 +3645,29 @@ function elevArt(B,x,y,t){
   s+=lip(N,true,false)+lip(So,true,true)+lip(W,false,false)+lip(E,false,true);
   return s?`<svg class="decor" viewBox="0 0 46 46">${s}</svg>`:'';
 }
+// ADAPTIVE (auto-tiling) wall: a top-down masonry wall that joins contiguously to any adjacent wall tile — a
+// coursed-stone outer face around a packed rubble/debris core, with parapet merlons capping the long faces.
+function wallArt(B,x,y,t){
+  const isW=(nx,ny)=>{ const nb=tileAt(B,nx,ny); return !!(nb&&nb.t==='rubble'); };
+  const N=isW(x,y-1),S=isW(x,y+1),E=isW(x+1,y),W=isW(x-1,y);
+  const b=13, lo=23-b, hi=23+b;                       // band 10..36 (width 26), centred — meets a neighbour's band at the tile edge
+  const stone='#473f33', core='#29251d', dark='#120e07', joint='#221d14', lit='#5e563f';
+  const R=[[lo,lo,2*b,2*b]];                           // hub + an arm toward each wall-neighbour → one contiguous mass
+  if(N)R.push([lo,0,2*b,lo]); if(S)R.push([lo,hi,2*b,46-hi]);
+  if(E)R.push([hi,lo,46-hi,2*b]); if(W)R.push([0,lo,lo,2*b]);
+  let s='';
+  const hsh=(i)=>(x*29+y*53+i*97)>>2&7;                 // stable per-tile pseudo-random for weathering
+  for(const[rx,ry,rw,rh]of R)s+=`<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${stone}"/>`;               // stone body
+  for(const[rx,ry,rw,rh]of R){ const iw=rw-9,ih=rh-9; if(iw>0&&ih>0)s+=`<rect x="${rx+4.5}" y="${ry+4.5}" width="${iw}" height="${ih}" fill="${core}"/>`; } // packed rubble core
+  for(let i=0;i<12;i++){ const rr=R[i%R.length],[rx,ry,rw,rh]=rr; const sx=rx+2+((x*13+y*7+i*29)%Math.max(1,rw-4)), sy=ry+2+((x*5+y*23+i*17)%Math.max(1,rh-4)); s+=`<circle cx="${sx}" cy="${sy}" r="${1+(i%3)*0.5}" fill="${i%2?'#39332a':'#211d15'}"/>`; }  // irregular rubble debris across the whole run
+  for(const[rx,ry,rw,rh]of R)s+=`<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="none" stroke="${dark}" stroke-width="1.6"/>`;   // coursed outline (reads as stone blocks)
+  // weathered parapet merlons capping the long faces — irregular, some crumbled away
+  const M=(mx,my,mw,mh)=>`<rect x="${mx}" y="${my}" width="${mw}" height="${mh}" fill="${stone}" stroke="${dark}" stroke-width=".8"/><rect x="${mx+.6}" y="${my+.6}" width="${mw-1.2}" height="1.3" fill="${lit}"/>`;
+  let mi=0;
+  if(E||W){ const x0=(W?0:lo)+1, x1=(E?46:hi)-1; for(let mx=x0;mx<x1-3;mx+=6.5+((mi++)%2)){ const h=hsh(mi); if(h>1)s+=M(mx,lo-0.5,3.6+(h%2),3); if(hsh(mi+3)>1)s+=M(mx,hi-2.5,3.6+(h%2),3); } }
+  if(N||S){ const y0=(N?0:lo)+1, y1=(S?46:hi)-1; for(let my=y0;my<y1-3;my+=6.5+((mi++)%2)){ const h=hsh(mi); if(h>1)s+=M(lo-0.5,my,3,3.6+(h%2)); if(hsh(mi+3)>1)s+=M(hi-2.5,my,3,3.6+(h%2)); } }
+  return `<svg class="decor" viewBox="0 0 46 46">${s}</svg>`;
+}
 const TERR_DESC={grass:'open ground',road:'a road — quick going',bridge:'a bridge — the only dry crossing',brush:'brush — light cover (−10 to be hit here)',tree:'dense trees — cover and no line of sight through',mire:'mire — soft ground, slow going (costs extra to cross)',chasm:'a chasm — a sheer drop; impassable, but a shield-bash can shove someone over the edge',boulder:'a boulder — impassable, blocks sight',rubble:'ruined wall — impassable, blocks sight',column:'a fallen column — impassable, blocks sight',stone:'a standing stone — impassable, blocks sight',water:'water — impassable'};
 function terrDesc(tile){
   const base=TERR_DESC[tile.t]||'open ground';
@@ -3691,15 +3762,15 @@ function renderBattle(){
     const e=(t.elev==null?1:t.elev), bg=TILE_BG[t.t]||'#2e2a20';
     const fog=visible?'':(explored?'fogseen':'fogdark');
     grid+=`<div class="tile ${(x+y)%2?'alt':''} ${t.blighted?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
-    if(fog!=='fogdark')grid+=tileArt(t.t,x,y,t)+elevArt(B,x,y,t);
+    if(fog!=='fogdark')grid+=(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t))+elevArt(B,x,y,t);
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
       const badge=un.sanctuary>0?'<span class="stx" style="color:#e6d98a">☨</span>':un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
-      if(un.kind==='pc'){ const ps=soldierById(un.ref); inner=ps?pcToken(ps,fsz):esc(un.name[0]); }
+      if(un.kind==='pc'){ const ps=soldierById(un.ref); inner=ps?pcTopDown(ps,fsz):esc(un.name[0]); }
       else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):(un.face?faceSvg(un.face,{size:fsz}):'V');
       else if(un.prop)inner=nestSvg(fsz);
-      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcToken({cls:(g2.snap&&g2.snap.cls),face:g2.face,commander:g2.snap&&g2.snap.commander},fsz,{revenant:true}):esc(un.name[0]); }
+      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcTopDown({cls:(g2.snap&&g2.snap.cls),face:g2.face,commander:g2.snap&&g2.snap.commander},fsz,{revenant:true}):esc(un.name[0]); }
       else inner=enemyFace(un.ekey,fsz);
       const cls2=un.kind==='ally'?'ally':cls;
       const crown=(B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
@@ -3723,8 +3794,8 @@ function renderBattle(){
   const sw=show?wOf(show):null;
   let showFace='';
   if(show){
-    if(show.kind==='pc'){const ps=soldierById(show.ref); if(ps)showFace=`<div class="face" style="float:right">${pcToken(ps,48)}</div>`;}
-    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcToken({cls:g2.snap&&g2.snap.cls,face:g2.face,commander:g2.snap&&g2.snap.commander},48,{revenant:true})}</div>`;}
+    if(show.kind==='pc'){const ps=soldierById(show.ref); if(ps)showFace=`<div class="face" style="float:right">${pcTopDown(ps,48)}</div>`;}
+    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcTopDown({cls:g2.snap&&g2.snap.cls,face:g2.face,commander:g2.snap&&g2.snap.commander},48,{revenant:true})}</div>`;}
     else showFace=`<div class="face" style="float:right">${enemyFace(show.ekey,44)}</div>`;
   }
   let insp=show?`<div class="card">${showFace}<span class="nm">${esc(show.name)}</span>${iu?' <span class="tag revtag">scouting</span>':''}
