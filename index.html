@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.39</title>
+<title>GRAVEBORNE — alpha v0.40</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -102,6 +102,28 @@
   #battleWrap{display:flex;gap:10px;padding:10px 10px 78px;align-items:flex-start;flex-wrap:wrap}
   #gridwrap{max-width:100%;max-height:68vh;overflow:auto;border:1px solid var(--line);border-radius:3px;background:#0c0a07}
   #grid{display:grid;gap:1px;background:#000;width:max-content}
+  /* immersive pan/zoom battle view — the map fills the screen, everything else floats as HUD */
+  #battle{position:fixed;inset:0;overflow:hidden;background:#0c0a07;touch-action:none;-webkit-user-select:none;user-select:none;z-index:5}
+  #viewport{position:absolute;inset:0;overflow:hidden;cursor:grab}
+  #viewport.grabbing{cursor:grabbing}
+  #panzoom{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+  .hud{position:absolute;z-index:22;pointer-events:none;display:flex;gap:6px}
+  .hud>*{pointer-events:auto}
+  .hudcard{background:rgba(18,15,11,.86);border:1px solid var(--line);border-radius:5px;padding:6px 10px;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);box-shadow:0 2px 14px rgba(0,0,0,.55)}
+  .hud-tl{top:8px;left:8px;max-width:56%;flex-direction:column;align-items:flex-start}
+  .hud-tr{top:8px;right:8px;flex-direction:column;align-items:flex-end;max-width:42%}
+  .hud-unit{bottom:8px;left:8px;max-width:min(330px,52vw);flex-direction:column;max-height:44vh;overflow:auto}
+  .hud-act{bottom:8px;left:50%;transform:translateX(-50%);flex-direction:column;align-items:center;max-width:92vw}
+  .hud-roster{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+  .hud-log{top:54px;right:8px;max-width:min(320px,62vw);max-height:44vh;overflow-y:auto;z-index:23}
+  #actbarImm{display:flex;justify-content:center;flex-wrap:wrap;gap:6px}
+  #actbarImm button{margin:0}
+  #zoombtns{position:absolute;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:22;display:flex;flex-direction:column;gap:5px}
+  #zoombtns button{width:36px;height:36px;font-size:19px;line-height:1;padding:0;background:rgba(18,15,11,.86);border:1px solid var(--line);color:var(--ink);border-radius:5px;cursor:pointer;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  @media (max-width:760px){ .hud-tl{max-width:64%} .hud-unit{max-width:62vw;font-size:12px;max-height:32vh}
+    .hud-unit .hint{display:none}                              /* drop the verbose instructions on small screens */
+    .hud-unit .featline{font-size:11px} .hud-act{z-index:24;max-width:99vw} .hud-act .hudcard{padding:2px 8px}
+    #actbarImm{gap:4px} #actbarImm button{padding:6px 7px;font-size:12px} #zoombtns button{width:40px;height:40px} }
   /* tile shading via inset shadow (paints UNDER the child unit token, not over it) */
   .tile.hi{box-shadow:inset 0 4px 0 rgba(216,180,104,.34),inset 0 0 0 200px rgba(233,214,160,.11)}
   .tile.lo{box-shadow:inset 0 0 10px rgba(0,0,0,.55),inset 0 0 0 200px rgba(0,0,0,.2)}
@@ -1910,10 +1932,15 @@ function objTick(B){
   }
 }
 function wOf(u){const w=WEAPONS[u.weapon]||WEAPONS.shortsword;return {n:w.n,lo:w.lo+(u.wMod||0),hi:w.hi+(u.wMod||0),rng:w.rng+((u.feats.includes('deadeye')&&w.rng>1)?1:0),hitB:w.hitB,reach:!!w.reach,cleave:!!w.cleave,bash:!!w.bash,armor:w.armor||0};}
+// effective ranged range after weather: fog/ash-haze cap it to 3, rain shaves 1 off (a lighter penalty). Min 2 so ranged still works.
+function wxCap(B,base){ let r=B.weather?Math.min(base,3):base; if(B.rain)r=Math.max(2,r-1); return r; }
+function rangeNote(B,base,x,y){ const eff=wxCap(B,base)+(elevAt(B,x,y)===2?1:0); if(eff===base)return '';
+  const lower=eff<base, why=B.weather?(B.weather==='fog'?'fog':'ash-haze'):(B.rain?'rain':''), ctx=lower?(why?'in this '+why:''):'on high ground';
+  return ` <span style="color:${lower?'#aab3c0':'var(--gold)'}">(${eff}${ctx?' '+ctx:''})</span>`; }
 function inWeaponRange(B,att,def){
   const w=wOf(att);
   const dx=Math.abs(att.x-def.x),dy=Math.abs(att.y-def.y),man=dx+dy,cheb=Math.max(dx,dy);
-  if(w.rng>1){ let rng=B.weather?Math.min(w.rng,3):w.rng; if(elevAt(B,att.x,att.y)===2)rng+=1; return cheb>=2&&cheb<=rng&&hasLOS(B,att,def); }
+  if(w.rng>1){ let rng=wxCap(B,w.rng); if(elevAt(B,att.x,att.y)===2)rng+=1; return cheb>=2&&cheb<=rng&&hasLOS(B,att,def); }
   if(w.reach){ return (cheb<=1&&man>=1)||(cheb===2&&(dx===0||dy===0||dx===dy)); } // 8 neighbours + a 2-tile poke (straight or diagonal)
   return cheb===1; // plain melee: any of the 8 neighbours (diagonals included)
 }
@@ -2160,7 +2187,7 @@ function abilityValidTarget(B,u,ab,t){
   if(ab.side==='enemy'&&!isEnemy(u,t))return false;
   if(ab.side==='enemy'&&t.kind==='foe'&&B._vis&&!B._vis.has(t.x+','+t.y))return false;   // can't target a foe hidden by fog
   if(ab.side==='ally'&&!(t.kind===u.kind&&t!==u&&!t.prop))return false;
-  if(ab.ranged)return distC(u,t)>=2&&distC(u,t)<=(B.weather?Math.min(ab.range,3):ab.range)&&hasLOS(B,u,t);
+  if(ab.ranged)return distC(u,t)>=2&&distC(u,t)<=wxCap(B,ab.range)&&hasLOS(B,u,t);
   return distC(u,t)<=ab.range&&distC(u,t)>=1;
 }
 function useAbility(k){
@@ -3004,18 +3031,9 @@ function render(){
     html+=`<div id="modalBack"><div id="modal"><h2>${esc(activeModal.title)}</h2>${activeModal.html}
       <div class="btns">${activeModal.btns.map((b,i)=>`<button class="${b.cls||''}" ${b.disabled?'disabled':''} onclick="MODALBTN(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
   }
-  // capture the current camera BEFORE innerHTML wipes the scroll container, so we can hold it steady when we shouldn't move
-  const _pcam=S.battle?(()=>{const g=document.getElementById('gridwrap');return g?{l:g.scrollLeft,t:g.scrollTop}:null;})():null;
   app.innerHTML=html;
   const lg=document.getElementById('log'); if(lg)lg.scrollTop=0;
-  // keep the acting unit in view on scrolling battle maps
-  if(S.battle){ const B=S.battle; const gw=document.getElementById('gridwrap'); const cu=activeUnit(B);
-    // only follow the player's own units, or a foe the player can actually see — never scroll to an enemy hidden by fog
-    const canCenter=cu&&(cu.kind!=='foe'||(B._vis&&B._vis.has(cu.x+','+cu.y)));
-    if(gw){
-      if(cu&&canCenter){ const ts=(B._ts||40)+1; gw.scrollLeft=clamp(cu.x*ts-gw.clientWidth/2,0,1e5); gw.scrollTop=clamp(cu.y*ts-gw.clientHeight/2,0,1e5); }
-      else if(_pcam){ gw.scrollLeft=_pcam.l; gw.scrollTop=_pcam.t; } // hold the player's view — don't snap to a corner or reveal an unseen foe
-    } }
+  if(S.battle) setupBattleView(S.battle);      // apply the pan/zoom camera & (re)bind gesture handlers
   playFx();
 }
 function playFx(){
@@ -3083,7 +3101,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.39</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.40</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3469,7 +3487,7 @@ function renderBattle(){
   // a ranged unit's effective reach this turn (weapon range, +1 on high ground, capped in weather) — used to flag
   // enemies that ARE in range but whose line of sight is blocked, so the archer's range doesn't feel bugged
   const uw=isPC?wOf(u):null;
-  const uRangedReach=(isPC&&!u.acted&&!B.aim&&!B.peek&&uw&&uw.rng>1)?((B.weather?Math.min(uw.rng,3):uw.rng)+(elevAt(B,u.x,u.y)===2?1:0)):0;
+  const uRangedReach=(isPC&&!u.acted&&!B.aim&&!B.peek&&uw&&uw.rng>1)?(wxCap(B,uw.rng)+(elevAt(B,u.x,u.y)===2?1:0)):0;
   // threat overlay for an inspected enemy: everywhere it could move + strike next turn
   const iu=B.inspect?B.units.find(z=>z.uid===B.inspect&&z.hp>0&&!z.fled):null;
   const threat=new Set();
@@ -3482,7 +3500,7 @@ function renderBattle(){
   }
   const vis=computeVis(B); B._vis=vis;
   const fsz=Math.round(TS*0.66);
-  let grid=`<div id="bfframe"><div id="gridwrap"><div id="grid" style="--ts:${TS}px;grid-template-columns:repeat(${GW},${TS}px)">`;
+  let grid=`<div id="grid" style="--ts:${TS}px;grid-template-columns:repeat(${GW},${TS}px)">`;
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
     const t=tileAt(B,x,y);
     const key=x+','+y, visible=vis.has(key), explored=!!B.seen[key];
@@ -3538,9 +3556,9 @@ function renderBattle(){
     } else if(bd){ grid+=`<div class="body">☠</div>`; }
     grid+='</div>';
   }
+  grid+=`</div>`;   // close #grid (the pan/zoom layer & overlays are assembled in the return below)
   let wx=B.weather==='fog'?'<div class="wx wx-fog"></div>':B.weather==='ashhaze'?'<div class="wx wx-ash"></div>':'';
   if(B.rain)wx+='<div class="wx wx-rain"></div>';
-  grid+=`</div></div><div class="bfvig"></div>${wx}</div>`;   // close grid+gridwrap, then the vignette & weather over the fixed viewport
   // squad roster (player phase) — tap a soldier to command them, in any order you like; ● = action still available
   const q = B.phase==='player'
     ? B.units.filter(z=>z.kind==='pc'&&z.hp>0&&!z.fled).map(z=>{ const done=z.acted&&(z.mp||0)<=0;
@@ -3556,7 +3574,7 @@ function renderBattle(){
   }
   let insp=show?`<div class="card">${showFace}<span class="nm">${esc(show.name)}</span>${iu?' <span class="tag revtag">scouting</span>':''}
       <div class="statline">HP ${show.hp}/${show.maxhp} · SKL ${show.skl} · SPD ${show.spd}${show.dbl?' · <span style="color:var(--gold)">⚔ Double Strike</span>':''}${show.shakenBy?' · <span class="skull">SHAKEN −10</span>':''}${show.rattled?' · rattled×'+show.rattled+' (−'+(show.rattled*5)+')':''}${show.defending?' · bracing':''}</div>
-      <div class="wline">${WPN_ICON[show.weapon]||'⚔'} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng+(B.weather&&sw.rng>3?` <span style="color:#aab3c0">(${Math.min(sw.rng,3)+(elevAt(B,show.x,show.y)===2?1:0)} in this ${B.weather==='fog'?'fog':'ash-haze'})</span>`:(elevAt(B,show.x,show.y)===2?` <span style="color:var(--gold)">(${sw.rng+1} on high ground)</span>`:'')):''}</div>
+      <div class="wline">${WPN_ICON[show.weapon]||'⚔'} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng+rangeNote(B,sw.rng,show.x,show.y):''}</div>
       <div class="featline">✦ ${featChips(show.feats)}</div>
       ${iu?`<div class="hint">Red-hatched tiles: everywhere it can reach and strike next turn. Tap it again to dismiss.</div>`
         :isPC?`<div class="hint">${aiming?esc((aiming.label||'').replace(/^\S+\s/,'').toUpperCase())+': tap a '+(aiming.side==='ally'?'blue-rimmed ally':'purple-rimmed target')+'. ':''}${(u.mp||0)>0?'Blue tiles: move (keeps your action). ':''}${!u.acted?'Gold tiles: dash there (spends your action). Tap a red-rimmed enemy to strike. ':''}Tap another soldier to command them. Move can split around your action — move, strike, then move again.<br><span style="opacity:.7">Keys: Space end phase · B brace · F ability · R retreat · Esc cancel</span></div>`
@@ -3566,22 +3584,83 @@ function renderBattle(){
   else if(B.peek) insp=`<div class="card"><span class="hint">👁 Inspect mode — tap any square to read its terrain effects and who stands there. Tap 👁 again to exit.</span></div>`+insp;
   const ct=CONTRACT_TYPES[B.type];
   const objProg=B.obj==='survive'||B.obj==='reclaim'?` · ${Math.min(B.round,B.objRounds)}/${B.objRounds}`:B.obj==='capture'?` · held ${B.capProgress}/2`:'';
-  return `<div id="battleTop"><h1>⚔ ${B.cname||ct.n}</h1><span class="stat">Round <b>${B.round}</b></span>
-      <span class="stat" style="color:var(--gold)">⚑ <b>${OBJECTIVES[B.obj].n}</b>${objProg}</span>
-      ${B.weather?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Ranged attacks capped at range 3; enemies beyond 5 tiles are hidden">${B.weather==='fog'?'FOG':'ASH-HAZE'}</span>`:''}
-      ${isPC?`<span class="pips">${esc(u.name)} · Move ${u.mp||0} · Action ${u.acted?'—':'●'}</span>`:(B.phase==='enemy'?'<span class="hint">enemy phase…</span>':'<span class="hint">— tap a soldier —</span>')}
-      <span class="initstrip" title="Your squad — tap a soldier to command them in any order">${q}</span>
-      <span id="actbar">
-      <button class="${B.peek?'primary':''}" onclick="PEEK()" title="Inspect mode: tap any square to read its terrain effects and who stands there.">👁${B.peek?' Inspecting':''}</button>
+  const wxTag=B.weather?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Ranged capped at 3; enemies past 5 tiles hidden">${B.weather==='fog'?'FOG':'ASH-HAZE'}</span>`
+             :(B.rain?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Rain — ranged range −1">RAIN</span>`:'');
+  const pips=isPC?`<span class="pips">${esc(u.name)} · Move ${u.mp||0} · Action ${u.acted?'—':'●'}</span>`:(B.phase==='enemy'?'<span class="hint">enemy phase…</span>':'<span class="hint">— tap a soldier —</span>');
+  const anyAvail=B.phase==='player'&&B.units.some(z=>z.kind==='pc'&&z.hp>0&&!z.fled&&(!z.acted||(z.mp||0)>0));
+  const actbar=`<div id="actbarImm">
+      <button class="${B.peek?'primary':''}" onclick="PEEK()" title="Inspect: tap any square to read its terrain and who stands there.">👁${B.peek?' Inspecting':''}</button>
       ${abs.map(a=>`<button ${isPC&&!u.acted?'':'disabled'} onclick="MEDIC('${a.k}')" title="${esc(a.tip)}">${B.aim===a.k?'Cancel':a.label}</button>`).join('')}
       <button ${isPC&&!u.acted?'':'disabled'} onclick="DEFEND()" title="Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled)">🛡 Brace</button>
-      <button class="primary" ${B.phase==='player'?'':'disabled'} onclick="ENDT()" title="End your whole squad's turn — the enemy moves">End Turn ⏎</button>
-      <button class="danger" ${B.phase==='player'?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen comrades are carried out only if a living soldier stands beside their body.">Retreat</button></span></div>
-    <div id="battleWrap">${grid}
-      <div class="col" id="sidePanel"><h2>Unit</h2>${insp}
-        <h2 style="margin-top:8px">Field log</h2><div style="font-size:12px;max-height:180px;overflow-y:auto">${B.log.map(m=>`<p style="margin:2px 0">${m}</p>`).join('')}</div>
-      </div></div>`;
+      <button ${anyAvail?'':'disabled'} onclick="NEXTUNIT()" title="Jump to the next soldier who still has a move or action left">Next ▶</button>
+      <button class="primary" ${B.phase==='player'?'':'disabled'} onclick="ENDT()" title="End the whole squad's turn — the enemy moves">End Turn ⏎</button>
+      <button class="danger" ${B.phase==='player'?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen are carried out only if a living soldier stands beside the body.">Retreat</button></div>`;
+  const logPanel=B._logOpen?`<div class="hud hud-log"><div class="hudcard"><b style="color:var(--gold)">Field log</b><span style="float:right;cursor:pointer;padding:0 4px" onclick="LOGTOGGLE()">✕</span><div style="font-size:12px;margin-top:4px">${B.log.slice(0,40).map(m=>`<p style="margin:2px 0">${m}</p>`).join('')}</div></div></div>`:'';
+  return `<div id="battle">
+      <div id="viewport"><div id="panzoom">${grid}</div><div class="bfvig"></div>${wx}</div>
+      <div class="hud hud-tl"><div class="hudcard" style="display:flex;gap:8px 14px;align-items:center;flex-wrap:wrap">
+        <b style="color:var(--gold);font-size:15px">⚔ ${esc(B.cname||ct.n)}</b>
+        <span class="stat">Round <b>${B.round}</b></span>
+        <span style="color:var(--gold)">⚑ <b>${OBJECTIVES[B.obj].n}</b>${objProg}</span>${wxTag}</div></div>
+      <div class="hud hud-tr">
+        <button onclick="LOGTOGGLE()" class="${B._logOpen?'primary':''}" title="Show or hide the field log">☰ Log</button>
+        <div class="hud-roster hudcard" style="padding:5px 7px" title="Your squad — tap a soldier to command them in any order">${q}</div></div>
+      ${insp?`<div class="hud hud-unit">${insp}</div>`:''}
+      <div class="hud hud-act"><div class="hudcard" style="padding:3px 10px">${pips}</div>${actbar}</div>
+      <div id="zoombtns"><button onclick="ZOOM(1)" title="Zoom in">＋</button><button onclick="ZOOM(-1)" title="Zoom out">－</button></div>
+      ${logPanel}
+    </div>`;
 }
+/* ===================== IMMERSIVE BATTLE CAMERA — drag-pan, wheel/pinch-zoom ===================== */
+function clampZoom(z){ return clamp(z,0.25,2.8); }
+function battleGridPx(B){ return (B._ts||40)+1; }                 // one tile's pixel step (size + 1px gap)
+function clampCam(B,vp){ const TS=battleGridPx(B), gw=GW*TS*B._cam.z, gh=GH*TS*B._cam.z, m=64;
+  if(gw<=vp.clientWidth) B._cam.x=(vp.clientWidth-gw)/2; else B._cam.x=clamp(B._cam.x, vp.clientWidth-gw-m, m);
+  if(gh<=vp.clientHeight) B._cam.y=(vp.clientHeight-gh)/2; else B._cam.y=clamp(B._cam.y, vp.clientHeight-gh-m, m); }
+function applyCam(B,pz,vp){ clampCam(B,vp); pz.style.transform=`translate(${Math.round(B._cam.x)}px,${Math.round(B._cam.y)}px) scale(${B._cam.z})`; }
+function centerCamOn(B,vp,gx,gy){ B._cam.x=vp.clientWidth/2-gx*B._cam.z; B._cam.y=vp.clientHeight/2-gy*B._cam.z; clampCam(B,vp); }
+function zoomAt(B,vp,clientX,clientY,nz){ const r=vp.getBoundingClientRect(), fx=clientX-r.left, fy=clientY-r.top;
+  B._cam.x=fx-(fx-B._cam.x)*(nz/B._cam.z); B._cam.y=fy-(fy-B._cam.y)*(nz/B._cam.z); B._cam.z=nz; }
+function setupBattleView(B){
+  const vp=document.getElementById('viewport'), pz=document.getElementById('panzoom');
+  if(!vp||!pz)return;
+  const TS=battleGridPx(B), gw=GW*TS, gh=GH*TS, vw=vp.clientWidth, vh=vp.clientHeight;
+  if(!window._pzInit){ window._pzInit=true; attachPanZoomOnce(); }
+  if(vw<80||vh<80){ if(B._cam)applyCam(B,pz,vp); return; }         // layout not settled yet — try again next render
+  // keep fitting the whole field to the live viewport until the player takes control of the camera (pinch/pan/zoom)
+  if(!B._cam||!B._camTouched){ const z=clampZoom(Math.min(vw/gw, vh/gh)*0.94); B._cam={z,x:(vw-gw*z)/2,y:(vh-gh*z)/2}; }
+  const cu=activeUnit(B), canFollow=cu&&(cu.kind!=='foe'||(B._vis&&B._vis.has(cu.x+','+cu.y)));
+  if(cu&&canFollow&&B._camFollow!==cu.uid){ B._camFollow=cu.uid; centerCamOn(B,vp,(cu.x+0.5)*TS,(cu.y+0.5)*TS); } // frame the acting unit when the turn passes to it
+  applyCam(B,pz,vp);
+}
+function attachPanZoomOnce(){
+  const pts=new Map(); let start=null, pinch=null, moved=false;
+  const D=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const vpEl=()=>document.getElementById('viewport'), pzEl=()=>document.getElementById('panzoom');
+  const inVp=e=>{ const vp=vpEl(); return vp&&(e.target===vp||vp.contains(e.target)); };
+  document.addEventListener('pointerdown',e=>{ const B=S.battle; if(!B||!B._cam||!inVp(e))return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); const vp=vpEl(); vp&&vp.classList.add('grabbing');
+    if(pts.size===1){ start={x:e.clientX,y:e.clientY,cx:B._cam.x,cy:B._cam.y}; moved=false; }
+    else if(pts.size===2){ const v=[...pts.values()]; pinch={d:D(v[0],v[1]),z:B._cam.z,mx:(v[0].x+v[1].x)/2,my:(v[0].y+v[1].y)/2}; start=null; } });
+  document.addEventListener('pointermove',e=>{ const B=S.battle; if(!B||!B._cam||!pts.has(e.pointerId))return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    const vp=vpEl(),pz=pzEl(); if(!vp||!pz)return;
+    if(pinch&&pts.size>=2){ const v=[...pts.values()]; zoomAt(B,vp,pinch.mx,pinch.my,clampZoom(pinch.z*D(v[0],v[1])/pinch.d)); applyCam(B,pz,vp); moved=true; B._camTouched=true; return; }
+    if(start){ const dx=e.clientX-start.x, dy=e.clientY-start.y; if(Math.abs(dx)+Math.abs(dy)>5){moved=true;B._camTouched=true;} B._cam.x=start.cx+dx; B._cam.y=start.cy+dy; applyCam(B,pz,vp); } });
+  const up=e=>{ pts.delete(e.pointerId); if(pts.size<2)pinch=null; if(pts.size===0){ start=null; const vp=vpEl(); vp&&vp.classList.remove('grabbing'); } };
+  document.addEventListener('pointerup',up); document.addEventListener('pointercancel',up);
+  document.addEventListener('wheel',e=>{ const B=S.battle; if(!B||!B._cam||!inVp(e))return; e.preventDefault(); const vp=vpEl(),pz=pzEl(); zoomAt(B,vp,e.clientX,e.clientY,clampZoom(B._cam.z*(e.deltaY<0?1.13:0.88))); applyCam(B,pz,vp); B._camTouched=true; },{passive:false});
+  document.addEventListener('click',e=>{ if(moved&&inVp(e)){ e.stopPropagation(); e.preventDefault(); moved=false; } },true); // swallow the click that ends a drag
+  // re-fit when the window resizes or the tab becomes visible again (layout was 0 while hidden)
+  const refit=()=>{ if(S.battle)render(); };
+  window.addEventListener('resize',refit);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden)refit(); });
+}
+window.ZOOM=function(dir){ const B=S.battle; if(!B||!B._cam)return; const vp=document.getElementById('viewport'), pz=document.getElementById('panzoom'); if(!vp||!pz)return;
+  const r=vp.getBoundingClientRect(); zoomAt(B,vp,r.left+vp.clientWidth/2,r.top+vp.clientHeight/2,clampZoom(B._cam.z*(dir>0?1.25:0.8))); applyCam(B,pz,vp); B._camTouched=true; };
+window.LOGTOGGLE=function(){ const B=S.battle; if(!B)return; B._logOpen=!B._logOpen; render(); };
+window.NEXTUNIT=function(){ const B=S.battle; if(!B||B.phase!=='player')return;                 // jump to the next soldier who can still act
+  const order=B.units.filter(z=>z.kind==='pc'&&z.hp>0&&!z.fled); if(!order.length)return;
+  const ci=order.findIndex(z=>z.uid===B.sel);
+  for(let i=1;i<=order.length;i++){ const z=order[(ci+i+order.length)%order.length]; if(!z.acted||(z.mp||0)>0){ selectUnit(z.uid); return; } } };
 window.TILE=function(x,y){
   const B=S.battle; if(!B||B.over||activeModal)return;
   if(B.peek){ B.peekTile={x,y}; render(); return; }   // inspect mode: read the square, take no action (any phase)

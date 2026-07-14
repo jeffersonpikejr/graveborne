@@ -11,6 +11,17 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.40 (2026-07-13) — Immersive Battle Map: Pan, Zoom, Floating HUD
+The scrolling grid-in-a-box is gone. The battlefield now fills the screen and everything else floats over it.
+
+- **Pan & zoom.** Drag to pan, scroll-wheel or pinch to zoom, or use the ＋ / － buttons. The map opens framed to fit the whole field and follows whichever soldier's turn it is; once you take the camera, it's yours.
+- **Floating HUD.** Contract/round/objective sit top-left, your squad roster top-right, the selected soldier's card bottom-left, and the action bar bottom-center — all as translucent overlays on the map.
+- **Field log minimized.** The log is hidden by default behind a **☰ Log** button; pop it open when you want the play-by-play, close it to see the field.
+- **"Next ▶" button.** Jumps to the next soldier who still has a move or action left, and greys out once the whole squad is spent — quick to run your turn without hunting the roster.
+- **Rain now bites.** Rain shaves 1 off ranged range (bows and thrown weapons), where before it was pure atmosphere. Fog and ash-haze still cap range harder.
+
+Works on desktop and phone (pinch-zoom, compact mobile HUD).
+
 ## v0.39 (2026-07-13) — Graphics Depth: Atmosphere & Built Ruins
 A cinematic pass to bring the battlefields closer to grimdark tabletop art.
 
