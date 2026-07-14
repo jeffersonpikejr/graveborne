@@ -11,6 +11,16 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.37 (2026-07-13) — Four Tactically Distinct Battlegrounds
+Four new map types, each built around a genuinely different tactical problem, plus a new terrain: **mire** — soft ground that's passable but slow (costs double to cross).
+
+- **The Causeway** — a raised stone road cutting through a drowned fen. The road is the fast, dry, high-ground chokepoint; the flanks are slow mire and black pools. Take the causeway or slog through the muck the long way.
+- **The Fever Marsh** — broad slow mire from edge to edge, strung with black pools and reed beds, broken only by a few dry hummocks. Safe, fast footing is the scarce resource; who holds the hummocks holds the fight.
+- **The Quarry** — a terraced stone pit: a high spoil-rim rings a floor that steps *down* through levels. Each level change costs movement, the rim commands the pit, and boulders and cut stone give cover. Vertical fighting.
+- **The Boulder Field** — open killing ground broken by boulder cover-islands and low ruined walls. Cover is scarce and precious; a ranged-duel map where positioning between the rocks decides it.
+
+New maps roll into the pool automatically (marshes and causeways in wet country, quarries in the hills, boulder fields anywhere). Every one is guaranteed reachable and was verified across 70+ generations with clean AI battles.
+
 ## v0.36 (2026-07-13) — Grimdark Ground: Texture, Debris, Cover
 The battlefields were clean and barren between their centerpieces. Now they're grimed and lived-in.
 
