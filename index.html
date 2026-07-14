@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.40</title>
+<title>GRAVEBORNE — alpha v0.41</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -142,7 +142,7 @@
   .tile.blockedshot{outline:2px dashed rgba(163,59,46,.42);outline-offset:-2px}  /* in range, but line of sight blocked */
   .tile .terr{position:absolute;top:1px;left:3px;color:#5c5545;font-size:10px}
   .unit{position:absolute;inset:4px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:15px;border:2px solid transparent;color:#0e0c09}
-  .unit.pc{background:var(--steel)} .unit.foe{background:#8a4a28;box-shadow:inset 0 0 0 1px #17130e} .unit.undead{background:#556347;box-shadow:inset 0 0 0 1px #17130e}
+  .unit.pc{background:#3a414a} .unit.foe{background:#8a4a28;box-shadow:inset 0 0 0 1px #17130e} .unit.undead{background:#556347;box-shadow:inset 0 0 0 1px #17130e}
   .unit.rev{background:var(--blight);color:#efe6f7;box-shadow:0 0 10px rgba(122,79,163,.8)}
   .unit.current{border-color:var(--gold)}
   .unit .hp{position:absolute;bottom:-2px;left:2px;right:2px;height:3px;background:#3a201c}
@@ -521,8 +521,42 @@ const BOND_TYPES={ 'shield-kin':'stood back to back once too often', rival:'can�
 const SKINS=['#c9a184','#a9825f','#8a6a4f','#e0b89a'];
 const HAIRC=['#2b2118','#54381f','#6b4a2a','#8a8578','#40404a'];
 function makeFace(){return{skin:ri(0,3),hair:ri(0,5),hc:ri(0,4),eyes:ri(0,2),mouth:ri(0,2),extra:ri(0,9)};}
-function faceSvg(f,o){
-  o=o||{}; const size=o.size||46; const rev=!!o.revenant;
+function faceSvg(f,o){ o=o||{}; const size=o.size||46; return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${faceInner(f,o)}</svg>`; }
+// grimdark board token: the soldier's own face framed in class-distinct armour + weapon (fighter/ranger/cleric/ash-acolyte/shade),
+// with a banner if they carry it. Reads by silhouette & colour when zoomed out, by detail when zoomed in.
+function pcToken(s,size,o){
+  o=o||{}; const rev=!!o.revenant, cls=(s&&s.cls)||'fighter', cmdr=!!(s&&s.commander), K='#100d09';
+  const face=`<svg x="24" y="6" width="52" height="52" viewBox="0 0 100 100">${faceInner(s&&s.face,{revenant:rev})}</svg>`;
+  let body='',helm='',weap='',accent='';
+  if(cls==='ranger'){
+    body=`<path d="M16 94 Q12 62 30 56 L70 56 Q88 62 84 94 Z" fill="#3f4a2b" stroke="${K}" stroke-width="2.5"/><path d="M30 56 Q20 76 22 94 M70 56 Q80 76 78 94" fill="none" stroke="#2a331c" stroke-width="2"/>`;
+    helm=`<path d="M50 6 L62 22 L38 22 Z" fill="#39431f" stroke="${K}" stroke-width="1.5"/><path d="M28 42 Q28 12 50 12 Q72 12 72 42 L64 34 Q64 20 50 20 Q36 20 36 34 Z" fill="#39431f" stroke="${K}" stroke-width="2"/>`;
+    weap=`<path d="M86 18 Q98 50 86 82" fill="none" stroke="#5a4326" stroke-width="3"/><path d="M86 18 L86 82" stroke="#3a2c1a" stroke-width="1.2"/>`;
+  } else if(cls==='cleric'){
+    body=`<path d="M18 94 Q16 60 30 54 L70 54 Q84 60 82 94 Z" fill="#8f8f86" stroke="${K}" stroke-width="2.5"/><path d="M40 54 L40 94 L60 94 L60 54 Z" fill="#cdc7ba"/><path d="M50 60 v26 M42 70 h16" stroke="#8a2420" stroke-width="3"/>`;
+    helm=`<path d="M30 40 Q30 12 50 12 Q70 12 70 40 L64 36 Q64 22 50 22 Q36 22 36 36 Z" fill="#9a9a90" stroke="${K}" stroke-width="2"/>`;
+    weap=`<rect x="85" y="54" width="6" height="30" rx="2" fill="#6a5a44" stroke="${K}" stroke-width="1"/><circle cx="88" cy="52" r="7" fill="#7a7168" stroke="${K}" stroke-width="1.5"/>`;
+  } else if(cls==='acolyte'){
+    body=`<path d="M18 94 Q14 60 30 54 L70 54 Q86 60 82 94 Z" fill="#2b2733" stroke="${K}" stroke-width="2.5"/><path d="M34 58 Q40 78 38 94 M66 58 Q60 78 62 94" fill="none" stroke="#7a4fa3" stroke-width="1.6" opacity=".85"/>`;
+    helm=`<path d="M28 42 Q28 10 50 10 Q72 10 72 42 L64 36 Q64 20 50 20 Q36 20 36 36 Z" fill="#241f2c" stroke="${K}" stroke-width="2"/>`;
+    weap=`<circle cx="86" cy="60" r="9" fill="#7a4fa3" opacity=".5"/><circle cx="86" cy="60" r="4" fill="#c69cf0" opacity=".85"/>`;
+  } else if(cls==='shade'){
+    body=`<path d="M18 94 Q16 62 30 56 L70 56 Q84 62 82 94 Z" fill="#26262a" stroke="${K}" stroke-width="2.5"/>`;
+    helm=`<path d="M28 42 Q28 12 50 12 Q72 12 72 42 L64 36 Q64 22 50 22 Q36 22 36 36 Z" fill="#1c1c20" stroke="${K}" stroke-width="2"/>`;
+    weap=`<rect x="11" y="56" width="3.5" height="22" rx="1" fill="#9aa0a6" stroke="${K}" stroke-width=".8" transform="rotate(-20 13 66)"/><rect x="85" y="56" width="3.5" height="22" rx="1" fill="#9aa0a6" stroke="${K}" stroke-width=".8" transform="rotate(20 87 66)"/>`;
+    accent=`<ellipse cx="50" cy="86" rx="24" ry="9" fill="#3a3a42" opacity=".38"/>`;
+  } else { // fighter
+    accent=`<path d="M6 56 L20 51 L22 80 L14 90 L6 80 Z" fill="#6a5a44" stroke="${K}" stroke-width="2"/><path d="M14 56 v30 M8 68 h13" stroke="#4a3d2c" stroke-width="1.4"/>`;
+    body=`<path d="M16 94 Q14 60 30 54 L70 54 Q86 60 84 94 Z" fill="#5a616a" stroke="${K}" stroke-width="2.5"/><path d="M42 54 L50 92 L58 54 Z" fill="#7a2620"/><ellipse cx="26" cy="60" rx="9" ry="7" fill="#6b727b" stroke="${K}" stroke-width="2"/><ellipse cx="74" cy="60" rx="9" ry="7" fill="#6b727b" stroke="${K}" stroke-width="2"/>`;
+    helm=`<path d="M30 40 Q30 12 50 12 Q70 12 70 40 L64 34 Q64 20 50 20 Q36 20 36 34 Z" fill="#4a515a" stroke="${K}" stroke-width="2"/>`;
+    weap=`<rect x="86" y="46" width="5" height="40" rx="2" fill="#b0a898" stroke="${K}" stroke-width="1" transform="rotate(10 88 66)"/><rect x="82" y="62" width="12" height="4" rx="1" fill="#8a8272" stroke="${K}" stroke-width=".8" transform="rotate(10 88 66)"/>`;
+  }
+  const banner=cmdr?`<g transform="rotate(-14 62 28)"><rect x="60" y="-2" width="3" height="62" fill="#5a4a32" stroke="${K}" stroke-width=".8"/><path d="M63 2 L94 6 L87 19 L94 32 L63 28 Z" fill="#7a2424" stroke="${K}" stroke-width="1"/><path d="M70 10 q5 4 10 0" stroke="#c9a227" stroke-width="1.4" fill="none" opacity=".8"/></g>`:'';
+  const revGlow=rev?`<ellipse cx="50" cy="58" rx="42" ry="44" fill="none" stroke="#7a4fa3" stroke-width="2" opacity=".55"/>`:'';
+  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><ellipse cx="50" cy="94" rx="30" ry="6" fill="#000" opacity=".32"/>${banner}${accent}${body}${face}${helm}${weap}${revGlow}</svg>`;
+}
+function faceInner(f,o){
+  o=o||{}; const rev=!!o.revenant;
   if(!f)f={skin:0,hair:0,hc:0,eyes:0,mouth:0,extra:0};
   const skin=rev?'#98a396':SKINS[f.skin], hc=rev?'#575060':HAIRC[f.hc];
   const eyeC=rev?'#b08bc9':'#17130e';
@@ -560,7 +594,7 @@ function faceSvg(f,o){
     s+=`<path d="M43 34 L46 46 M60 38 L57 50 M50 66 L52 78" stroke="#7a4fa3" stroke-width="1.6" opacity=".8"/>`;
     s+=`<circle cx="41" cy="54" r="4.2" fill="none" stroke="#b08bc9" stroke-width="1.2" opacity=".7"/><circle cx="59" cy="54" r="4.2" fill="none" stroke="#b08bc9" stroke-width="1.2" opacity=".7"/>`;
   }
-  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${s}</svg>`;
+  return s;
 }
 function enemyFace(key,size){
   size=size||32;
@@ -670,7 +704,7 @@ function newGame(){
   // signature loop fires by week ~3 regardless of play style (inherited-revenant prologue).
   const fd=makeSoldier();
   S.graves.push({id:nid(),soldierId:fd.id,name:fd.name,bg:fd.bg,
-    snap:{maxhp:fd.maxhp,skl:fd.skl,spd:fd.spd,weapon:fd.weapon,wMod:1,armor:fd.armor,feats:['duelist'],level:2},
+    snap:{maxhp:fd.maxhp,skl:fd.skl,spd:fd.spd,weapon:fd.weapon,wMod:1,armor:fd.armor,feats:['duelist'],level:2,cls:fd.cls,commander:!!fd.commander},
     bonds:[S.roster[0].id],state:'lost',regionId:0,weekDied:0,iter:0,hook:bgOf(fd).hook,seed:true});
   S.roster[0].commander=true;
   S.story={stage:0};
@@ -2078,7 +2112,7 @@ function killSoldier(s){
   removeFromRoster(s);
   if(s.guest){ S.chronicle.push(`Week ${S.week}: the underkingdom shade fell before it could be sworn in.`); return; } // a guest who never joined leaves no grave
   const snap={maxhp:s.maxhp,skl:s.skl,spd:s.spd,weapon:s.weapon,wMod:s.wMod,armor:s.armor,feats:s.feats.slice(),level:s.level,
-              dmgBonus:s.dmgBonus||0,ashPromised:!!s.ashPromised,corr:s.corr||0};
+              cls:s.cls,commander:!!s.commander,dmgBonus:s.dmgBonus||0,ashPromised:!!s.ashPromised,corr:s.corr||0};
   const bonds=s.bonds.map(b=>b.id);
   S.graves.push({id:nid(),soldierId:s.id,name:s.name,bg:s.bg,snap,bonds,state:'field',regionId:S.battle?S.battle.regionId:0,
                  weekDied:S.week,iter:0,hook:s.ashPromised?'a promise to the Ash, unkept':bgOf(s).hook,face:s.face});
@@ -3101,7 +3135,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.40</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.41</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3541,10 +3575,10 @@ function renderBattle(){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
       const badge=un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
-      if(un.kind==='pc'){ const ps=soldierById(un.ref); inner=ps&&ps.face?faceSvg(ps.face,{size:fsz}):esc(un.name[0]); }
+      if(un.kind==='pc'){ const ps=soldierById(un.ref); inner=ps?pcToken(ps,fsz):esc(un.name[0]); }
       else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):(un.face?faceSvg(un.face,{size:fsz}):'V');
       else if(un.prop)inner=nestSvg(fsz);
-      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2&&g2.face?faceSvg(g2.face,{size:fsz,revenant:true}):esc(un.name[0]); }
+      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcToken({cls:(g2.snap&&g2.snap.cls),face:g2.face,commander:g2.snap&&g2.snap.commander},fsz,{revenant:true}):esc(un.name[0]); }
       else inner=enemyFace(un.ekey,fsz);
       const cls2=un.kind==='ally'?'ally':cls;
       const crown=(B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
@@ -3568,8 +3602,8 @@ function renderBattle(){
   const sw=show?wOf(show):null;
   let showFace='';
   if(show){
-    if(show.kind==='pc'){const ps=soldierById(show.ref); if(ps&&ps.face)showFace=`<div class="face" style="float:right">${faceSvg(ps.face,{size:44})}</div>`;}
-    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2&&g2.face)showFace=`<div class="face revf" style="float:right">${faceSvg(g2.face,{size:44,revenant:true})}</div>`;}
+    if(show.kind==='pc'){const ps=soldierById(show.ref); if(ps)showFace=`<div class="face" style="float:right">${pcToken(ps,48)}</div>`;}
+    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcToken({cls:g2.snap&&g2.snap.cls,face:g2.face,commander:g2.snap&&g2.snap.commander},48,{revenant:true})}</div>`;}
     else showFace=`<div class="face" style="float:right">${enemyFace(show.ekey,44)}</div>`;
   }
   let insp=show?`<div class="card">${showFace}<span class="nm">${esc(show.name)}</span>${iu?' <span class="tag revtag">scouting</span>':''}

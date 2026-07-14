@@ -11,6 +11,19 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.41 (2026-07-13) — Grimdark Company: Class Character Tokens
+Your soldiers no longer read as interchangeable faces on the board. Each is now a **class-distinct grimdark figure** — their own face framed in the armour, helm/hood, and weapon of their calling:
+
+- **Fighter** — steel plate, red surcoat, a great-helm, sword and kite shield.
+- **Ranger** — a green hood and cloak, longbow at the ready.
+- **Cleric** — chainmail coif and a white tabard marked with a red cross, mace in hand.
+- **Ash Acolyte** — dark ashen robes shot through with blight-violet, a hood, and a coil of ashfire.
+- **Underkingdom Shade** — black hood and leathers, twin daggers.
+- **Commander** — whatever their class, they carry a tattered banner over the shoulder.
+- **Revenants** rise as a corrupted version of exactly what they were — same kit, violet glow, dead-eyed.
+
+They read by silhouette and colour when zoomed out and by detail when you zoom in, and the same figure now heads the unit card. Individual faces are preserved inside the armour.
+
 ## v0.40 (2026-07-13) — Immersive Battle Map: Pan, Zoom, Floating HUD
 The scrolling grid-in-a-box is gone. The battlefield now fills the screen and everything else floats over it.
 
