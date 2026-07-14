@@ -11,6 +11,20 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.42 (2026-07-14) — Mobile Battle UI Pass
+The immersive battle HUD was built desktop-first; this pass makes it right on a phone.
+
+**Portrait phones** get a proper stacked layout instead of overlapping desktop corners:
+- A slim single-line title bar (contract · round · objective) with the **☰ Log** button beside it.
+- The squad roster becomes a horizontal, swipeable strip below the title.
+- The field log opens as a full-width sheet under the roster (not a cramped corner box).
+- The bottom is a clean stack — a compact soldier card (no wall of instructions), the move/action readout, then a swipeable action row with **End Turn pinned to the left so it's always in reach** and Retreat tucked at the far end.
+- Zoom ＋/－ moved to the right edge, mid-screen, at a thumb-friendly 44px.
+
+**Landscape phones** keep the desktop corners but drop the verbose hint and tighten the cards so nothing overflows or collides on a short screen.
+
+Also fixed touch-scrolling on the roster and action strips (the map's gesture-capture had been swallowing it), and confirmed tap-to-select, tap-to-move, and the log toggle all work by touch. Desktop is unchanged.
+
 ## v0.41 (2026-07-13) — Grimdark Company: Class Character Tokens
 Your soldiers no longer read as interchangeable faces on the board. Each is now a **class-distinct grimdark figure** — their own face framed in the armour, helm/hood, and weapon of their calling:
 

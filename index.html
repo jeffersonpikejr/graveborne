@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.41</title>
+<title>GRAVEBORNE — alpha v0.42</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -112,18 +112,52 @@
   .hudcard{background:rgba(18,15,11,.86);border:1px solid var(--line);border-radius:5px;padding:6px 10px;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);box-shadow:0 2px 14px rgba(0,0,0,.55)}
   .hud-tl{top:8px;left:8px;max-width:56%;flex-direction:column;align-items:flex-start}
   .hud-tr{top:8px;right:8px;flex-direction:column;align-items:flex-end;max-width:42%}
-  .hud-unit{bottom:8px;left:8px;max-width:min(330px,52vw);flex-direction:column;max-height:44vh;overflow:auto}
+  .hud-unit{bottom:8px;left:8px;max-width:min(330px,52vw);flex-direction:column;max-height:44vh;overflow:auto;touch-action:pan-y}
   .hud-act{bottom:8px;left:50%;transform:translateX(-50%);flex-direction:column;align-items:center;max-width:92vw}
   .hud-roster{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
-  .hud-log{top:54px;right:8px;max-width:min(320px,62vw);max-height:44vh;overflow-y:auto;z-index:23}
+  .hud-log{top:54px;right:8px;max-width:min(320px,62vw);max-height:44vh;overflow-y:auto;z-index:23;touch-action:pan-y}
   #actbarImm{display:flex;justify-content:center;flex-wrap:wrap;gap:6px}
   #actbarImm button{margin:0}
   #zoombtns{position:absolute;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:22;display:flex;flex-direction:column;gap:5px}
   #zoombtns button{width:36px;height:36px;font-size:19px;line-height:1;padding:0;background:rgba(18,15,11,.86);border:1px solid var(--line);color:var(--ink);border-radius:5px;cursor:pointer;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
-  @media (max-width:760px){ .hud-tl{max-width:64%} .hud-unit{max-width:62vw;font-size:12px;max-height:32vh}
-    .hud-unit .hint{display:none}                              /* drop the verbose instructions on small screens */
-    .hud-unit .featline{font-size:11px} .hud-act{z-index:24;max-width:99vw} .hud-act .hudcard{padding:2px 8px}
-    #actbarImm{gap:4px} #actbarImm button{padding:6px 7px;font-size:12px} #zoombtns button{width:40px;height:40px} }
+  /* ---- MOBILE / PORTRAIT: stacked HUD instead of desktop corners ---- */
+  @media (max-width:760px){
+    /* top: slim title bar (leaves room for the Log button), roster as a horizontal scroll strip below it */
+    .hud-tl{left:6px;right:52px;top:6px;max-width:none}
+    .hud-tl .hudcard{width:100%;padding:5px 9px;gap:2px 9px;font-size:11.5px;line-height:1.25}
+    .hud-tl .hudcard b{font-size:12.5px !important}
+    .hud-tr{top:6px;right:6px;left:auto;max-width:44px;flex-direction:column;gap:4px}
+    .hud-tr>button{padding:8px 9px;font-size:12px}
+    .hud-tr .hud-roster{position:fixed;top:46px;left:6px;right:6px;max-width:none;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;padding:5px 6px;-webkit-overflow-scrolling:touch;touch-action:pan-x}
+    .hud-roster::-webkit-scrollbar{height:0} .hud-roster .qitem{flex:0 0 auto;padding:6px 9px}
+    /* bottom: compact unit card stacked above a single-row, horizontally-scrollable action bar */
+    .hud-unit{left:6px;right:6px;bottom:98px;max-width:none;max-height:22vh;z-index:24}
+    .hud-unit .card{font-size:12px;padding:6px 9px;margin:0}
+    .hud-unit .hint,.hud-unit .featline{display:none}         /* drop verbose instructions & feat chips on phones */
+    .hud-unit .face{transform:scale(.85);transform-origin:top right}
+    .hud-act{left:6px;right:6px;bottom:6px;transform:none;max-width:none;flex-direction:column;gap:5px;z-index:25}
+    .hud-act .hudcard{width:100%;padding:3px 10px;text-align:center;box-sizing:border-box}
+    #actbarImm{width:100%;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;gap:5px;padding-bottom:2px;-webkit-overflow-scrolling:touch;touch-action:pan-x}
+    #actbarImm::-webkit-scrollbar{height:0}
+    #actbarImm button{flex:0 0 auto;padding:9px 11px;font-size:12.5px;white-space:nowrap}
+    #actbarImm .primary{order:-1}                             /* End Turn pinned to the left so it's always in view */
+    #actbarImm .danger{order:9}                               /* Retreat scrolls to the far right (out of thumb's easy reach) */
+    /* the field log opens as a full-width sheet below the roster strip (not a cramped top-right box) */
+    .hud-log{top:94px;left:6px;right:6px;max-width:none;max-height:min(52vh,420px)}
+    .hud-log .hudcard{width:100%;box-sizing:border-box}
+    /* zoom on the right edge, mid-screen, clear of both HUD stacks */
+    #zoombtns{right:6px;bottom:auto;top:42%;flex-direction:column;gap:6px}
+    #zoombtns button{width:44px;height:44px;font-size:20px}
+  }
+  /* ---- LANDSCAPE PHONES (short but wide): keep the desktop corners, but drop the verbose hint and keep cards compact ---- */
+  @media (max-height:560px) and (min-width:761px){
+    .hud-unit{max-width:min(300px,38vw);max-height:calc(100vh - 16px);overflow:auto}
+    .hud-unit .hint{display:none}
+    .hud-tl .hudcard,.hud-act .hudcard{padding:3px 9px}
+    .hud-act{gap:3px}
+    #actbarImm{gap:5px} #actbarImm button{padding:6px 9px}
+    #zoombtns{bottom:6px} #zoombtns button{width:38px;height:38px}
+  }
   /* tile shading via inset shadow (paints UNDER the child unit token, not over it) */
   .tile.hi{box-shadow:inset 0 4px 0 rgba(216,180,104,.34),inset 0 0 0 200px rgba(233,214,160,.11)}
   .tile.lo{box-shadow:inset 0 0 10px rgba(0,0,0,.55),inset 0 0 0 200px rgba(0,0,0,.2)}
@@ -3135,7 +3169,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.41</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.42</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
