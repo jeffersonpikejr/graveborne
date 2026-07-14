@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.38</title>
+<title>GRAVEBORNE — alpha v0.39</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -37,6 +37,18 @@
   .unit.ally{background:#8a7a5a}
   .fogveil{position:absolute;inset:0;pointer-events:none;z-index:15;background:repeating-linear-gradient(105deg,rgba(165,170,182,.05) 0 26px,rgba(165,170,182,.12) 26px 52px);animation:fogdrift 16s linear infinite}
   @keyframes fogdrift{to{background-position:210px 0}}
+  /* battle atmosphere — a non-scrolling frame over the viewport carries the vignette + weather */
+  #bfframe{position:relative}
+  .bfvig{position:absolute;inset:0;pointer-events:none;z-index:16;border-radius:3px;box-shadow:inset 0 0 34px rgba(6,5,3,.55),inset 0 0 95px 26px rgba(6,5,3,.82)}
+  .wx{position:absolute;inset:0;pointer-events:none;z-index:15;overflow:hidden;border-radius:3px}
+  .wx-fog{background:repeating-linear-gradient(101deg,rgba(184,190,200,.03) 0 34px,rgba(184,190,200,.10) 34px 72px);animation:fogdrift 22s linear infinite}
+  .wx-fog::after{content:'';position:absolute;inset:0;background:radial-gradient(130% 90% at 25% 15%,transparent 42%,rgba(150,156,168,.16));animation:fogdrift 40s linear infinite reverse}
+  .wx-ash{background:repeating-linear-gradient(96deg,rgba(150,116,84,.05) 0 28px,rgba(120,92,64,.13) 28px 62px);animation:fogdrift 26s linear infinite}
+  .wx-ash::after{content:'';position:absolute;inset:-25% 0;background-image:radial-gradient(rgba(206,150,86,.55) 1px,transparent 1.5px);background-size:64px 64px;opacity:.4;animation:ashfall 9s linear infinite}
+  .wx-rain{background-image:repeating-linear-gradient(72deg,transparent 0 7px,rgba(164,176,192,.14) 7px 8px);animation:rainfall .5s linear infinite}
+  @keyframes ashfall{to{background-position:24px 320px}}
+  @keyframes rainfall{to{background-position:56px 240px}}
+  .tile.blighttile{outline:1px solid rgba(122,66,158,.28);outline-offset:-1px}
   #header{display:flex;gap:18px;align-items:baseline;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
   #header .stat{color:var(--dim)} #header .stat b{color:var(--ink)}
   #main{display:flex;gap:10px;padding:10px;align-items:flex-start;flex-wrap:wrap}
@@ -1515,6 +1527,7 @@ function startBattle(contract,squadIds){
            :bhex.blighted?(chance(40)?'ashhaze':null)
            :(['hills','marsh','mountain'].includes(bhex.t)?(chance(45)?'fog':null)
            :(chance(12)?'fog':null));
+  B.rain=!B.weather&&chance(22);      // atmospheric drizzle on some clear-weather maps — purely visual, no penalty
   if(contract.layout==='pass')B.mapTheme='pass';
   genBattleMap(B,bhex,region);
   // escort lays a road lane across the field (bridging any water on it)
@@ -3070,7 +3083,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.38</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.39</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3399,12 +3412,12 @@ function tileArt(t,x,y,tile){
   const v=(x*7+y*13)%4;
   if(t==='tree')return `<svg class="decor" viewBox="0 0 46 46"><path d="M${9+v} 40 L${18+v} 12 L${27+v} 40 Z" fill="#1f2a15" stroke="#0e130a" stroke-width="1.2"/><rect x="${16.5+v}" y="38" width="3" height="6" fill="#231a12"/><path d="M${24+v} 42 L${31+v} 20 L${38+v} 42 Z" fill="#1a2412" stroke="#0e130a"/></svg>`;
   if(t==='brush')return `<svg class="decor" viewBox="0 0 46 46"><path d="M10 36 q3 -8 6 0 q3 -7 6 0 q3 -8 6 0 q3 -7 6 0" fill="none" stroke="#39431f" stroke-width="2.2"/><path d="M14 37 q3 -6 6 0 q3 -6 6 0" fill="none" stroke="#2b3317" stroke-width="1.5"/></svg>`;
-  if(t==='boulder')return `<svg class="decor" viewBox="0 0 46 46"><path d="M8 38 L${15+v} 16 L30 12 L40 30 L34 40 L12 40 Z" fill="#433d33" stroke="#110e09" stroke-width="1.5"/><path d="M${15+v} 16 L26 26 L30 12" fill="none" stroke="#555043"/><path d="M20 39 L26 26" stroke="#2b271e"/></svg>`;
-  if(t==='rubble')return `<svg class="decor" viewBox="0 0 46 46"><rect x="6" y="20" width="14" height="18" fill="#433d33" stroke="#110e09"/><rect x="22" y="12" width="10" height="26" fill="#3a352c" stroke="#110e09"/><rect x="14" y="30" width="8" height="8" fill="#332e27" stroke="#110e09"/><path d="M6 30 h14" stroke="#2a251d"/></svg>`;
-  if(t==='column')return `<svg class="decor" viewBox="0 0 46 46"><rect x="18" y="8" width="10" height="32" rx="2" fill="#4b463a" stroke="#110e09"/><rect x="15" y="6" width="16" height="4" fill="#433d33" stroke="#110e09"/><path d="M20 14 v22 M26 14 v22" stroke="#332e27"/></svg>`;
-  if(t==='stone')return `<svg class="decor" viewBox="0 0 46 46"><path d="M16 40 L14 12 Q23 6 32 12 L30 40 Z" fill="#443e36" stroke="#110e09" stroke-width="1.5"/><path d="M22 16 v20" stroke="#332e27"/></svg>`;
+  if(t==='boulder')return `<svg class="decor" viewBox="0 0 46 46"><ellipse cx="24" cy="40" rx="17" ry="4" fill="#000" opacity=".3"/><path d="M7 40 Q3 26 12 17 Q23 9 34 16 Q43 23 39 34 Q36 41 26 41 Z" fill="#433d33" stroke="#100d09" stroke-width="1.5"/><path d="M12 17 Q23 9 34 16 Q38 20 39 26" fill="none" stroke="#585244" stroke-width="1.2"/><path d="M17 21 Q22 29 20 39 M31 19 Q35 28 31 40" fill="none" stroke="#2a261d" stroke-width="1"/><path d="M9 34 Q18 33 22 27" fill="none" stroke="#2a261d" stroke-width=".8"/></svg>`;
+  if(t==='rubble')return `<svg class="decor" viewBox="0 0 46 46"><path d="M4 41 L4 19 L11 15 L19 18 L27 13 L35 17 L42 21 L42 41 Z" fill="#3a352b" stroke="#100d09" stroke-width="1.3"/><path d="M4 27 h38 M4 34 h38" stroke="#211d16" stroke-width="1.1"/><path d="M13 19 v22 M22 17 v24 M32 16 v25" stroke="#211d16" stroke-width=".9"/><path d="M4 19 L11 15 L19 18 L27 13 L35 17 L42 21" fill="none" stroke="#554d3f" stroke-width="1.1"/><circle cx="8" cy="43" r="2.2" fill="#332e26" stroke="#100d09" stroke-width=".5"/><circle cx="16" cy="44" r="1.7" fill="#2c281f"/></svg>`;
+  if(t==='column')return `<svg class="decor" viewBox="0 0 46 46"><ellipse cx="23" cy="41" rx="12" ry="3" fill="#000" opacity=".3"/><rect x="14" y="38" width="18" height="4" rx="1" fill="#3a352b" stroke="#100d09"/><rect x="16" y="10" width="14" height="29" fill="#443f34" stroke="#100d09" stroke-width="1.2"/><rect x="13" y="6" width="20" height="5" rx="1" fill="#4c473a" stroke="#100d09"/><path d="M19 12 v26 M23 12 v26 M27 12 v26" stroke="#2a261e" stroke-width=".9"/><path d="M17 11 v27" stroke="#575142" stroke-width="1.1"/></svg>`;
+  if(t==='stone')return `<svg class="decor" viewBox="0 0 46 46"><ellipse cx="23" cy="41" rx="11" ry="3" fill="#000" opacity=".3"/><path d="M15 41 L13 13 Q16 6 24 6 Q31 7 31 14 L30 41 Z" fill="#443f37" stroke="#100d09" stroke-width="1.4"/><path d="M15 41 L13 13 Q16 7 23 6.4" fill="none" stroke="#575044" stroke-width="1.1"/><path d="M22 12 v26 M27 17 l-3 13" stroke="#2a261d" stroke-width=".9"/><ellipse cx="19" cy="21" rx="3" ry="4" fill="#39471f" opacity=".4"/><ellipse cx="27" cy="33" rx="2.4" ry="3" fill="#39471f" opacity=".3"/></svg>`;
   if(t==='water')return `<svg class="decor" viewBox="0 0 46 46"><rect width="46" height="46" fill="#0e141a" opacity=".38"/><path d="M4 ${16+v} q10 -4 20 0 t20 0 M4 ${26+v} q10 -4 20 0 t20 0 M4 ${36-v} q10 -4 20 0 t20 0" fill="none" stroke="#3b4855" stroke-width="1.5" opacity=".72"/></svg>`;
-  if(t==='bridge')return `<svg class="decor" viewBox="0 0 46 46"><rect x="2" y="16" width="42" height="14" fill="#543e2b" stroke="#231910"/><path d="M8 16 v14 M18 16 v14 M28 16 v14 M38 16 v14" stroke="#32251a"/></svg>`;
+  if(t==='bridge')return `<svg class="decor" viewBox="0 0 46 46"><rect x="0" y="13" width="46" height="3" fill="#2a1d12"/><rect x="0" y="30" width="46" height="3" fill="#2a1d12"/><rect x="1" y="15" width="44" height="16" fill="#4a3728" stroke="#1d1409" stroke-width="1"/><rect x="1" y="15" width="44" height="3" fill="#5c4632"/><path d="M7 15 v16 M14 15 v16 M21 15 v16 M28 15 v16 M35 15 v16 M42 15 v16" stroke="#2a1d12" stroke-width="1.1"/><path d="M5 22 h8 M24 25 h9 M30 19 h6" stroke="#5a4632" stroke-width=".7" opacity=".6"/></svg>`;
   if(tile&&tile.blighted)return `<svg class="decor" viewBox="0 0 46 46">${groundTex(x,y,'grass')}<ellipse class="bpool" cx="23" cy="${28+v}" rx="13" ry="6" fill="#42305c" opacity=".62"/><circle cx="${15+v*3}" cy="${20+v}" r="1.6" fill="#9a6fc9"/><path d="M${18+v} ${28+v} q3 -9 8 -12" stroke="#6b4a95" stroke-width="1.3" fill="none"/></svg>`;
   if(t==='mire')return `<svg class="decor" viewBox="0 0 46 46"><rect width="46" height="46" fill="#0c0e0a" opacity=".3"/>${groundTex(x,y,'grass')}<ellipse cx="${11+v*4}" cy="30" rx="8" ry="3.4" fill="#12181a" opacity=".55"/><ellipse cx="${30-v*3}" cy="18" rx="5" ry="2.2" fill="#12181a" opacity=".4"/>${tile&&tile.deco?decoInner(tile.deco,x,y):''}</svg>`;
   if(t==='chasm')return `<svg class="decor" viewBox="0 0 46 46"><rect width="46" height="46" fill="#070809"/><ellipse cx="23" cy="24" rx="23" ry="21" fill="#000" opacity=".6"/><path d="M2 6 Q23 12 44 6" fill="none" stroke="#2a2419" stroke-width="1.4" opacity=".4"/></svg>`;
@@ -3469,7 +3482,7 @@ function renderBattle(){
   }
   const vis=computeVis(B); B._vis=vis;
   const fsz=Math.round(TS*0.66);
-  let grid=`<div id="gridwrap"><div id="grid" style="--ts:${TS}px;grid-template-columns:repeat(${GW},${TS}px)">`;
+  let grid=`<div id="bfframe"><div id="gridwrap"><div id="grid" style="--ts:${TS}px;grid-template-columns:repeat(${GW},${TS}px)">`;
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
     const t=tileAt(B,x,y);
     const key=x+','+y, visible=vis.has(key), explored=!!B.seen[key];
@@ -3504,7 +3517,7 @@ function renderBattle(){
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
     const e=(t.elev==null?1:t.elev), bg=TILE_BG[t.t]||'#2e2a20';
     const fog=visible?'':(explored?'fogseen':'fogdark');
-    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${e===2?'hi':e===0?'lo':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${e===2?'hi':e===0?'lo':''} ${t.blighted?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
     if(fog!=='fogdark')grid+=tileArt(t.t,x,y,t);
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
@@ -3525,7 +3538,9 @@ function renderBattle(){
     } else if(bd){ grid+=`<div class="body">☠</div>`; }
     grid+='</div>';
   }
-  grid+=`${B.weather?'<div class="fogveil"></div>':''}</div></div>`;
+  let wx=B.weather==='fog'?'<div class="wx wx-fog"></div>':B.weather==='ashhaze'?'<div class="wx wx-ash"></div>':'';
+  if(B.rain)wx+='<div class="wx wx-rain"></div>';
+  grid+=`</div></div><div class="bfvig"></div>${wx}</div>`;   // close grid+gridwrap, then the vignette & weather over the fixed viewport
   // squad roster (player phase) — tap a soldier to command them, in any order you like; ● = action still available
   const q = B.phase==='player'
     ? B.units.filter(z=>z.kind==='pc'&&z.hp>0&&!z.fled).map(z=>{ const done=z.acted&&(z.mp||0)<=0;

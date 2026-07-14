@@ -11,6 +11,15 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.39 (2026-07-13) — Graphics Depth: Atmosphere & Built Ruins
+A cinematic pass to bring the battlefields closer to grimdark tabletop art.
+
+**Vignette.** The viewport is now framed in darkness — edges fall off to shadow, drawing the eye to the fight. It stays fixed as the map scrolls.
+
+**Weather you can feel.** Fog and ash-haze, which used to share one generic veil, now read as their own thing: fog drifts in pale banks; ash-haze hangs warm and brown with embers sifting down. And a new **rain** — diagonal streaks sweeping the field — falls on some clear-weather maps. Rain is pure atmosphere (no combat penalty); fog and ash-haze still cap sight and bowshot as before.
+
+**Built ruins, not icons.** The stone tiles were redrawn to read as made things: **walls** are broken courses of dressed masonry with mortar lines and stones fallen at their feet; **columns** are fluted drums with capitals; **standing stones** are weathered, cracked, moss-flecked; **bridges** are heavy timber decking; **boulders** got naturalistic shading. Corrupted ground carries a faint violet edge.
+
 ## v0.38 (2026-07-13) — Hazard Maps: Spreading Blight & Killing Falls
 Two more tactically distinct battlegrounds, each with a hazard that reshapes the fight.
 
