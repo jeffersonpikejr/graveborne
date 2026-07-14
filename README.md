@@ -11,6 +11,19 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.44 (2026-07-14) — Double Strike as a Choice, Cleric Kit, QM Economy & Polish
+A batch of fixes and reworks.
+
+**Double Strike is now a real decision.** A level-5 martial (fighter, ranger, shade) no longer just swings twice automatically. You may strike twice **only if you haven't moved** — plant your feet for two blows, and you can't reposition after. Move, and you get a single attack. Strike once and you can still move (forgoing the second). Rangers double-shoot the same way. It's the honest trade-off: two attacks, or move and one.
+
+**Cleric spellbook reworked.** Sanctuary and Ward are now distinct: **Sanctuary** shelters an ally so *no enemy can attack them* until your next turn (it does not stack with the Ashen Ward's +armor). **Protection** is a new cleric blessing — +1 armor to an ally for the rest of the battle. The old team-heal is now **Healing Aura**, a level-5 cleric capstone (heal all allies nearby). Every level-up now names the capstone you unlock.
+
+**Quartermaster economy fixed.** Rescuing the Quartermaster no longer hands you a free squad slot — it *opens the baggage train*: after that you can **pay** for a fifth sword (100c) and a sixth (200c), and lay in one-time supplies. **Consumables (kits, horns) are locked until the Quartermaster is rescued.**
+
+**Elevation gained its low end.** The z-level engine now has **shallows (z−1)** and **pits (z−2)** below ground level — wadeable fens, deep quarry floors, sinkholes — reached down the same one-level slopes.
+
+**Cleaner map.** Removed the gridlines (the move/attack tile outlines are enough), and the battle action bar now scrolls horizontally on every screen so nothing hangs off the edge.
+
 ## v0.43 (2026-07-14) — Z-Levels: Slopes & Cliffs
 Elevation is now a real, Dwarf-Fortress-style z-level system rather than a flat modifier. Every tile sits at a discrete height, and the difference between neighbours decides how you move:
 

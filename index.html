@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.43</title>
+<title>GRAVEBORNE — alpha v0.44</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -101,7 +101,7 @@
   #actbar{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;flex-wrap:wrap;gap:8px;padding:8px 12px;background:var(--panel);border-top:1px solid var(--gold);z-index:40;margin:0;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
   #battleWrap{display:flex;gap:10px;padding:10px 10px 78px;align-items:flex-start;flex-wrap:wrap}
   #gridwrap{max-width:100%;max-height:68vh;overflow:auto;border:1px solid var(--line);border-radius:3px;background:#0c0a07}
-  #grid{display:grid;gap:1px;background:#000;width:max-content}
+  #grid{display:grid;gap:0;width:max-content}   /* no gridlines — the move/attack tile outlines are enough */
   /* immersive pan/zoom battle view — the map fills the screen, everything else floats as HUD */
   #battle{position:fixed;inset:0;overflow:hidden;background:#0c0a07;touch-action:none;-webkit-user-select:none;user-select:none;z-index:5}
   #viewport{position:absolute;inset:0;overflow:hidden;cursor:grab}
@@ -116,8 +116,11 @@
   .hud-act{bottom:8px;left:50%;transform:translateX(-50%);flex-direction:column;align-items:center;max-width:92vw}
   .hud-roster{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
   .hud-log{top:54px;right:8px;max-width:min(320px,62vw);max-height:44vh;overflow-y:auto;z-index:23;touch-action:pan-y}
-  #actbarImm{display:flex;justify-content:center;flex-wrap:wrap;gap:6px}
-  #actbarImm button{margin:0}
+  #actbarImm{display:flex;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;gap:6px;max-width:94vw;touch-action:pan-x;-webkit-overflow-scrolling:touch}
+  #actbarImm::-webkit-scrollbar{height:0}
+  #actbarImm button{margin:0;flex:0 0 auto;white-space:nowrap}
+  #actbarImm .primary{order:-1}   /* End Turn pinned to the left — always in view */
+  #actbarImm .danger{order:9}     /* Retreat to the far end */
   #zoombtns{position:absolute;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:22;display:flex;flex-direction:column;gap:5px}
   #zoombtns button{width:36px;height:36px;font-size:19px;line-height:1;padding:0;background:rgba(18,15,11,.86);border:1px solid var(--line);color:var(--ink);border-radius:5px;cursor:pointer;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
   /* ---- MOBILE / PORTRAIT: stacked HUD instead of desktop corners ---- */
@@ -726,7 +729,7 @@ function newGame(){
   uid=1;
   S={week:1,day:0,coin:100,prov:15,renown:0,over:false,actOne:false,
      roster:[],hirePool:[],contracts:[],graves:[],regions:[],log:[],battle:null,chronicle:[],
-     partyUp:0,scouted:false,kits:0,horns:0,unlocks:{reforge:false,armor:false},
+     partyUp:0,scouted:false,kits:0,horns:0,unlocks:{reforge:false,armor:false,party:false},
      bondCounts:{},usedBg:[],usedNames:[],agents:[],deserters:[],hexes:null,caravan:null};
   S.regions=REGION_DEFS.map((d,i)=>({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-8,8)),swallowed:false}));
   genWorld();
@@ -837,6 +840,7 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
   if(S.horns===undefined){ S.horns=0; touched=true; }
   // pre-v0.28: smith/armorer unlocks. Grandfather existing campaigns to unlocked so mid-run players aren't suddenly cut off.
   if(!S.unlocks){ S.unlocks={reforge:true,armor:true}; touched=true; }
+  if(S.unlocks.party===undefined){ S.unlocks.party=(S.partyUp||0)>0; touched=true; } // old saves: consider the QM rescued if they already have extra slots
   if(S.story&&S.roster.length&&!S.roster.some(x=>x.commander)){ ensureCommander(); touched=true; }
   // pre-v0.9 saves already at stage 5: schedule the barrow meeting
   if(S.story&&S.story.stage===5&&!S.story.meetWeek){
@@ -1274,6 +1278,7 @@ function featModal(s,opts,stat){
       </div>
       <div class="wline">${WPN_ICON[s.weapon]||'⚔'} <span class="tt" data-tip="${esc(wpnTip(s.weapon,s.wMod))}">${esc(s.wName||WEAPONS[s.weapon].n)}${s.wMod?' +'+s.wMod:''}</span> · 🛡 <span class="tt" data-tip="${esc(armorTip(s.armor))}">${ARMORS[s.armor].n}</span></div>
       <div class="featline">✦ ${featChips(s.feats)}</div>
+      ${s.level>=5?`<p style="margin:6px 0 0;color:var(--gold)">★ Veterancy capstone — ${(CLASSES[s.cls]&&CLASSES[s.cls].martial)?'<b>Double Strike</b>: their basic attacks now land twice.':s.cls==='cleric'?'<b>Healing Aura</b>: a new spell that heals all allies within 2.':'a hardened veteran.'}</p>`:''}
     </div></div>
     <p class="hint" style="margin-top:8px">Choose a feat — remember: whatever you build, the Blight can give back.</p>`;
   showModal('Veterancy',body,opts.map(f=>({label:`${FEATS[f].n} — ${FEATS[f].d}`,cls:'pick',fn:()=>{
@@ -1309,9 +1314,10 @@ function tileDesc(B,x,y){ // inspect-mode readout: what this square does, and wh
     if(t.t==='road'||t.t==='bridge') fx.push('Firm, fast footing.');
   }
   if(t.blighted) fx.push('Blighted: 2 damage each turn you end here; +1 movement to enter.');
-  const e=(t.elev==null?1:t.elev);
-  if(e>1) fx.push(`High ground (z${e}): +6 to hit those below · +1 bow range & sight · blocks sight past it.`);
-  else if(e<1) fx.push(`Low ground (z${e}): exposed — anyone higher gets +6 to hit you.`);
+  const e=(t.elev==null?1:t.elev), dz=e-1;                    // displayed z-level: ground = 0, shallows −1, pit −2, heights +1…
+  if(dz>0) fx.push(`High ground (z+${dz}): +6 to hit those below · +1 bow range & sight · blocks sight past it.`);
+  else if(dz===-1) fx.push('Shallows (z−1): low and exposed — anyone higher gets +6 to hit you.');
+  else if(dz<=-2) fx.push(`Pit (z${dz}): sunken and exposed — anyone above gets +6 to hit you.`);
   if(!bImpass(t.t)){                                          // slope vs cliff on each side (z-levels)
     const nb=[['N',x,y-1],['S',x,y+1],['E',x+1,y],['W',x-1,y]].filter(([d,nx,ny])=>tileAt(B,nx,ny));
     const slopes=nb.filter(([d,nx,ny])=>Math.abs(elevAt(B,nx,ny)-e)===1).map(n=>n[0]);
@@ -1353,6 +1359,9 @@ function genBattleMap(B,bhex,region){
     const dir=pick([[1,0],[-1,0],[0,1],[0,-1]]); let px=Math.round(cx),py=Math.round(cy);
     while(T(px+dir[0],py+dir[1])&&elevAt(B,px+dir[0],py+dir[1])>=3){px+=dir[0];py+=dir[1];}   // px,py = rim tile on that side
     for(let a=-1;a<=1;a++){ const wx=px+dir[0]+(dir[0]?0:a),wy=py+dir[1]+(dir[1]?0:a),tt=T(wx,wy); if(tt&&tt.elev<2&&!bImpass(tt.t))tt.elev=2; } };
+  // a stepped hollow going DOWN: rim at shallows (0), floor at pit (−1) — reached ground(1)→shallows→pit, each a 1-level slope
+  const shallows=(cx,cy,rx,ry)=>{ plateau(cx,cy,rx,ry,0); };
+  const pit=(cx,cy,rx,ry)=>{ plateau(cx,cy,(rx||2)+1.1,(ry||2)+1.1,0); plateau(cx,cy,rx,ry,-1); };
   const wallRect=(x0,y0,x1,y1,feat)=>{ for(let x=x0;x<=x1;x++){ [y0,y1].forEach(y=>{const t=T(x,y); if(t&&chance(82))t.t=feat;}); } for(let y=y0;y<=y1;y++){ [x0,x1].forEach(x=>{const t=T(x,y); if(t&&chance(82))t.t=feat;}); } };
   const gate=(x0,y0,x1,y1)=>{ const side=pick(['t','b','l','r']); if(side==='t'||side==='b'){ const gx=ri(x0+1,x1-1),gy=side==='t'?y0:y1; for(let d=-1;d<=1;d++){const t=T(gx+d,gy); if(t)t.t='grass';} } else { const gy=ri(y0+1,y1-1),gx=side==='l'?x0:x1; for(let d=-1;d<=1;d++){const t=T(gx,gy+d); if(t)t.t='grass';} } };
 
@@ -1418,19 +1427,21 @@ function genBattleMap(B,bhex,region){
     stampScatter('water',ri(5,8),2,4);                          // black pools (impassable)
     for(let i=0;i<ri(3,5);i++){ const t=T(ri(3,GW-4),ri(3,GH-4)); if(t){ stamp('grass',t.x,t.y,ri(2,3),ri(1,2),90); } } // dry hummocks — fast safe islands
     stampScatter('brush',ri(5,7),1,3);                          // reed beds (cover)
-    if(chance(60))plateau(cxc,cyc,GW*0.14,GH*0.14);             // a central raised hummock
+    for(let i=0;i<ri(2,3);i++){ const t=T(ri(3,GW-4),ri(3,GH-4)); if(t)shallows(t.x,t.y,ri(2,4),ri(2,3)); }  // wadeable shallow fen (z−1)
+    if(chance(55))plateau(cxc,cyc,GW*0.14,GH*0.14);             // a central raised hummock
   } else if(theme==='quarry'){
     // a terraced stone pit: normal ground, a raised spoil-rim, then terraces stepping DOWN to a low pit floor
     plateau(cxc,cyc,GW*0.42,GH*0.42,2);                         // the raised rim (high ground ringing the pit)
     plateau(cxc,cyc,GW*0.30,GH*0.30,1);                         // mid terrace
-    plateau(cxc,cyc,GW*0.16,GH*0.16,0);                         // the pit floor (low ground, exposed from the rim)
+    plateau(cxc,cyc,GW*0.18,GH*0.18,0);                         // shallows terrace (z−1)
+    plateau(cxc,cyc,GW*0.09,GH*0.09,-1);                        // the deep pit floor (z−2) — exposed from the rim
     scatter('boulder',ri(3,5),1,2); scatter('rubble',ri(2,3),1,2);
     for(let i=0;i<ri(2,3);i++){const t=randOpen(3); if(t&&t.t==='grass')t.t='column';} // cranes / cut stone
   } else if(theme==='boulders'){
     // open killing ground broken by boulder cover-islands and low ruined walls — a ranged-duel map
     for(let i=0;i<ri(5,8);i++){ const t=randOpen(3); if(t)cluster('boulder',t.x,t.y,ri(1,2),ri(1,2),75); }
     for(let h=0;h<ri(2,3);h++){ const hy=ri(3,GH-4),hx=ri(2,Math.max(2,GW-7)),len=ri(3,6); for(let d=0;d<len;d++){const t=T(hx+d,hy); if(t&&t.t==='grass'&&chance(70))t.t='rubble';} } // low field walls
-    if(chance(60)){ const p=randOpen(4); if(p)(chance(50)?mesa(p.x,p.y,ri(2,3),ri(2,3)):hill(p.x,p.y,ri(3,4),ri(2,3),3)); }  // a bluff (cliff sides) or a climbable rise
+    if(chance(60)){ const p=randOpen(4); if(p){ const r=ri(1,10); if(r<=3)mesa(p.x,p.y,ri(2,3),ri(2,3)); else if(r<=5)hill(p.x,p.y,ri(3,4),ri(2,3),3); else if(r<=7)pit(p.x,p.y,ri(2,3),ri(1,2)); else plateau(p.x,p.y,ri(3,5),ri(3,4)); } }  // a bluff, a rise, a sinkhole, or a gentle plateau
     scatter('brush',ri(3,5),1,2);
   } else if(theme==='menhir'){
     // a blight-menhir field: cracked standing stones seed a corruption that SPREADS across the ground each round.
@@ -1830,7 +1841,7 @@ function bodyAt(B,x,y){return B.bodies.find(b=>b.x===x&&b.y===y);}
 /* ===== PHASE-BASED SQUAD TURNS =====
    Round = your Player Phase (move/act every soldier in any order you choose) then the Enemy Phase
    (every foe acts). B.queue drives ONLY the enemy phase now. */
-function clearTransient(u){ u.rooted=false; u.offbalance=false; u.warcried=false; u.rallied=false; u.warded=0; u.skirmished=false; }
+function clearTransient(u){ u.rooted=false; u.offbalance=false; u.warcried=false; u.rallied=false; u.warded=0; u.skirmished=false; u.sanctuary=0; } // sanctuary ward lasts through the enemy phase, clears at your next turn
 function buildEnemyQueue(B){
   B.queue=B.units.filter(u=>u.kind==='foe'&&u.hp>0&&!u.fled&&!u.prop).sort((a,b)=>b.spd-a.spd||a.uid-b.uid).map(u=>u.uid);
   B.qi=0;
@@ -1843,13 +1854,19 @@ function activeUnit(B){ // whom the player controls (player phase) or the AI run
   if(B.phase==='enemy')return curUnit(B);
   return B.sel?B.units.find(u=>u.uid===B.sel&&u.hp>0&&!u.fled&&u.kind==='pc'):null;
 }
-function pcTurnLeft(u){ return u.kind==='pc'&&u.hp>0&&!u.fled&&(!u.acted||(u.mp||0)>0); }
+// Double Strike is a CHOICE, not a free second swing: you may strike twice ONLY if you haven't moved this turn;
+// the moment you move you're down to one attack, and a second strike spends the movement you'd have used to reposition.
+function maxStrikes(u){ return (u.dbl && !u.moved) ? 2 : 1; }
+function pcTurnLeft(u){ if(u.kind!=='pc'||u.hp<=0||u.fled)return false;
+  const canAct=!u.acted&&(u.strikes||0)<maxStrikes(u);   // can still attack (or, if unstruck, use an ability)
+  const canMove=(u.mp||0)>0&&(u.strikes||0)<2;            // can still reposition — but not once a double strike is spent
+  return canAct||canMove; }
 function startPlayerPhase(B){
   B.phase='player'; B.aim=null; B.inspect=null;
   // clear the soldiers' transient statuses at the top of their phase; foes shed theirs as they act (so a
   // War-Horn / Smoke Bomb / root applied during the player phase still bites them in the enemy phase)
   for(const u of B.units){ if(u.hp<=0||u.fled)continue;
-    if(u.kind==='pc'){ clearTransient(u); u.mp=moveBudget(u); u.acted=false; u.moved=false; u.defending=false; u.stunned=false; } }
+    if(u.kind==='pc'){ clearTransient(u); u.mp=moveBudget(u); u.acted=false; u.moved=false; u.strikes=0; u.defending=false; u.stunned=false; } }
   if(B.podsActive)podSenseAll(B);
   const pcs=B.units.filter(u=>u.kind==='pc'&&u.hp>0&&!u.fled);
   B.sel=pcs.length?pcs[0].uid:null;          // auto-select the first soldier
@@ -2032,7 +2049,7 @@ function inWeaponRange(B,att,def){
   return cheb===1; // plain melee: any of the 8 neighbours (diagonals included)
 }
 function attackTargets(B,u){
-  return B.units.filter(t=>t.hp>0&&!t.fled&&isEnemy(u,t)&&inWeaponRange(B,u,t));
+  return B.units.filter(t=>t.hp>0&&!t.fled&&!(t.sanctuary>0)&&isEnemy(u,t)&&inWeaponRange(B,u,t)); // sanctuary: can't be attacked
 }
 function isEnemy(a,b){return (a.kind==='foe')!==(b.kind==='foe');}
 function hitChance(B,att,def){
@@ -2119,8 +2136,7 @@ function doAttack(B,att,def){
     }
   }
   strike();
-  if(att.dbl && !B.over && def.hp>0 && !def.fled){ strike(); }   // martial Double Strike (level 5): a second swing
-  att.acted=true;   // Skirmisher's post-attack move refresh is handled in tryAttack (mp economy)
+  if(att.kind!=='pc') att.acted=true;   // enemies spend their action on one swing; a soldier's Double Strike is a choice, counted in tryAttack
 }
 function applyDeath(B,u){
   u.hp=0;
@@ -2230,23 +2246,28 @@ function tryMove(x,y){
   // blue: within your remaining movement — spend the points, keep your action
   let cost=pathCostTo(B,u,x,y,mp);
   if(cost!=null){ u.x=x;u.y=y; u.mp=mp-cost; u.moved=true; B.aim=null; if(B.podsActive)podSenseAll(B); afterPcAct(u); return; }
-  // gold: dash — reachable only by spending your action for a second wind of movement
-  if(!u.acted){ const dashBudget=mp+moveBudget(u); cost=pathCostTo(B,u,x,y,dashBudget);
+  // gold: dash — reachable only by spending your action for a second wind of movement (not once you've begun attacking)
+  if(!u.acted&&(u.strikes||0)===0){ const dashBudget=mp+moveBudget(u); cost=pathCostTo(B,u,x,y,dashBudget);
     if(cost!=null){ u.x=x;u.y=y; u.acted=true; u.moved=true; u.mp=Math.max(0,dashBudget-cost); blog(B,`${u.name} dashes.`); B.aim=null; if(B.podsActive)podSenseAll(B); afterPcAct(u); return; } }
 }
 function tryAttack(targetUid){
   const B=S.battle; const u=activeUnit(B);
   if(!u||u.kind!=='pc'||u.acted||B.phase!=='player')return;
+  if((u.strikes||0)>=maxStrikes(u))return;             // out of attacks: you moved (→ one) or you've already struck twice
   const t=B.units.find(z=>z.uid===targetUid);
   if(!t||!attackTargets(B,u).includes(t))return;
+  const second=(u.strikes||0)>=1;
   doAttack(B,u,t);
-  // Skirmisher: attacking refreshes your movement to a full budget (+1) — strike, then fade away
+  u.strikes=(u.strikes||0)+1;
+  if(second&&u.hp>0)blog(B,`${u.name} follows through — a second strike.`);
+  // Skirmisher: attacking refreshes movement to a full budget (+1) — strike, then fade away (once)
   if(u.hp>0&&!u.fled&&(u.feats||[]).includes('skirmisher')&&!u.skirmished){ u.mp=moveBudget(u)+1; u.skirmished=true; }
+  if((u.strikes||0)>=2)u.mp=0;                          // two swings: feet planted — no repositioning afterward
   if(!B.over)afterPcAct(u);
 }
 function endUnitTurn(){ endPlayerPhase(); }   // legacy: the "End Turn" control now ends the whole player phase
 function peekToggle(){ const B=S.battle; if(!B)return; B.peek=!B.peek; if(!B.peek)B.peekTile=null; B.aim=null; render(); }
-function defend(){ const B=S.battle; const u=activeUnit(B); if(!u||u.kind!=='pc'||u.acted||B.phase!=='player')return;
+function defend(){ const B=S.battle; const u=activeUnit(B); if(!u||u.kind!=='pc'||u.acted||(u.strikes||0)>0||B.phase!=='player')return;
   u.defending=true; u.rattled=Math.max(0,u.rattled-1); u.acted=true; B.aim=null;
   blog(B,`${u.name} braces — −10 to be hit, +2 armor, nerves steadied, until their next turn.`); afterPcAct(u); }
 function unitAbilities(u){
@@ -2254,11 +2275,14 @@ function unitAbilities(u){
   // several (e.g. Sanctuary + an Ash graft) can pick any of them, not just the highest-priority one.
   if(!u||u.kind!=='pc')return [];
   const f=u.feats||[]; const w=WEAPONS[u.weapon]||{}; const out=[];
+  const s=soldierById(u.ref), cls=s?s.cls:'', lvl=s?s.level:1;   // class/level unlock some abilities (cleric kit, capstones)
   if(f.includes('ashfire'))out.push({k:'ashfire',label:'☄ Ashfire',range:4,side:'enemy',ranged:true,tip:'Blightfire — range 4, 4–7 dmg, ignores armor. +1 corruption.'});
   if(f.includes('bonespears'))out.push({k:'bonespears',label:'☠ Bone Spears',range:3,side:'enemy',ranged:true,tip:'Range 3, 3–5 dmg, roots the target (no move next turn). +1 corruption.'});
   if(f.includes('ashward'))out.push({k:'ashward',label:'✦ Ashen Ward',range:2,side:'ally',tip:'Ally within 2: +3 armor until their next turn. +1 corruption.'});
   if(f.includes('hook'))out.push({k:'hook',label:'⤛ Hook',range:2,side:'enemy',tip:'Yank an enemy within 2 one tile toward you; −10 to their hit next turn.'});
-  if(f.includes('sanctuary')&&!u.mendUsed)out.push({k:'sanctuary',label:'✚ Sanctuary',range:0,side:'self',tip:'Heal all allies within 2 (incl. you) for 4 HP — once per battle.'});
+  if(f.includes('sanctuary')&&!u.sanctUsed)out.push({k:'sanctuary',label:'☨ Sanctuary',range:2,side:'ally',tip:'Shelter an ally within 2 in sanctuary — no enemy can attack them until your next turn (once per battle).'});
+  if(cls==='cleric'&&!u.protectUsed)out.push({k:'protect',label:'✚ Protection',range:2,side:'ally',tip:'Bless an ally within 2: +1 armor for the rest of the battle (once per battle).'});
+  if(cls==='cleric'&&lvl>=5&&!u.auraUsed)out.push({k:'healaura',label:'✚ Healing Aura',range:0,side:'self',tip:'Level 5: heal all allies within 2 (incl. you) for 5 HP (once per battle).'});
   if(f.includes('medic')&&!u.medicUsed)out.push({k:'medic',label:'✚ Field Medic',range:1,side:'ally',tip:'Heal an adjacent ally 5 HP (once per battle).'});
   if(w.bash)out.push({k:'bash',label:'⛊ Shield Bash',range:1,side:'enemy',tip:'Bash an adjacent enemy: knock them back and stagger them (they lose their next turn).'});
   if(w.cleave)out.push({k:'cleave',label:'🪓 Cleave',range:w.reach?2:1,side:'enemy',tip:'Strike for reduced damage, then carry the blow into one enemy standing next to your target.'});
@@ -2272,6 +2296,7 @@ function abilityByKey(u,k){ return unitAbilities(u).find(a=>a.k===k)||null; }
 function abilityValidTarget(B,u,ab,t){
   if(!t||t.hp<=0||t.fled)return false;
   if(ab.side==='enemy'&&!isEnemy(u,t))return false;
+  if(ab.side==='enemy'&&t.sanctuary>0)return false;                                      // under sanctuary — can't be attacked at all
   if(ab.side==='enemy'&&t.kind==='foe'&&B._vis&&!B._vis.has(t.x+','+t.y))return false;   // can't target a foe hidden by fog
   if(ab.side==='ally'&&!(t.kind===u.kind&&t!==u&&!t.prop))return false;
   if(ab.ranged)return distC(u,t)>=2&&distC(u,t)<=wxCap(B,ab.range)&&hasLOS(B,u,t);
@@ -2279,7 +2304,7 @@ function abilityValidTarget(B,u,ab,t){
 }
 function useAbility(k){
   const B=S.battle; const u=activeUnit(B);
-  if(!u||u.kind!=='pc'||u.acted||B.phase!=='player')return;
+  if(!u||u.kind!=='pc'||u.acted||(u.strikes||0)>0||B.phase!=='player')return;   // an ability is your action — not after you've struck
   const abs=unitAbilities(u); if(!abs.length)return;
   const ab = k ? abs.find(a=>a.k===k) : abs[0];   // a specific button, or (keyboard shortcut) the first
   if(!ab)return;
@@ -2353,10 +2378,22 @@ function execAbility(B,u,ab,t){
   if(ab.k==='rally'){ t.rattled=0; t.rallied=true; fx.push({type:'float',x:t.x,y:t.y,txt:'steady',color:'#9ab86f'}); blog(B,`${u.name} rallies ${t.name} — steady now.`); u.acted=true; B.aim=null; return; }
   if(ab.k==='medic'){ t.hp=Math.min(t.maxhp,t.hp+5); const as=soldierById(t.ref); if(as)as.hp=t.hp; u.medicUsed=true; fx.push({type:'float',x:t.x,y:t.y,txt:'+5',color:'#9ab86f'}); blog(B,`${u.name} binds ${t.name}’s wounds (+5).`); u.acted=true; B.aim=null; return; }
   if(ab.k==='sanctuary'){
-    u.mendUsed=true; u.acted=true; let n=0;
+    u.sanctUsed=true; u.acted=true; t.sanctuary=1;         // sheltered until the caster's next turn (survives the coming enemy phase)
+    fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'SANCTUARY',color:'#e6d98a'});
+    blog(B,`${u.name} calls sanctuary over ${t.name} — no blade can touch them this round.`);
+    B.aim=null; return;
+  }
+  if(ab.k==='protect'){
+    u.protectUsed=true; u.acted=true; t.arm=(t.arm||0)+1;   // battle-only +1 armor for the rest of the fight
+    fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'+1 ARM',color:'#9ab86f'});
+    blog(B,`${u.name} blesses ${t.name}'s guard — +1 armor for the rest of the battle.`);
+    B.aim=null; return;
+  }
+  if(ab.k==='healaura'){
+    u.auraUsed=true; u.acted=true; let n=0;
     for(const z of B.units){ if(z.hp<=0||z.fled||z.prop)continue;
-      if(z.kind===u.kind&&distC(u,z)<=2){ z.hp=Math.min(z.maxhp,z.hp+4); const as=soldierById(z.ref); if(as)as.hp=z.hp; fx.push({type:'float',x:z.x,y:z.y,txt:'+4',color:'#9ab86f'}); n++; } }
-    blog(B,`${u.name} calls the light down — ${n} of the wounded steady (+4).`);
+      if(z.kind===u.kind&&distC(u,z)<=2){ z.hp=Math.min(z.maxhp,z.hp+5); const as=soldierById(z.ref); if(as)as.hp=z.hp; fx.push({type:'float',x:z.x,y:z.y,txt:'+5',color:'#9ab86f'}); n++; } }
+    blog(B,`${u.name} calls a healing light down — ${n} of the wounded steady (+5).`);
     B.aim=null; return;
   }
   if(ab.k==='warcry'){
@@ -2508,8 +2545,8 @@ function endBattle(outcome){
         queueModal(()=>showModal('The Anvil Recovered','<p>Your smith sets the recovered anvil in the caravan bed and spits on the coals. <b>Weapons can be reforged</b> at any settlement now.</p>',[{label:'At last',cls:'primary',fn:()=>closeModal()}])); }
       else if(B.qmReward==='armor'&&!S.unlocks.armor){ S.unlocks.armor=true;
         queueModal(()=>showModal('The Armorer’s Tools','<p>The armorer’s kit is yours — punches, rivets, and a battered mail-mandrel. <b>The company can be fitted for armor</b> at any settlement now.</p>',[{label:'Good',cls:'primary',fn:()=>closeModal()}])); }
-      else if(B.qmReward==='party'&&(S.partyUp||0)<2){ S.partyUp=(S.partyUp||0)+1;
-        queueModal(()=>showModal('The Quartermaster Lives',`<p>You cut the Quartermaster free of the ambush. Grateful and organized, they stretch the baggage train — <b>you can field ${partyCap()} to a battle</b> now.</p>`,[{label:'Onward',cls:'primary',fn:()=>closeModal()}])); }
+      else if(B.qmReward==='party'&&!S.unlocks.party){ S.unlocks.party=true;
+        queueModal(()=>showModal('The Quartermaster Lives',`<p>You cut the Quartermaster free of the ambush. Grateful and organized, they take charge of the baggage train — the company can now <b>pay to stretch the muster</b> (a fifth sword for 100c, a sixth for 200c) and <b>lay in one-time supplies</b> (kits, horns) at the settlement.</p>`,[{label:'Onward',cls:'primary',fn:()=>closeModal()}])); }
     }
     if(!B.ambush&&(B.type==='purge'||B.type==='delve'||B.type==='reclaim')&&isBlightField(B,region)&&chance(B.obj==='capture'?45:30)){
       queueModal(()=>relicModal(pick(['ashfire','veindrink','bonespears','ashward'])));
@@ -3135,7 +3172,7 @@ function render(){
 function playFx(){
   const grid=document.getElementById('grid');
   if(!grid){fx=[];return;}
-  const px=(x,y)=>({left:x*(TSCUR+1)+4,top:y*(TSCUR+1)+4});
+  const px=(x,y)=>({left:x*TSCUR+4,top:y*TSCUR+4});
   for(const e of fx){
     if(e.type==='flash'||e.type==='dodge'){
       const el=grid.querySelector(`[data-uid="${e.uid}"]`);
@@ -3197,7 +3234,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.43</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.44</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3339,9 +3376,11 @@ function contractScout(c){ // scout-report preview of what waits on a contract (
 }
 window.QMBUY=function(what){
   if(atSettlement()===null)return;
-  if(what==='scout'){ if(S.scouted||S.coin<40)return; S.coin-=40; S.scouted=true; log('Scouts ride out — the pods waiting on every posted contract are marked, until you march.','good'); }
-  else if(what==='kit'){ if(S.coin<35)return; S.coin-=35; S.kits=(S.kits||0)+1; log('A chirurgeon’s kit joins the baggage train.'); }
-  else if(what==='horn'){ if(S.coin<30)return; S.coin-=30; S.horns=(S.horns||0)+1; log('A war horn joins the baggage train.'); }
+  const qm=!!(S.unlocks&&S.unlocks.party);   // the baggage train is only run once the Quartermaster is rescued
+  if(what==='party'){ const c=partyUpCost(); if(!qm||c==null||S.coin<c)return; S.coin-=c; S.partyUp=(S.partyUp||0)+1; log(`The muster stretches — you can field ${partyCap()} to a battle now.`,'good'); }
+  else if(what==='scout'){ if(S.scouted||S.coin<40)return; S.coin-=40; S.scouted=true; log('Scouts ride out — the pods waiting on every posted contract are marked, until you march.','good'); }
+  else if(what==='kit'){ if(!qm||S.coin<35)return; S.coin-=35; S.kits=(S.kits||0)+1; log('A chirurgeon’s kit joins the baggage train.'); }
+  else if(what==='horn'){ if(!qm||S.coin<30)return; S.coin-=30; S.horns=(S.horns||0)+1; log('A war horn joins the baggage train.'); }
   else return;
   save(); render();
 };
@@ -3388,13 +3427,15 @@ function renderCompany(){
         <div class="hint" style="margin-top:5px">Weekly: wages 3c/head, 1 provision/head, wounds mend. The world moves while you rest — and while you travel.</div>
         ${setl!==null?`<div class="qm" style="margin-top:7px;border-top:1px solid var(--line);padding-top:6px">
           <div class="hint" style="color:var(--gold);margin-bottom:3px">⚒ Quartermaster — commissions (earned by mission)</div>
-          ${((S.partyUp||0)<2)?(S.contracts.some(c=>c.qm==='party')?`<span class="hint">⏳ Rescue the Quartermaster — commissioned (find the ⚑)</span>`:`<button onclick="QMQUEST('party')" title="${esc(QM_QUESTS.party.hook)}">📜 Commission — Rescue the Quartermaster (+1 field)</button>`):`<span class="hint">Field cap maxed (6 / battle).</span>`}
+          ${(!(S.unlocks&&S.unlocks.party))?(S.contracts.some(c=>c.qm==='party')?`<span class="hint">⏳ Rescue the Quartermaster — commissioned (find the ⚑)</span>`:`<button onclick="QMQUEST('party')" title="${esc(QM_QUESTS.party.hook)}">📜 Commission — Rescue the Quartermaster (opens hiring & supplies)</button>`):''}
           ${(!(S.unlocks&&S.unlocks.reforge))?(S.contracts.some(c=>c.qm==='reforge')?`<span class="hint">⏳ Blacksmith’s Anvil — commissioned</span>`:`<button onclick="QMQUEST('reforge')" title="${esc(QM_QUESTS.reforge.hook)}">📜 Commission — Recover the Blacksmith’s Anvil (unlock reforge)</button>`):''}
           ${(!(S.unlocks&&S.unlocks.armor))?(S.contracts.some(c=>c.qm==='armor')?`<span class="hint">⏳ Armorsmith’s Tools — commissioned</span>`:`<button onclick="QMQUEST('armor')" title="${esc(QM_QUESTS.armor.hook)}">📜 Commission — Recover the Armorsmith’s Tools (unlock armor)</button>`):''}
-          <div class="hint" style="color:var(--gold);margin:6px 0 3px">Supplies (coin)</div>
+          <div class="hint" style="color:var(--gold);margin:6px 0 3px">Baggage train (coin)</div>
           <button ${S.coin<40||S.scouted?'disabled':''} onclick="QMBUY('scout')" title="Reveal the enemy pods waiting on every posted contract. Spent the moment you begin any mission.">${S.scouted?'✓ Scouts afield':'🔭 Scout Report (40c)'}</button>
+          ${(S.unlocks&&S.unlocks.party)?`${partyUpCost()!=null?`<button ${S.coin<partyUpCost()?'disabled':''} onclick="QMBUY('party')" title="Stretch the muster — field one more sword per battle (still capped at 6).">➕ Field a ${partyCap()===4?'fifth':'sixth'} sword (${partyUpCost()}c)</button>`:`<span class="hint">Muster maxed (6 / battle).</span>`}
           <button ${S.coin<35?'disabled':''} onclick="QMBUY('kit')" title="Consumable. Choose it at muster: your squad deploys at full HP.">🩹 Chirurgeon’s Kit (35c)${(S.kits||0)?` ·×${S.kits}`:''}</button>
-          <button ${S.coin<30?'disabled':''} onclick="QMBUY('horn')" title="Consumable. Choose it at muster: enemies open the battle shaken (−10 to hit, round one).">📯 War Horn (30c)${(S.horns||0)?` ·×${S.horns}`:''}</button>
+          <button ${S.coin<30?'disabled':''} onclick="QMBUY('horn')" title="Consumable. Choose it at muster: enemies open the battle shaken (−10 to hit, round one).">📯 War Horn (30c)${(S.horns||0)?` ·×${S.horns}`:''}</button>`
+          :`<span class="hint">🔒 Rescue the Quartermaster to field a fifth & sixth sword (100c, 200c) and lay in one-time supplies (kits, horns).</span>`}
         </div>`:''}
         ${ch&&ch.feat==='shrine'&&!S.regions[ch.region].swallowed?`<button class="storybtn" style="border-color:#5f7a3a;color:#9ab86f" ${S.coin<30?'disabled':''} onclick="SHRINE()">☨ Kneel at the shrine — 30c to push back the Blight in ${esc(S.regions[ch.region].name)} (−12 pressure, +Folk)</button>`:''}
         ${S.story&&S.story.stage===1&&setl===3&&cmdr()?`<button class="storybtn" onclick="SNEAK()">🕯 The Palace — the princess pays for discreet swords. Find a way in.</button>`:''}
@@ -3559,8 +3600,8 @@ function elevArt(B,x,y,t){
 const TERR_DESC={grass:'open ground',road:'a road — quick going',bridge:'a bridge — the only dry crossing',brush:'brush — light cover (−10 to be hit here)',tree:'dense trees — cover and no line of sight through',mire:'mire — soft ground, slow going (costs extra to cross)',chasm:'a chasm — a sheer drop; impassable, but a shield-bash can shove someone over the edge',boulder:'a boulder — impassable, blocks sight',rubble:'ruined wall — impassable, blocks sight',column:'a fallen column — impassable, blocks sight',stone:'a standing stone — impassable, blocks sight',water:'water — impassable'};
 function terrDesc(tile){
   const base=TERR_DESC[tile.t]||'open ground';
-  const e=tile.elev==null?1:tile.elev;
-  const el=e>1?` · high ground z${e} (+hit, +range for archers, blocks sight past it)`:e<1?` · low ground z${e} (exposed from above)`:'';
+  const e=tile.elev==null?1:tile.elev, dz=e-1;
+  const el=dz>0?` · high ground z+${dz} (+hit, +range for archers, blocks sight past it)`:dz===-1?' · shallows z−1 (low, exposed from above)':dz<=-2?` · pit z${dz} (sunken, exposed from above)`:'';
   return base+(tile.blighted?' · blighted (2 dmg/round to the living)':'')+el;
 }
 function computeVis(B){
@@ -3653,7 +3694,7 @@ function renderBattle(){
     if(fog!=='fogdark')grid+=tileArt(t.t,x,y,t)+elevArt(B,x,y,t);
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
-      const badge=un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
+      const badge=un.sanctuary>0?'<span class="stx" style="color:#e6d98a">☨</span>':un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
       if(un.kind==='pc'){ const ps=soldierById(un.ref); inner=ps?pcToken(ps,fsz):esc(un.name[0]); }
       else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):(un.face?faceSvg(un.face,{size:fsz}):'V');
@@ -3700,12 +3741,15 @@ function renderBattle(){
   const objProg=B.obj==='survive'||B.obj==='reclaim'?` · ${Math.min(B.round,B.objRounds)}/${B.objRounds}`:B.obj==='capture'?` · held ${B.capProgress}/2`:'';
   const wxTag=B.weather?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Ranged capped at 3; enemies past 5 tiles hidden">${B.weather==='fog'?'FOG':'ASH-HAZE'}</span>`
              :(B.rain?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Rain — ranged range −1">RAIN</span>`:'');
-  const pips=isPC?`<span class="pips">${esc(u.name)} · Move ${u.mp||0} · Action ${u.acted?'—':'●'}</span>`:(B.phase==='enemy'?'<span class="hint">enemy phase…</span>':'<span class="hint">— tap a soldier —</span>');
-  const anyAvail=B.phase==='player'&&B.units.some(z=>z.kind==='pc'&&z.hp>0&&!z.fled&&(!z.acted||(z.mp||0)>0));
+  const strikesLeft=isPC?Math.max(0,maxStrikes(u)-(u.strikes||0)):0;
+  const actTxt=!isPC?'':(u.acted?'Action —':strikesLeft>=2?'⚔ Strike ×2, or move':strikesLeft===1?'Attack ●':'Action —');
+  const pips=isPC?`<span class="pips">${esc(u.name)} · Move ${u.mp||0} · ${actTxt}</span>`:(B.phase==='enemy'?'<span class="hint">enemy phase…</span>':'<span class="hint">— tap a soldier —</span>');
+  const anyAvail=B.phase==='player'&&B.units.some(z=>pcTurnLeft(z));
+  const canAbil=isPC&&!u.acted&&(u.strikes||0)===0;   // an ability or brace is your action — not available once you've begun striking
   const actbar=`<div id="actbarImm">
       <button class="${B.peek?'primary':''}" onclick="PEEK()" title="Inspect: tap any square to read its terrain and who stands there.">👁${B.peek?' Inspecting':''}</button>
-      ${abs.map(a=>`<button ${isPC&&!u.acted?'':'disabled'} onclick="MEDIC('${a.k}')" title="${esc(a.tip)}">${B.aim===a.k?'Cancel':a.label}</button>`).join('')}
-      <button ${isPC&&!u.acted?'':'disabled'} onclick="DEFEND()" title="Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled)">🛡 Brace</button>
+      ${abs.map(a=>`<button ${canAbil?'':'disabled'} onclick="MEDIC('${a.k}')" title="${esc(a.tip)}">${B.aim===a.k?'Cancel':a.label}</button>`).join('')}
+      <button ${canAbil?'':'disabled'} onclick="DEFEND()" title="Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled)">🛡 Brace</button>
       <button ${anyAvail?'':'disabled'} onclick="NEXTUNIT()" title="Jump to the next soldier who still has a move or action left">Next ▶</button>
       <button class="primary" ${B.phase==='player'?'':'disabled'} onclick="ENDT()" title="End the whole squad's turn — the enemy moves">End Turn ⏎</button>
       <button class="danger" ${B.phase==='player'?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen are carried out only if a living soldier stands beside the body.">Retreat</button></div>`;
@@ -3727,7 +3771,7 @@ function renderBattle(){
 }
 /* ===================== IMMERSIVE BATTLE CAMERA — drag-pan, wheel/pinch-zoom ===================== */
 function clampZoom(z){ return clamp(z,0.25,2.8); }
-function battleGridPx(B){ return (B._ts||40)+1; }                 // one tile's pixel step (size + 1px gap)
+function battleGridPx(B){ return (B._ts||40); }                   // one tile's pixel step (no gap between tiles)
 function clampCam(B,vp){ const TS=battleGridPx(B), gw=GW*TS*B._cam.z, gh=GH*TS*B._cam.z, m=64;
   if(gw<=vp.clientWidth) B._cam.x=(vp.clientWidth-gw)/2; else B._cam.x=clamp(B._cam.x, vp.clientWidth-gw-m, m);
   if(gh<=vp.clientHeight) B._cam.y=(vp.clientHeight-gh)/2; else B._cam.y=clamp(B._cam.y, vp.clientHeight-gh-m, m); }
