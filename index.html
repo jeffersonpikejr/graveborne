@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.45</title>
+<title>GRAVEBORNE — alpha v0.46</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -25,7 +25,6 @@
   .col{box-shadow:inset 0 1px 0 rgba(255,255,255,.03),0 3px 10px rgba(0,0,0,.45)}
   #modal{box-shadow:0 0 50px rgba(0,0,0,.85),inset 0 0 0 1px #2a2318;border-radius:5px}
   .lgi{opacity:.55;margin-right:5px}
-  .tile.alt{box-shadow:inset 0 0 0 200px rgba(255,255,255,.03)}
   .body{font-size:17px;color:#cfc4ac;text-shadow:0 0 4px #000;transform:rotate(-14deg)}
   @keyframes torch{0%,100%{box-shadow:inset 0 0 0 1px rgba(224,89,63,.3),inset 0 0 14px rgba(212,80,44,.25)}50%{box-shadow:inset 0 0 0 1px rgba(224,89,63,.5),inset 0 0 22px rgba(212,90,44,.4)}}
   .stile.vis{animation:torch 1.5s infinite}
@@ -3215,7 +3214,29 @@ function render(){
   app.innerHTML=html;
   const lg=document.getElementById('log'); if(lg)lg.scrollTop=0;
   if(S.battle) setupBattleView(S.battle);      // apply the pan/zoom camera & (re)bind gesture handlers
+  if(S.battle) animateWalks(S.battle);         // slide any token that changed tile from its old square to its new one
   playFx();
+}
+// FLIP walk animation: compare each visible unit's tile to where it was last render; if it moved, glide the freshly
+// re-rendered token from the OLD position to the new one. Uses the Web Animations API so nothing lingers in inline
+// style (safe across the full grid rebuild, camera zoom, and a unit that moves again before the glide finishes).
+function animateWalks(B){
+  const grid=document.getElementById('grid'); if(!grid)return;
+  const TS=B._ts||40, prev=B._lastPos||{}, now={};
+  for(const u of B.units){
+    if(u.hp<=0||u.fled)continue;
+    const el=grid.querySelector(`.unit[data-uid="${u.uid}"]`);
+    if(!el)continue;                             // fogged / not on the board this render — don't track or animate
+    now[u.uid]={x:u.x,y:u.y};
+    const p=prev[u.uid];
+    if(p&&(p.x!==u.x||p.y!==u.y)&&el.animate){
+      const dx=(p.x-u.x)*TS, dy=(p.y-u.y)*TS;
+      const steps=Math.max(Math.abs(p.x-u.x),Math.abs(p.y-u.y));
+      const dur=Math.min(150+steps*95,720);      // longer walks take a little longer — reads as steady footwork
+      el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'translate(0,0)'}],{duration:dur,easing:'linear'});
+    }
+  }
+  B._lastPos=now;
 }
 function playFx(){
   const grid=document.getElementById('grid');
@@ -3282,7 +3303,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.45</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.46</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3606,8 +3627,8 @@ function decoInner(kind,x,y){
 // procedural mud/dirt texture so open ground reads as grimed earth, not a flat colour swatch (seeded per tile)
 function groundTex(x,y,t){
   const bx=8+(x*11+y*7)%24, by=10+(x*5+y*17)%22, sp=(x*13+y*3)%4;
-  let s=`<ellipse cx="${bx}" cy="${by}" rx="15" ry="11" fill="#000" opacity=".1"/>`;
-  for(let i=0;i<sp;i++){ const sx=3+(x*17+y*13+i*29)%40, sy=3+(x*7+y*19+i*23)%40; s+=`<circle cx="${sx}" cy="${sy}" r=".9" fill="#000" opacity=".15"/>`; }
+  let s=`<ellipse cx="${bx}" cy="${by}" rx="19" ry="15" fill="#000" opacity=".05"/>`;
+  for(let i=0;i<sp;i++){ const sx=3+(x*17+y*13+i*29)%40, sy=3+(x*7+y*19+i*23)%40; s+=`<circle cx="${sx}" cy="${sy}" r=".9" fill="#000" opacity=".12"/>`; }
   if(t==='road')s+=`<path d="M0 23 h46" stroke="#5a4c34" stroke-width="7" opacity=".32"/>`;
   return s;
 }
@@ -3650,22 +3671,25 @@ function elevArt(B,x,y,t){
 function wallArt(B,x,y,t){
   const isW=(nx,ny)=>{ const nb=tileAt(B,nx,ny); return !!(nb&&nb.t==='rubble'); };
   const N=isW(x,y-1),S=isW(x,y+1),E=isW(x+1,y),W=isW(x-1,y);
-  const b=13, lo=23-b, hi=23+b;                       // band 10..36 (width 26), centred — meets a neighbour's band at the tile edge
-  const stone='#473f33', core='#29251d', dark='#120e07', joint='#221d14', lit='#5e563f';
-  const R=[[lo,lo,2*b,2*b]];                           // hub + an arm toward each wall-neighbour → one contiguous mass
-  if(N)R.push([lo,0,2*b,lo]); if(S)R.push([lo,hi,2*b,46-hi]);
-  if(E)R.push([hi,lo,46-hi,2*b]); if(W)R.push([0,lo,lo,2*b]);
+  const stone='#4f473a', core='#3b3327', dark='#120e07', lit='#655c44', d1='#4c4436', d2='#2b271e';
+  const hsh=(i)=>((x*29+y*53+i*97)>>2)&7;               // stable per-tile pseudo-random for weathering
+  const FW=10;                                          // coursed-face thickness along an exposed edge
   let s='';
-  const hsh=(i)=>(x*29+y*53+i*97)>>2&7;                 // stable per-tile pseudo-random for weathering
-  for(const[rx,ry,rw,rh]of R)s+=`<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${stone}"/>`;               // stone body
-  for(const[rx,ry,rw,rh]of R){ const iw=rw-9,ih=rh-9; if(iw>0&&ih>0)s+=`<rect x="${rx+4.5}" y="${ry+4.5}" width="${iw}" height="${ih}" fill="${core}"/>`; } // packed rubble core
-  for(let i=0;i<12;i++){ const rr=R[i%R.length],[rx,ry,rw,rh]=rr; const sx=rx+2+((x*13+y*7+i*29)%Math.max(1,rw-4)), sy=ry+2+((x*5+y*23+i*17)%Math.max(1,rh-4)); s+=`<circle cx="${sx}" cy="${sy}" r="${1+(i%3)*0.5}" fill="${i%2?'#39332a':'#211d15'}"/>`; }  // irregular rubble debris across the whole run
-  for(const[rx,ry,rw,rh]of R)s+=`<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="none" stroke="${dark}" stroke-width="1.6"/>`;   // coursed outline (reads as stone blocks)
-  // weathered parapet merlons capping the long faces — irregular, some crumbled away
-  const M=(mx,my,mw,mh)=>`<rect x="${mx}" y="${my}" width="${mw}" height="${mh}" fill="${stone}" stroke="${dark}" stroke-width=".8"/><rect x="${mx+.6}" y="${my+.6}" width="${mw-1.2}" height="1.3" fill="${lit}"/>`;
-  let mi=0;
-  if(E||W){ const x0=(W?0:lo)+1, x1=(E?46:hi)-1; for(let mx=x0;mx<x1-3;mx+=6.5+((mi++)%2)){ const h=hsh(mi); if(h>1)s+=M(mx,lo-0.5,3.6+(h%2),3); if(hsh(mi+3)>1)s+=M(mx,hi-2.5,3.6+(h%2),3); } }
-  if(N||S){ const y0=(N?0:lo)+1, y1=(S?46:hi)-1; for(let my=y0;my<y1-3;my+=6.5+((mi++)%2)){ const h=hsh(mi); if(h>1)s+=M(lo-0.5,my,3,3.6+(h%2)); if(hsh(mi+3)>1)s+=M(hi-2.5,my,3,3.6+(h%2)); } }
+  // packed-rubble fill across the WHOLE tile → a 2×2 (or wider) block of walls reads as one solid rubble-filled mass,
+  // in a mid gravel tone clearly lighter than the dark ground so a filled block never looks hollow
+  s+=`<rect width="46" height="46" fill="${core}"/>`;
+  for(let i=0;i<18;i++){ const sx=2+(x*13+y*7+i*29)%42, sy=2+(x*5+y*23+i*17)%42; s+=`<circle cx="${sx}" cy="${sy}" r="${1.1+(i%3)*0.7}" fill="${i%2?d1:d2}"/>`; }  // packed rubble/gravel debris
+  // coursed stone FACE only on EXPOSED edges (the outer brick); a shared edge stays open so neighbouring walls merge seamlessly
+  const M=(mx,my,mw,mh)=>`<rect x="${mx}" y="${my}" width="${mw}" height="${mh}" fill="${stone}" stroke="${dark}" stroke-width=".7"/><rect x="${mx+.5}" y="${my+.5}" width="${mw-1}" height="1.1" fill="${lit}"/>`;   // weathered merlon
+  let mi=1;
+  if(!N){ s+=`<rect x="0" y="0" width="46" height="${FW}" fill="${stone}"/><path d="M0 ${FW-.7} h46" stroke="${lit}" stroke-width=".7" opacity=".5"/><path d="M0 .8 h46" stroke="${dark}" stroke-width="1.5"/>`;
+          for(let mx=1;mx<42;mx+=6.4){ if(hsh(mi++)>1)s+=M(mx,0,4+(hsh(mi)%2),3.4); } }
+  if(!S){ s+=`<rect x="0" y="${46-FW}" width="46" height="${FW}" fill="${stone}"/><path d="M0 ${46-FW+.7} h46" stroke="${lit}" stroke-width=".7" opacity=".5"/><path d="M0 ${45.2} h46" stroke="${dark}" stroke-width="1.5"/>`;
+          for(let mx=1;mx<42;mx+=6.4){ if(hsh(mi++)>1)s+=M(mx,46-3.4,4+(hsh(mi)%2),3.4); } }
+  if(!W){ s+=`<rect x="0" y="0" width="${FW}" height="46" fill="${stone}"/><path d="M${FW-.7} 0 v46" stroke="${lit}" stroke-width=".7" opacity=".5"/><path d="M.8 0 v46" stroke="${dark}" stroke-width="1.5"/>`;
+          for(let my=1;my<42;my+=6.4){ if(hsh(mi++)>1)s+=M(0,my,3.4,4+(hsh(mi)%2)); } }
+  if(!E){ s+=`<rect x="${46-FW}" y="0" width="${FW}" height="46" fill="${stone}"/><path d="M${46-FW+.7} 0 v46" stroke="${lit}" stroke-width=".7" opacity=".5"/><path d="M${45.2} 0 v46" stroke="${dark}" stroke-width="1.5"/>`;
+          for(let my=1;my<42;my+=6.4){ if(hsh(mi++)>1)s+=M(46-3.4,my,3.4,4+(hsh(mi)%2)); } }
   return `<svg class="decor" viewBox="0 0 46 46">${s}</svg>`;
 }
 const TERR_DESC={grass:'open ground',road:'a road — quick going',bridge:'a bridge — the only dry crossing',brush:'brush — light cover (−10 to be hit here)',tree:'dense trees — cover and no line of sight through',mire:'mire — soft ground, slow going (costs extra to cross)',chasm:'a chasm — a sheer drop; impassable, but a shield-bash can shove someone over the edge',boulder:'a boulder — impassable, blocks sight',rubble:'ruined wall — impassable, blocks sight',column:'a fallen column — impassable, blocks sight',stone:'a standing stone — impassable, blocks sight',water:'water — impassable'};
@@ -3702,7 +3726,7 @@ function renderBattle(){
   const mp=isPC?(u.mp||0):0;
   let blueMoves=[], goldMoves=[];
   if(isPC&&!B.aim&&!B.peek){
-    if(u.acted){ goldMoves = mp>0?reachCosts(B,u,mp):[]; }                 // action gone → leftover move is gold
+    if(u.acted||(u.strikes||0)>0){ goldMoves = mp>0?reachCosts(B,u,mp):[]; }   // action spent (dashed, attacked, or used an ability) → leftover move is gold
     else { blueMoves = mp>0?reachCosts(B,u,mp):[];
       goldMoves = reachCosts(B,u,mp+moveBudget(u)).filter(g=>!blueMoves.some(b=>b.x===g.x&&b.y===g.y)); }
   }
@@ -3761,7 +3785,7 @@ function renderBattle(){
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
     const e=(t.elev==null?1:t.elev), bg=TILE_BG[t.t]||'#2e2a20';
     const fog=visible?'':(explored?'fogseen':'fogdark');
-    grid+=`<div class="tile ${(x+y)%2?'alt':''} ${t.blighted?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    grid+=`<div class="tile ${t.blighted?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
     if(fog!=='fogdark')grid+=(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t))+elevArt(B,x,y,t);
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));

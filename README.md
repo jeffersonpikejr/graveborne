@@ -11,6 +11,17 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.46 (2026-07-14) — Walking Tokens, Solid-Filling Walls & Cleaner Ground
+Battlefield feel and legibility.
+
+**Soldiers and enemies walk now.** When a unit changes tiles it glides from its old square to its new one instead of teleporting — a short, distance-scaled slide (a two-tile step is quicker than a long dash). Works for your soldiers and the enemy alike, at any zoom.
+
+**Walls fill in solid.** Wall autotiling was reworked: any 2×2 or larger chunk of wall now fills with packed rubble in a mid gravel tone, framed by coursed stone and weathered merlons only on the *outer* exposed edges. Blocks read as solid ruined masonry instead of a ring of hollow frames, and adjacent walls merge seamlessly with no internal seams.
+
+**Cleaner ground.** Removed the checkerboard tint on ground tiles and softened the per-tile grime so open terrain reads as one cohesive surface rather than a grid of squares.
+
+**Movement colour cue.** Once a soldier has spent its action — dashed, attacked, or cast — its remaining movement tiles now show **gold** instead of blue, so you can tell at a glance that moving there won't cost an action you no longer have.
+
 ## v0.45 (2026-07-14) — Top-Down Sprites, Contiguous Walls & the Ash-Acolyte Capstone
 A visual overhaul of the battlefield, plus a new endgame spell.
 
