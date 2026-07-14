@@ -11,6 +11,16 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.38 (2026-07-13) — Hazard Maps: Spreading Blight & Killing Falls
+Two more tactically distinct battlegrounds, each with a hazard that reshapes the fight.
+
+- **The Blight-Menhir Field** — the map itself turns against you. Cracked standing stones seed a corruption that **spreads across the ground every round**, searing anyone who ends a turn on it (2 damage) and steadily swallowing your safe footing. The menhirs are attackable: **crack them and the creep halts** — but the ground you've already lost stays lost. Race to kill the enemy, or spend blows silencing the stones. A clock you can fight.
+- **The Cliffs** — narrow ledges above a sheer **chasm**. It's a brutal funnel: cross the land-bridges or take the long way round the ends, with archers duelling across the gap. And a **shield-bash lands a foe over the edge — a clean kill, gone into the dark.** (It cuts both ways: mind your own footing near a drop.)
+
+New terrain: **chasm** — impassable, but you can see and shoot across it, and a shove sends you over.
+
+Also hardened the connectivity guarantee: the whole battlefield is now verified as one walkable component (a stray unit sealed in a wall-pocket gets pulled to reachable ground), checked across 120 generations of all 13 map types.
+
 ## v0.37 (2026-07-13) — Four Tactically Distinct Battlegrounds
 Four new map types, each built around a genuinely different tactical problem, plus a new terrain: **mire** — soft ground that's passable but slow (costs double to cross).
 

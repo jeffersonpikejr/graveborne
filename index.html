@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.37</title>
+<title>GRAVEBORNE — alpha v0.38</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1188,13 +1188,13 @@ let GW=13,GH=8; // set per-battle by genBattleMap (variable-size maps)
 // battle tile features — single-tile scale (a wagon fills ~3x3 of these)
 const BT={ grass:{}, road:{}, bridge:{}, brush:{cover:10}, tree:{cover:15,los:true,mv:2}, mire:{mv:2},
   boulder:{block:true,los:true}, rubble:{block:true,los:true}, column:{block:true,los:true},
-  stone:{block:true,los:true}, water:{block:true} };
+  stone:{block:true,los:true}, water:{block:true}, chasm:{block:true} }; // chasm: impassable, but you can see (and shoot) across it
 const bImpass=t=>!!(BT[t]&&BT[t].block);
 const bLOS=t=>!!(BT[t]&&BT[t].los);
 const bCover=t=>(BT[t]&&BT[t].cover)||0;
 const bMv=t=>(BT[t]&&BT[t].mv)||1;
 function elevAt(B,x,y){const t=tileAt(B,x,y);return t?(t.elev==null?1:t.elev):1;}
-const TILE_NAMES={grass:'Open ground',road:'Road',bridge:'Bridge',brush:'Brush',tree:'Dense trees',mire:'Mire',boulder:'Boulder',rubble:'Ruined wall',column:'Fallen column',stone:'Standing stone',water:'Water'};
+const TILE_NAMES={grass:'Open ground',road:'Road',bridge:'Bridge',brush:'Brush',tree:'Dense trees',mire:'Mire',boulder:'Boulder',rubble:'Ruined wall',column:'Fallen column',stone:'Standing stone',water:'Water',chasm:'Chasm'};
 function tileDesc(B,x,y){ // inspect-mode readout: what this square does, and who stands on it
   const t=tileAt(B,x,y); if(!t)return '<div class="card"><span class="hint">Off the map.</span></div>';
   const fx=[];
@@ -1243,11 +1243,12 @@ function genBattleMap(B,bhex,region){
   if(!theme){
     if(B.obj==='reclaim')theme='ritual';
     else if(B.type==='delve'||B.obj==='burn')theme='ruins';
+    else if(bhex.blighted&&chance(50))theme='menhir';         // corrupted ground → the spreading-blight field
     else if(B.obj==='escort')theme=chance(55)?'river':'fields';
     else if(bhex.t==='forest')theme='woods';
-    else if(['hills','mountain'].includes(bhex.t))theme=pick(['pass','quarry','ruins','boulders']);
+    else if(['hills','mountain'].includes(bhex.t))theme=pick(['pass','quarry','cliffs','ruins','boulders']);
     else if(bhex.t==='marsh')theme=pick(['marsh','marsh','causeway','river']);
-    else theme=pick(['fields','boulders','ruins','ruins','ritual','river','causeway','quarry','woods','town','marsh']);
+    else theme=pick(['fields','boulders','ruins','ruins','ritual','river','causeway','quarry','cliffs','woods','town','marsh','menhir']);
   }
   B.mapTheme=theme;
 
@@ -1313,6 +1314,24 @@ function genBattleMap(B,bhex,region){
     for(let h=0;h<ri(2,3);h++){ const hy=ri(3,GH-4),hx=ri(2,Math.max(2,GW-7)),len=ri(3,6); for(let d=0;d<len;d++){const t=T(hx+d,hy); if(t&&t.t==='grass'&&chance(70))t.t='rubble';} } // low field walls
     if(chance(45)){ const p=randOpen(3); if(p)plateau(p.x,p.y,ri(3,4),ri(2,3)); }  // an occasional low rise
     scatter('brush',ri(3,5),1,2);
+  } else if(theme==='menhir'){
+    // a blight-menhir field: cracked standing stones seed a corruption that SPREADS across the ground each round.
+    // the stones are attackable — crack them to halt the creep, or race to kill the enemy before the safe ground is gone.
+    for(let a=0;a<ri(8,12);a++){ const t=T(clamp(Math.round(cxc+Math.cos(a/10*6.283)*GW*ri(18,26)/100),0,GW-1),clamp(Math.round(cyc+Math.sin(a/10*6.283)*GH*ri(18,26)/100),0,GH-1)); if(t&&t.t==='grass'&&chance(65))t.t='stone'; }
+    B.menhirSpread=true; B.menhirNodes=[];                       // node positions → destructible props spawned in startBattle
+    for(let i=0;i<ri(2,3);i++){ const t=randOpen(4); if(!t)continue; B.menhirNodes.push({x:t.x,y:t.y});
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){ const b=T(t.x+dx,t.y+dy); if(b&&(b.t==='grass'||b.t==='brush'))b.blighted=true; } } // a starting patch of corruption around each node
+    scatter('brush',ri(2,3),1,2); for(let i=0;i<ri(1,2);i++){const t=randOpen(3); if(t&&t.t==='grass')t.t='boulder';}
+  } else if(theme==='cliffs'){
+    // narrow ledges above a deep chasm — a brutal funnel with cross-gorge archery, and a shove off the edge is fatal
+    const horiz=chance(50), gw=ri(2,3), lo=Math.floor(gw/2), hi=Math.ceil(gw/2);
+    if(horiz){ const cy=Math.round(cyc), x0=Math.round(GW*0.16), x1=Math.round(GW*0.84);
+      for(let x=x0;x<=x1;x++)for(let o=-lo;o<=hi;o++){ const t=T(x,clamp(cy+o,0,GH-1)); if(t)t.t='chasm'; }
+      const nCross=ri(1,2); for(let i=0;i<nCross;i++){ const bx=x0+Math.round((x1-x0)*(i+1)/(nCross+1)); for(let o=-lo-1;o<=hi+1;o++){const t=T(bx,clamp(cy+o,0,GH-1)); if(t&&t.t==='chasm')t.t='road';} } }
+    else { const cx=Math.round(cxc), y0=Math.round(GH*0.16), y1=Math.round(GH*0.84);
+      for(let y=y0;y<=y1;y++)for(let o=-lo;o<=hi;o++){ const t=T(clamp(cx+o,0,GW-1),y); if(t)t.t='chasm'; }
+      const nCross=ri(1,2); for(let i=0;i<nCross;i++){ const by=y0+Math.round((y1-y0)*(i+1)/(nCross+1)); for(let o=-lo-1;o<=hi+1;o++){const t=T(clamp(cx+o,0,GW-1),by); if(t&&t.t==='chasm')t.t='road';} } }
+    scatter('boulder',ri(2,4),1,2); scatter('brush',ri(2,3),1,2);   // scree along the ledges
   } else { // fields — open, with one honest centerpiece and hedgerows that shape the lanes
     if(chance(55)){ const p=randOpen(3); if(p)plateau(p.x,p.y,ri(3,5),ri(3,4)); }              // a hillock
     else { const w=randOpen(3); if(w)cluster('water',w.x,w.y,ri(3,4),ri(2,3),90); }            // …or a pond
@@ -1338,6 +1357,8 @@ function genBattleMap(B,bhex,region){
     marsh:['reed','reed','puddle','puddle','driftwood','skull','bone'],
     quarry:['rock','rock','rubblebit','plank','bone','scree'],
     boulders:['rock','rock','bone','tuft','puddle','scree'],
+    menhir:['bone','skull','bramble','ash','rock','bone'],
+    cliffs:['rock','rock','scree','bone','rubblebit'],
   }[theme]||['tuft','tuft','rock','puddle','bone'];
   const dd=({pass:7,woods:9,ritual:9,marsh:9,causeway:9}[theme]||12);
   for(const t of B.tiles){ if((t.t==='grass'||t.t==='road'||t.t==='mire')&&!t.blighted&&chance(dd))t.deco=pick(decoSet); }
@@ -1406,11 +1427,12 @@ function reachableRegion(B,sx,sy){
   return seen;
 }
 function connRegion(B){ if(!B._conn){ const sp=B.spawn||{x:1,y:Math.floor(GH/2)}; B._conn=reachableRegion(B,sp.x,sp.y); } return B._conn; } // cached: terrain is fixed after generation
-// safety net: after ALL deployment, drag any foe the company can't actually walk to (stranded in a walled pocket)
-// out to the nearest tile the company can reach. Guarantees every battle is winnable however the map generated.
+// safety net: after ALL deployment, guarantee the whole battle is one connected component. The muster edge is
+// always passable, so its region is the main field; any unit (a foe OR a stray corner-cut PC/prop) sealed in a
+// walled pocket is dragged out to the nearest reachable tile. Makes every battle playable however the map generated.
 function ensureFoesReachable(B){
   const region=connRegion(B);
-  for(const u of B.units){ if(u.kind!=='foe'||u.hp<=0||u.prop||region.has(u.x+','+u.y))continue;
+  for(const u of B.units){ if(u.hp<=0||u.fled||region.has(u.x+','+u.y))continue;
     let best=null,bd=1e9;
     for(const k of region){ const c=k.indexOf(','),x=+k.slice(0,c),y=+k.slice(c+1); if(unitAt(B,x,y))continue; const d=Math.abs(x-u.x)+Math.abs(y-u.y); if(d<bd){bd=d;best={x,y};} }
     if(best){ u.x=best.x; u.y=best.y; }
@@ -1582,6 +1604,12 @@ function startBattle(contract,squadIds){
       shakenBy:null,rattled:0,reaper:0,xpv:6,graveId:null,fled:false};
     B.units.push(nest); B.nestUid=nest.uid;
   }
+  if(B.menhirNodes&&B.menhirNodes.length){       // destructible blight-menhirs — crack them to halt the spreading corruption
+    for(const p of B.menhirNodes){ if(unitAt(B,p.x,p.y))continue;
+      B.units.push({uid:nid(),kind:'foe',prop:true,ekey:'menhir',name:'Blight-menhir',hp:12,maxhp:12,skl:0,spd:0,res:99,
+        weapon:'shortsword',wMod:0,arm:2,feats:[],traits:[],undead:true,x:p.x,y:p.y,moved:true,acted:true,
+        shakenBy:null,rattled:0,reaper:0,xpv:5,graveId:null,fled:false}); }
+  }
   // revenant injection
   const risenHere=S.graves.filter(g=>g.state==='risen'&&g.regionId===region.id);
   let revs=[];
@@ -1750,6 +1778,17 @@ function afterPcAct(u){ // after a soldier moves/acts: stay on it if it still ha
 }
 window.SELECT=selectUnit;
 function blightTick(B){
+  // the blight-menhir field: while a menhir still stands, the corruption creeps outward from its frontier each round.
+  // crack every menhir (they're attackable) and the spread halts — the ground you've lost stays lost.
+  if(B.menhirSpread&&B.units.some(u=>u.ekey==='menhir'&&u.hp>0)){
+    const frontier=[];
+    for(const t of B.tiles){ if(!t.blighted)continue;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){ const n=tileAt(B,t.x+dx,t.y+dy);
+        if(n&&!n.blighted&&['grass','brush','mire','road'].includes(n.t))frontier.push(n); } }
+    let budget=ri(3,5);
+    while(budget-->0&&frontier.length){ const n=frontier.splice(ri(0,frontier.length-1),1)[0]; n.blighted=true; }
+    blog(B,'The blight creeps outward from the stones.');
+  }
   for(const u of B.units){
     if(u.hp<=0||u.fled)continue;
     if(tileAt(B,u.x,u.y).blighted&&!u.undead&&!u.prop){ u.hp-=2; u.blightBit=true; blog(B,`${u.name} is seared by blighted ground (2).`);
@@ -1987,6 +2026,8 @@ function applyDeath(B,u){
     blog(B,'They scatter into the dark.');
   } else if(u.prop&&B.nestUid===u.uid){
     blog(B,'The nest collapses in on itself with a sound like a held breath let go.');
+  } else if(u.prop&&u.ekey==='menhir'){
+    blog(B,'The menhir cracks and goes dark — the corruption around it stops creeping.');
   } else {
     blog(B,`${u.name} is slain.`);
   }
@@ -2139,9 +2180,15 @@ function execAbility(B,u,ab,t){
   }
   if(ab.k==='bash'){
     const dx=Math.sign(t.x-u.x),dy=Math.sign(t.y-u.y),d=ri(1,2);
+    const nx=t.x+dx,ny=t.y+dy, land=tileAt(B,nx,ny);
+    if(land&&land.t==='chasm'){                              // bashed clean off the edge — a fatal fall
+      fx.push({type:'float',x:t.x,y:t.y,txt:'OVER THE EDGE',color:'#c9a227'});
+      blog(B,`${u.name} bashes ${t.name} off the edge — and they are gone, into the dark.`);
+      t.hp=0; applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}
+      u.acted=true; B.aim=null; return;
+    }
     t.hp-=d; t.stunned=true;
-    const nx=t.x+dx,ny=t.y+dy;
-    if(tileAt(B,nx,ny)&&!bImpass(tileAt(B,nx,ny).t)&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
+    if(land&&!bImpass(land.t)&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
     fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'staggered',color:'#7d93a3'});
     blog(B,`${u.name} bashes ${t.name} back and staggers them.`);
     if(t.hp<=0){applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}}
@@ -3023,7 +3070,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.37</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.38</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3315,7 +3362,7 @@ function pickSquad(cb){
     {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; S._loadout={kit:loadout.kit&&(S.kits||0)>0,horn:loadout.horn&&(S.horns||0)>0}; closeModal(); cb([...picked]); }},
     {label:'Not yet',fn:()=>closeModal()}]);
 }
-const TILE_BG={grass:'#28241b',road:'#37301f',bridge:'#463829',brush:'#262b1a',tree:'#1d2615',mire:'#1f2019',boulder:'#3c362c',rubble:'#332e27',column:'#332e27',stone:'#2e2a23',water:'#161c23'};
+const TILE_BG={grass:'#28241b',road:'#37301f',bridge:'#463829',brush:'#262b1a',tree:'#1d2615',mire:'#1f2019',boulder:'#3c362c',rubble:'#332e27',column:'#332e27',stone:'#2e2a23',water:'#161c23',chasm:'#070809'};
 const DECO_ALIAS={driftwood:'log',scree:'rock',rubblebit:'rock',hay:'tuft',mushroom:'fern'};
 // small, non-blocking grimdark debris that dresses the open ground (visual only). Returns inner SVG (no wrapper).
 function decoInner(kind,x,y){
@@ -3360,10 +3407,11 @@ function tileArt(t,x,y,tile){
   if(t==='bridge')return `<svg class="decor" viewBox="0 0 46 46"><rect x="2" y="16" width="42" height="14" fill="#543e2b" stroke="#231910"/><path d="M8 16 v14 M18 16 v14 M28 16 v14 M38 16 v14" stroke="#32251a"/></svg>`;
   if(tile&&tile.blighted)return `<svg class="decor" viewBox="0 0 46 46">${groundTex(x,y,'grass')}<ellipse class="bpool" cx="23" cy="${28+v}" rx="13" ry="6" fill="#42305c" opacity=".62"/><circle cx="${15+v*3}" cy="${20+v}" r="1.6" fill="#9a6fc9"/><path d="M${18+v} ${28+v} q3 -9 8 -12" stroke="#6b4a95" stroke-width="1.3" fill="none"/></svg>`;
   if(t==='mire')return `<svg class="decor" viewBox="0 0 46 46"><rect width="46" height="46" fill="#0c0e0a" opacity=".3"/>${groundTex(x,y,'grass')}<ellipse cx="${11+v*4}" cy="30" rx="8" ry="3.4" fill="#12181a" opacity=".55"/><ellipse cx="${30-v*3}" cy="18" rx="5" ry="2.2" fill="#12181a" opacity=".4"/>${tile&&tile.deco?decoInner(tile.deco,x,y):''}</svg>`;
+  if(t==='chasm')return `<svg class="decor" viewBox="0 0 46 46"><rect width="46" height="46" fill="#070809"/><ellipse cx="23" cy="24" rx="23" ry="21" fill="#000" opacity=".6"/><path d="M2 6 Q23 12 44 6" fill="none" stroke="#2a2419" stroke-width="1.4" opacity=".4"/></svg>`;
   if(t==='grass'||t==='road')return `<svg class="decor" viewBox="0 0 46 46">${groundTex(x,y,t)}${tile&&tile.deco?decoInner(tile.deco,x,y):''}</svg>`;
   return '';
 }
-const TERR_DESC={grass:'open ground',road:'a road — quick going',bridge:'a bridge — the only dry crossing',brush:'brush — light cover (−10 to be hit here)',tree:'dense trees — cover and no line of sight through',mire:'mire — soft ground, slow going (costs extra to cross)',boulder:'a boulder — impassable, blocks sight',rubble:'ruined wall — impassable, blocks sight',column:'a fallen column — impassable, blocks sight',stone:'a standing stone — impassable, blocks sight',water:'water — impassable'};
+const TERR_DESC={grass:'open ground',road:'a road — quick going',bridge:'a bridge — the only dry crossing',brush:'brush — light cover (−10 to be hit here)',tree:'dense trees — cover and no line of sight through',mire:'mire — soft ground, slow going (costs extra to cross)',chasm:'a chasm — a sheer drop; impassable, but a shield-bash can shove someone over the edge',boulder:'a boulder — impassable, blocks sight',rubble:'ruined wall — impassable, blocks sight',column:'a fallen column — impassable, blocks sight',stone:'a standing stone — impassable, blocks sight',water:'water — impassable'};
 function terrDesc(tile){
   const base=TERR_DESC[tile.t]||'open ground';
   const e=tile.elev==null?1:tile.elev;
