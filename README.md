@@ -11,6 +11,17 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.36 (2026-07-13) — Grimdark Ground: Texture, Debris, Cover
+The battlefields were clean and barren between their centerpieces. Now they're grimed and lived-in.
+
+**Textured ground.** Open ground is no longer a flat colour swatch — every tile gets procedural mud, dirt speckle, and grime, so the earth reads as trodden and filthy. The palette went muddier and darker overall.
+
+**Ambient debris.** Non-blocking clutter now dresses the ground, themed to each map: bones and skulls, broken planks, mud puddles, blood stains, scattered rocks, marsh reeds, ferns and stumps in the woods, and — in the pillaged hamlets — barrels, crates, cart wheels, and gore. Purely visual; it doesn't change how anyone moves or fights.
+
+**More honest cover.** Each map now scatters extra passable brush, a few trees, and the odd boulder in sensible places, so there's more to fight around without clogging the travel lanes. The thematic centerpieces (river, fort, hilltop, well) are untouched.
+
+**Every battle winnable.** Added a connectivity guarantee: the game now checks that the company can actually walk to every enemy, and drags any foe stranded behind sealed walls out to reachable ground. (This also clears the way for the walled map types coming next.)
+
 ## v0.35 (2026-07-13) — Cinematic Battlegrounds + Diagonal Movement
 A battle-map overhaul plus a movement upgrade.
 
