@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.48</title>
+<title>GRAVEBORNE — alpha v0.49</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -120,6 +120,8 @@
   #actbarImm button{margin:0;flex:0 0 auto;white-space:nowrap}
   #actbarImm .primary{order:-1}   /* End Turn pinned to the left — always in view */
   #actbarImm .danger{order:9}     /* Retreat to the far end */
+  .actmenu{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;background:var(--panel);border:1px solid var(--gold);border-radius:8px;padding:8px;margin-bottom:6px;max-width:94vw}
+  .actmenu button{flex:0 0 auto;margin:0;white-space:nowrap}
   #zoombtns{position:absolute;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:22;display:flex;flex-direction:column;gap:5px}
   #zoombtns button{width:36px;height:36px;font-size:19px;line-height:1;padding:0;background:rgba(18,15,11,.86);border:1px solid var(--line);color:var(--ink);border-radius:5px;cursor:pointer;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
   /* ---- MOBILE / PORTRAIT: stacked HUD instead of desktop corners ---- */
@@ -1960,9 +1962,10 @@ function nextTurn(){ // enemy-phase advancer (player phase is driven by selectio
   render(); maybeAI();
 }
 // selection + turn-flow helpers for the player phase
-function selectUnit(uid){ const B=S.battle; if(!B||B.phase!=='player'||B.over)return; uid=Number(uid); const u=B.units.find(z=>z.uid===uid&&z.kind==='pc'&&z.hp>0&&!z.fled); if(!u)return; B.sel=uid; B.aim=null; B.inspect=null; render(); }
+function selectUnit(uid){ const B=S.battle; if(!B||B.phase!=='player'||B.over)return; uid=Number(uid); const u=B.units.find(z=>z.uid===uid&&z.kind==='pc'&&z.hp>0&&!z.fled); if(!u)return; B.sel=uid; B.aim=null; B.inspect=null; B._actMenu=false; render(); }
 function afterPcAct(u){ // after a soldier moves/acts: stay on it if it still has a turn, else advance to the next, else the enemy moves
   const B=S.battle; if(!B||B.over||B.phase!=='player')return;
+  B._actMenu=false;   // any action closes the dropdown
   if(u&&pcTurnLeft(u)){ render(); return; }
   const next=B.units.find(z=>pcTurnLeft(z));
   if(next){ B.sel=next.uid; B.aim=null; render(); return; }
@@ -2741,13 +2744,13 @@ function enemyCasterTurn(B,u,pod,pcs){
     if(spot){ const hk=spawnEnemy(B,'husk',1,false); hk.x=spot.x;hk.y=spot.y;hk.podId=u.podId; if(pod)pod.members.push(hk.uid);
       B.raised=(B.raised||0)+1; u.raiseCd=3; B.queue.push(hk.uid);   // tail of THIS round — never buildQueue mid-turn (it resets qi and replays everyone)
       blog(B,`${u.name} spreads its hands — the ground heaves, and a husk claws its way up to serve.`);
-      if(!B.over){render();nextTurn();} return; }
+      if(!B.over){render();pauseNextTurn();} return; }
   }
   if(u.raiseCd>0)u.raiseCd--;
   // else sling blightfire at the softest target in sight
   const tgt=pcs.filter(p=>distC(u,p)>=1&&distC(u,p)<=4&&hasLOS(B,u,p)).sort((a,b)=>a.hp-b.hp)[0];
   if(tgt)enemyBlightBolt(B,u,tgt);
-  if(!B.over){render();nextTurn();}
+  if(!B.over){render();pauseNextTurn();}
 }
 function enemySorcererTurn(B,u,pod,pcs){
   // 1) BLIGHT NOVA — armor-ignoring AoE; check BEFORE retreating, so a cluster of blades is a target, not a threat
@@ -2756,7 +2759,7 @@ function enemySorcererTurn(B,u,pod,pcs){
     fx.push({type:'nova',x:u.x,y:u.y,color:'#c88bff',r:2.3});   // the blight nova rolls out from the sorcerer
     inRad.forEach(p=>{ const d=ri(2,4); p.hp-=d; fx.push({type:'burst',x:p.x,y:p.y,color:'#c88bff'},{type:'flash',uid:p.uid},{type:'float',x:p.x,y:p.y,txt:'-'+d,color:'#c88bff'}); if(p.hp>0&&p.hp<=3&&p.kind==='pc')p.nearDeath=true; if(p.hp<=0)applyDeath(B,p); });
     u.novaCd=3; blog(B,`${u.name} throws its arms wide — a nova of blight erupts, and armor means nothing.`);
-    if(!B.over){render();nextTurn();} return;
+    if(!B.over){render();pauseNextTurn();} return;
   }
   if(u.novaCd>0)u.novaCd--;
   // survive: with nova unavailable, back off from anyone at knifing range
@@ -2768,7 +2771,7 @@ function enemySorcererTurn(B,u,pod,pcs){
     if(spot){ const gg=spawnEnemy(B,'graveguard',1,false); gg.x=spot.x;gg.y=spot.y;gg.podId=u.podId; if(pod)pod.members.push(gg.uid);
       B.raised=(B.raised||0)+1; u.raiseCd=4; B.queue.push(gg.uid);   // tail of THIS round — never buildQueue mid-turn (it resets qi and replays everyone)
       blog(B,`${u.name} chants low — the earth splits and a graveguard rises armored for war.`);
-      if(!B.over){render();nextTurn();} return; }
+      if(!B.over){render();pauseNextTurn();} return; }
   }
   if(u.raiseCd>0)u.raiseCd--;
   // 3) STRONGER BOLT — range 5, 4–7 damage, ignores armor
@@ -2778,7 +2781,7 @@ function enemySorcererTurn(B,u,pod,pcs){
       blog(B,`${u.name} hurls a lance of blightfire at ${tgt.name} for ${d} — armor is no help.`);
       if(tgt.hp>0&&tgt.hp<=3&&tgt.kind==='pc')tgt.nearDeath=true; if(tgt.hp<=0)applyDeath(B,tgt); }
     else blog(B,`${u.name}’s blightlance splits the air past ${tgt.name}.`); }
-  if(!B.over){render();nextTurn();}
+  if(!B.over){render();pauseNextTurn();}
 }
 function enemyKiteTurn(B,u,pcs){
   const adj=pcs.filter(p=>distC(u,p)<2);
@@ -2786,7 +2789,7 @@ function enemyKiteTurn(B,u,pcs){
   else { const t=pcs.slice().sort((a,b)=>distC(u,a)-distC(u,b))[0];
     if(t&&!attackTargets(B,u).includes(t)){ const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>Math.abs(distC(a,t)-2)-Math.abs(distC(b,t)-2)); u.x=steps[0].x;u.y=steps[0].y; } } }
   const nr=attackTargets(B,u); if(nr.length)doAttack(B,u,nr.sort((a,b)=>a.hp-b.hp)[0]);
-  if(!B.over){render();nextTurn();}
+  if(!B.over){render();pauseNextTurn();}
 }
 function guardTurn(B,u,pod,pcs){
   const caster=podMembers(B,pod).find(m=>m.ai==='caster'); if(!caster)return false; // no VIP to screen — advance normally
@@ -2794,16 +2797,19 @@ function guardTurn(B,u,pod,pcs){
   const mid={x:clamp(Math.round((caster.x+threat.x)/2),0,GW-1),y:clamp(Math.round((caster.y+threat.y)/2),0,GH-1)};
   const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>distC(a,mid)-distC(b,mid)); u.x=steps[0].x;u.y=steps[0].y; }
   const nr=attackTargets(B,u); if(nr.length)doAttack(B,u,nr.sort((a,b)=>a.hp-b.hp)[0]);
-  if(!B.over){render();nextTurn();}
+  if(!B.over){render();pauseNextTurn();}
   return true;
 }
+const ENEMY_STEP_PAUSE=1300;   // hold on the acting enemy for a beat AFTER its move/attack lands, before focus jumps onward
+// let the just-finished enemy action (walk glide + hit fx) breathe on screen, THEN advance to the next unit
+function pauseNextTurn(){ setTimeout(()=>{ if(S.battle&&!S.battle.over)nextTurn(); }, ENEMY_STEP_PAUSE); }
 function maybeAI(){
   const B=S.battle; if(!B||B.over||B.phase!=='enemy')return;
   if(activeModal){ setTimeout(maybeAI,300); return; }
   const u=curUnit(B);
   if(!u){ nextTurn(); return; }
   if(u.kind!=='foe')return;
-  setTimeout(()=>{ aiAct(u); },520);
+  setTimeout(()=>{ aiAct(u); },380);   // brief beat once focus has settled on this unit, then it acts
 }
 function aiAct(u){
   const B=S.battle; if(!B||B.over||curUnit(B)!==u){ if(B&&!B.over)render(); return; }
@@ -2816,8 +2822,8 @@ function aiAct(u){
   const pod=(B.podsActive&&u.podId!=null&&B.pods)?B.pods[u.podId]:null;
   if(pod){
     podSensePod(B,pod,pcs.concat(charges));                 // step-into-view reacts the same turn
-    if(pod.state==='patrol'){ aiPatrol(B,u,pod); if(!B.over){render();nextTurn();} return; }
-    if(pod.state==='alert'&&!podHasLOS(B,pod,pcs.concat(charges))){ aiInvestigate(B,u,pod); if(!B.over){render();nextTurn();} return; }
+    if(pod.state==='patrol'){ aiPatrol(B,u,pod); if(!B.over){render();pauseNextTurn();} return; }
+    if(pod.state==='alert'&&!podHasLOS(B,pod,pcs.concat(charges))){ aiInvestigate(B,u,pod); if(!B.over){render();pauseNextTurn();} return; }
     // ENGAGED — each role executes its doctrine's job, and the squad fights as a squad
     if(u.ai==='caster'){ return enemyCasterTurn(B,u,pod,pcs); }
     if(u.ai==='sorcerer'){ return enemySorcererTurn(B,u,pod,pcs); }
@@ -2844,7 +2850,7 @@ function aiAct(u){
     if(u.hp<u.maxhp*0.4&&pcs.some(t=>adjacent(u,t))){
       const cov=reachable(B,u).filter(t2=>coverAt(B,t2)&&!pcs.some(p=>Math.abs(p.x-t2.x)+Math.abs(p.y-t2.y)<=1));
       if(cov.length){const c2=pick(cov);u.x=c2.x;u.y=c2.y;u.moved=true;blog(B,`${u.name} slips behind cover, bleeding, patient.`);
-        if(!B.over){ render(); nextTurn(); } return; }  // one reposition per turn — don't re-approach
+        if(!B.over){ render(); pauseNextTurn(); } return; }  // one reposition per turn — don't re-approach
     }
   } else if((B.obj==='protect'||B.obj==='escort')&&charges.length&&chance(45)){
     target=charges.slice().sort(near)[0];
@@ -2868,7 +2874,7 @@ function aiAct(u){
       if(steps.length){ steps.sort((a,b)=>minDistTo(pcs,b)-minDistTo(pcs,a)); const far=steps[0];
         if(minDistTo(pcs,far)>minDistTo(pcs,u)){u.x=far.x;u.y=far.y;} }
       const nr=attackTargets(B,u); if(nr.length)doAttack(B,u,nr.sort((a,b)=>a.hp-b.hp)[0]);
-      if(!B.over){ render(); nextTurn(); } return;
+      if(!B.over){ render(); pauseNextTurn(); } return;
     }
     if(u.ai==='charge') target=pcs.slice().sort(near)[0];
   }
@@ -2905,7 +2911,7 @@ function aiAct(u){
       if((Math.abs(best.x-target.x)+Math.abs(best.y-target.y))<(Math.abs(u.x-target.x)+Math.abs(u.y-target.y))){ u.x=best.x;u.y=best.y; }
     }
   }
-  if(!B.over){ render(); nextTurn(); }
+  if(!B.over){ render(); pauseNextTurn(); }
 }
 
 /* ============================== STORY: THE COMMANDER & THE PRINCESS ============================== */
@@ -3398,7 +3404,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.48</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.49</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3937,11 +3943,20 @@ function renderBattle(){
   const pips=isPC?`<span class="pips">${esc(u.name)} · Move ${Math.floor(u.mp||0)} · ${actTxt}</span>`:(B.phase==='enemy'?'<span class="hint">enemy phase…</span>':'<span class="hint">— tap a soldier —</span>');
   const anyAvail=B.phase==='player'&&B.units.some(z=>pcTurnLeft(z));
   const canAbil=isPC&&!u.acted&&(u.strikes||0)===0;   // an ability or brace is your action — not available once you've begun striking
+  const actedTurn=isPC&&(u.moved||(u.strikes||0)>0||u.acted);      // this soldier has already moved or struck this turn
+  const aimActive=isPC&&!!B.aim;
+  // Next ▶ sits right after the scout eye, and only once the soldier has done something — so you advance the moment their turn is spent
+  const nextBtn=actedTurn?`<button ${anyAvail?'':'disabled'} onclick="NEXTUNIT()" title="Jump to the next soldier who still has a move or action left">Next ▶</button>`:'';
+  // Actions roll up into one dropdown (spells / grafts / brace) instead of a row of buttons
+  const actList=[...abs.map(a=>({k:a.k,label:a.label,tip:a.tip})),{k:'__brace',label:'🛡 Brace',tip:'Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled).'}];
+  let actionsBtn='';
+  if(isPC){ if(aimActive)actionsBtn=`<button class="danger" onclick="ACTMENU(1)" title="Cancel targeting">✖ Cancel</button>`;
+    else if(canAbil)actionsBtn=`<button class="${B._actMenu?'primary':''}" onclick="ACTMENU()" title="Spells, grafts, and brace">✦ Actions ▾</button>`; }
+  const actMenu=(isPC&&canAbil&&!aimActive&&B._actMenu)?`<div class="actmenu">${actList.map(a=>`<button onclick="ACTPICK('${a.k}')" title="${esc(a.tip)}">${esc(a.label)}</button>`).join('')}</div>`:'';
   const actbar=`<div id="actbarImm">
       <button class="${B.peek?'primary':''}" onclick="PEEK()" title="Inspect: tap any square to read its terrain and who stands there.">👁${B.peek?' Inspecting':''}</button>
-      ${abs.map(a=>`<button ${canAbil?'':'disabled'} onclick="MEDIC('${a.k}')" title="${esc(a.tip)}">${B.aim===a.k?'Cancel':a.label}</button>`).join('')}
-      <button ${canAbil?'':'disabled'} onclick="DEFEND()" title="Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled)">🛡 Brace</button>
-      <button ${anyAvail?'':'disabled'} onclick="NEXTUNIT()" title="Jump to the next soldier who still has a move or action left">Next ▶</button>
+      ${nextBtn}
+      ${actionsBtn}
       <button class="primary" ${B.phase==='player'?'':'disabled'} onclick="ENDT()" title="End the whole squad's turn — the enemy moves">End Turn ⏎</button>
       <button class="danger" ${B.phase==='player'?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen are carried out only if a living soldier stands beside the body.">Retreat</button></div>`;
   const logPanel=B._logOpen?`<div class="hud hud-log"><div class="hudcard"><b style="color:var(--gold)">Field log</b><span style="float:right;cursor:pointer;padding:0 4px" onclick="LOGTOGGLE()">✕</span><div style="font-size:12px;margin-top:4px">${B.log.slice(0,40).map(m=>`<p style="margin:2px 0">${m}</p>`).join('')}</div></div></div>`:'';
@@ -3955,7 +3970,7 @@ function renderBattle(){
         <button onclick="LOGTOGGLE()" class="${B._logOpen?'primary':''}" title="Show or hide the field log">☰ Log</button>
         <div class="hud-roster hudcard" style="padding:5px 7px" title="Your squad — tap a soldier to command them in any order">${q}</div></div>
       ${insp?`<div class="hud hud-unit">${insp}</div>`:''}
-      <div class="hud hud-act"><div class="hudcard" style="padding:3px 10px">${pips}</div>${actbar}</div>
+      <div class="hud hud-act"><div class="hudcard" style="padding:3px 10px">${pips}</div>${actMenu}${actbar}</div>
       <div id="zoombtns"><button onclick="ZOOM(1)" title="Zoom in">＋</button><button onclick="ZOOM(-1)" title="Zoom out">－</button></div>
       ${logPanel}
     </div>`;
@@ -3963,12 +3978,22 @@ function renderBattle(){
 /* ===================== IMMERSIVE BATTLE CAMERA — drag-pan, wheel/pinch-zoom ===================== */
 function clampZoom(z){ return clamp(z,0.25,2.8); }
 function battleGridPx(B){ return (B._ts||40); }                   // one tile's pixel step (no gap between tiles)
+// measure the floating HUD so the map can sit in the CLEAR band between the top (title/roster) and bottom (card/action
+// bar) panels — this is what gives a real top & bottom buffer instead of the map hiding under the HUD or jamming edge-to-edge
+function hudInsets(vp){
+  const vr=vp.getBoundingClientRect(); let top=0,bot=0;
+  document.querySelectorAll('#battle .hud-tl,#battle .hud-tr').forEach(e=>{ const r=e.getBoundingClientRect(); if(r.height)top=Math.max(top,r.bottom-vr.top); });
+  document.querySelectorAll('#battle .hud-act,#battle .hud-unit').forEach(e=>{ const r=e.getBoundingClientRect(); if(r.height)bot=Math.max(bot,vr.bottom-r.top); });
+  return { top:Math.min(top+14, vp.clientHeight*0.38), bot:Math.min(bot+14, vp.clientHeight*0.44) };
+}
 function clampCam(B,vp){ const TS=battleGridPx(B), gw=GW*TS*B._cam.z, gh=GH*TS*B._cam.z;
-  const mx=Math.round(vp.clientWidth*0.5), my=Math.round(vp.clientHeight*0.5);   // half-viewport of black margin each side → any corner can be pulled to centre
+  const ins=B._ins||{top:0,bot:0}, availTop=ins.top, availH=Math.max(60, vp.clientHeight-ins.top-ins.bot);
+  const mx=Math.round(vp.clientWidth*0.5), my=Math.round(vp.clientHeight*0.5);   // half-viewport of black margin each side → any corner can be pulled into the clear band
   if(gw<=vp.clientWidth) B._cam.x=(vp.clientWidth-gw)/2; else B._cam.x=clamp(B._cam.x, vp.clientWidth-gw-mx, mx);
-  if(gh<=vp.clientHeight) B._cam.y=(vp.clientHeight-gh)/2; else B._cam.y=clamp(B._cam.y, vp.clientHeight-gh-my, my); }
+  if(gh<=availH) B._cam.y=availTop+(availH-gh)/2; else B._cam.y=clamp(B._cam.y, availTop+availH-gh-my, availTop+my); }
 function applyCam(B,pz,vp){ clampCam(B,vp); pz.style.transform=`translate(${Math.round(B._cam.x)}px,${Math.round(B._cam.y)}px) scale(${B._cam.z})`; }
-function centerCamOn(B,vp,gx,gy){ B._cam.x=vp.clientWidth/2-gx*B._cam.z; B._cam.y=vp.clientHeight/2-gy*B._cam.z; clampCam(B,vp); }
+function centerCamOn(B,vp,gx,gy){ const ins=B._ins||{top:0,bot:0}, cyBand=(ins.top+(vp.clientHeight-ins.bot))/2;   // centre on the clear band, not under the HUD
+  B._cam.x=vp.clientWidth/2-gx*B._cam.z; B._cam.y=cyBand-gy*B._cam.z; clampCam(B,vp); }
 function zoomAt(B,vp,clientX,clientY,nz){ const r=vp.getBoundingClientRect(), fx=clientX-r.left, fy=clientY-r.top;
   B._cam.x=fx-(fx-B._cam.x)*(nz/B._cam.z); B._cam.y=fy-(fy-B._cam.y)*(nz/B._cam.z); B._cam.z=nz; }
 function setupBattleView(B){
@@ -3977,8 +4002,10 @@ function setupBattleView(B){
   const TS=battleGridPx(B), gw=GW*TS, gh=GH*TS, vw=vp.clientWidth, vh=vp.clientHeight;
   if(!window._pzInit){ window._pzInit=true; attachPanZoomOnce(); }
   if(vw<80||vh<80){ if(B._cam)applyCam(B,pz,vp); return; }         // layout not settled yet — try again next render
-  // keep fitting the whole field to the live viewport until the player takes control of the camera (pinch/pan/zoom)
-  if(!B._cam||!B._camTouched){ const z=clampZoom(Math.min(vw/gw, vh/gh)*0.94); B._cam={z,x:(vw-gw*z)/2,y:(vh-gh*z)/2}; }
+  const ins=hudInsets(vp); B._ins=ins;                             // clear band between the HUD panels
+  const availH=Math.max(60, vh-ins.top-ins.bot);
+  // keep fitting the whole field into the clear band until the player takes control of the camera (pinch/pan/zoom)
+  if(!B._cam||!B._camTouched){ const z=clampZoom(Math.min(vw/gw, availH/gh)*0.97); B._cam={z,x:(vw-gw*z)/2,y:ins.top+(availH-gh*z)/2}; }
   const cu=activeUnit(B), canFollow=cu&&(cu.kind!=='foe'||(B._vis&&B._vis.has(cu.x+','+cu.y)));
   if(cu&&canFollow&&B._camFollow!==cu.uid){ B._camFollow=cu.uid; centerCamOn(B,vp,(cu.x+0.5)*TS,(cu.y+0.5)*TS); } // frame the acting unit when the turn passes to it
   applyCam(B,pz,vp);
@@ -4043,6 +4070,8 @@ window.TILE=function(x,y){
   tryMove(x,y);
 };
 window.DEFEND=defend; window.ENDT=endPlayerPhase; window.RETREAT=retreat; window.MEDIC=useAbility; window.PEEK=peekToggle;
+window.ACTMENU=function(cancel){ const B=S.battle; if(!B||B.phase!=='player')return; if(cancel){ B.aim=null; B._actMenu=false; } else B._actMenu=!B._actMenu; render(); };
+window.ACTPICK=function(k){ const B=S.battle; if(!B)return; B._actMenu=false; if(k==='__brace')defend(); else useAbility(k); };   // pick from the Actions dropdown
 function renderGameOver(){
   if(S.victory)return renderVictory();
   const walking=S.graves.filter(g=>g.state==='risen');
