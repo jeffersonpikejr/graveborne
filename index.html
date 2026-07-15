@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.46</title>
+<title>GRAVEBORNE — alpha v0.47</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1892,7 +1892,7 @@ function activeUnit(B){ // whom the player controls (player phase) or the AI run
 function maxStrikes(u){ return (u.dbl && !u.moved) ? 2 : 1; }
 function pcTurnLeft(u){ if(u.kind!=='pc'||u.hp<=0||u.fled)return false;
   const canAct=!u.acted&&(u.strikes||0)<maxStrikes(u);   // can still attack (or, if unstruck, use an ability)
-  const canMove=(u.mp||0)>0&&(u.strikes||0)<2;            // can still reposition — but not once a double strike is spent
+  const canMove=(u.mp||0)>=1&&(u.strikes||0)<2;           // needs a full point to step (a <1 leftover reaches no tile) — and not once a double strike is spent
   return canAct||canMove; }
 function startPlayerPhase(B){
   B.phase='player'; B.aim=null; B.inspect=null;
@@ -2351,16 +2351,17 @@ function execAbility(B,u,ab,t){
   const corrupt=()=>{ if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} };
   if(ab.k==='ashfire'){ doCast(B,u,t); return; }
   if(ab.k==='bonespears'){
-    fx.push({type:'arrow',fx:u.x,fy:u.y,tx:t.x,ty:t.y});
+    fx.push({type:'spikes',x:t.x,y:t.y,color:'#cdbfa0'});   // bone shards erupt from the ground under the target
     const h=clamp(70+u.skl*3-t.spd*2,30,95);
     if(ri(1,100)<=h){ const d=ri(3,5); t.hp-=d; t.rooted=true; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+d,color:'#b08bc9'}); blog(B,`Bone erupts under ${t.name} for ${d} — rooted fast.`); if(t.hp<=0){applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}} }
     else blog(B,`The bone-spears shatter wide of ${t.name}.`);
     corrupt(); u.acted=true; B.aim=null; return;
   }
-  if(ab.k==='ashward'){ t.warded=3; fx.push({type:'float',x:t.x,y:t.y,txt:'ward',color:'#b08bc9'}); blog(B,`${u.name} shrouds ${t.name} in ash — +3 armor.`); corrupt(); u.acted=true; B.aim=null; return; }
+  if(ab.k==='ashward'){ t.warded=3; fx.push({type:'ward',x:t.x,y:t.y,color:'#b08bc9'},{type:'float',x:t.x,y:t.y,txt:'ward',color:'#b08bc9'}); blog(B,`${u.name} shrouds ${t.name} in ash — +3 armor.`); corrupt(); u.acted=true; B.aim=null; return; }
   if(ab.k==='hook'){
+    fx.push({type:'bolt',fx:u.x,fy:u.y,tx:t.x,ty:t.y,color:'#e8c65a',color2:'#6b5010',dur:150});   // the hook-chain snaps out
     const dx=Math.sign(u.x-t.x),dy=Math.sign(u.y-t.y),nx=t.x+dx,ny=t.y+dy;
-    if(!(nx===u.x&&ny===u.y)&&tileAt(B,nx,ny)&&!bImpass(tileAt(B,nx,ny).t)&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }
+    if(!(nx===u.x&&ny===u.y)&&tileAt(B,nx,ny)&&!bImpass(tileAt(B,nx,ny).t)&&!unitAt(B,nx,ny)){ t.x=nx; t.y=ny; }   // yanked one tile in — animateWalks glides them
     t.offbalance=true; fx.push({type:'float',x:t.x,y:t.y,txt:'hooked',color:'#c9a227'}); blog(B,`${u.name} hooks ${t.name} in close and off-balance.`);
     u.acted=true; B.aim=null; return;
   }
@@ -2374,6 +2375,7 @@ function execAbility(B,u,ab,t){
       u.acted=true; B.aim=null; return;
     }
     t.hp-=d; t.stunned=true;
+    fx.push({type:'nova',x:t.x,y:t.y,color:'#9aa7b3',r:0.8});   // a concussive shove-ring at the point of impact
     const dropLv=land?elevAt(B,t.x,t.y)-elevAt(B,nx,ny):0;   // + = shoved to lower ground
     if(land&&!bImpass(land.t)&&!unitAt(B,nx,ny)&&dropLv<2&&dropLv>-2){   // normal shove: flat, or up/down a 1-level slope
       t.x=nx; t.y=ny; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'staggered',color:'#7d93a3'});
@@ -2394,7 +2396,7 @@ function execAbility(B,u,ab,t){
     const h=hitChance(B,u,t);
     if(ri(1,100)<=h){
       const d=Math.max(1,Math.floor(dmgOf(B,u,t)*0.6));   // reduced primary — the price of hitting two
-      t.hp-=d; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+d,color:'#e0593f'});
+      t.hp-=d; fx.push({type:'nova',x:t.x,y:t.y,color:'#e0593f',r:0.85},{type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+d,color:'#e0593f'});
       blog(B,`${u.name} cleaves ${t.name} for ${d} (${h}%).`);
       if(t.hp>0&&t.hp<=3&&t.kind==='pc')t.nearDeath=true;
       credit(t);
@@ -2409,34 +2411,35 @@ function execAbility(B,u,ab,t){
     } else { fx.push({type:'dodge',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:t.defending?'blocked':'dodged',color:'#7d93a3'}); blog(B,`${u.name}’s cleave goes wide of ${t.name} (${h}%).`); }
     u.acted=true; B.aim=null; return;
   }
-  if(ab.k==='rally'){ t.rattled=0; t.rallied=true; fx.push({type:'float',x:t.x,y:t.y,txt:'steady',color:'#9ab86f'}); blog(B,`${u.name} rallies ${t.name} — steady now.`); u.acted=true; B.aim=null; return; }
-  if(ab.k==='medic'){ t.hp=Math.min(t.maxhp,t.hp+5); const as=soldierById(t.ref); if(as)as.hp=t.hp; u.medicUsed=true; fx.push({type:'float',x:t.x,y:t.y,txt:'+5',color:'#9ab86f'}); blog(B,`${u.name} binds ${t.name}’s wounds (+5).`); u.acted=true; B.aim=null; return; }
+  if(ab.k==='rally'){ t.rattled=0; t.rallied=true; fx.push({type:'ward',x:t.x,y:t.y,color:'#9ab86f'},{type:'float',x:t.x,y:t.y,txt:'steady',color:'#9ab86f'}); blog(B,`${u.name} rallies ${t.name} — steady now.`); u.acted=true; B.aim=null; return; }
+  if(ab.k==='medic'){ t.hp=Math.min(t.maxhp,t.hp+5); const as=soldierById(t.ref); if(as)as.hp=t.hp; u.medicUsed=true; fx.push({type:'heal',x:t.x,y:t.y,color:'#9ab86f'},{type:'float',x:t.x,y:t.y,txt:'+5',color:'#9ab86f'}); blog(B,`${u.name} binds ${t.name}’s wounds (+5).`); u.acted=true; B.aim=null; return; }
   if(ab.k==='sanctuary'){
     u.sanctUsed=true; u.acted=true; t.sanctuary=1;         // sheltered until the caster's next turn (survives the coming enemy phase)
-    fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'SANCTUARY',color:'#e6d98a'});
+    fx.push({type:'ward',x:t.x,y:t.y,color:'#e6d98a'},{type:'float',x:t.x,y:t.y,txt:'SANCTUARY',color:'#e6d98a'});
     blog(B,`${u.name} calls sanctuary over ${t.name} — no blade can touch them this round.`);
     B.aim=null; return;
   }
   if(ab.k==='protect'){
     u.protectUsed=true; u.acted=true; t.arm=(t.arm||0)+1;   // battle-only +1 armor for the rest of the fight
-    fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'+1 ARM',color:'#9ab86f'});
+    fx.push({type:'ward',x:t.x,y:t.y,color:'#8fb0cf'},{type:'float',x:t.x,y:t.y,txt:'+1 ARM',color:'#8fb0cf'});
     blog(B,`${u.name} blesses ${t.name}'s guard — +1 armor for the rest of the battle.`);
     B.aim=null; return;
   }
   if(ab.k==='healaura'){
     u.auraUsed=true; u.acted=true; let n=0;
+    fx.push({type:'nova',x:u.x,y:u.y,color:'#9ab86f',r:2.3});   // a ring of healing light rolls out to radius 2
     for(const z of B.units){ if(z.hp<=0||z.fled||z.prop)continue;
-      if(z.kind===u.kind&&distC(u,z)<=2){ z.hp=Math.min(z.maxhp,z.hp+5); const as=soldierById(z.ref); if(as)as.hp=z.hp; fx.push({type:'float',x:z.x,y:z.y,txt:'+5',color:'#9ab86f'}); n++; } }
+      if(z.kind===u.kind&&distC(u,z)<=2){ z.hp=Math.min(z.maxhp,z.hp+5); const as=soldierById(z.ref); if(as)as.hp=z.hp; fx.push({type:'heal',x:z.x,y:z.y,color:'#9ab86f'},{type:'float',x:z.x,y:z.y,txt:'+5',color:'#9ab86f'}); n++; } }
     blog(B,`${u.name} calls a healing light down — ${n} of the wounded steady (+5).`);
     B.aim=null; return;
   }
   if(ab.k==='blightstorm'){
     u.stormUsed=true; u.acted=true; let hit=0;
-    fx.push({type:'float',x:t.x,y:t.y,txt:'BLIGHT STORM',color:'#9a6fc9'});
+    fx.push({type:'nova',x:t.x,y:t.y,color:'#9a6fc9',r:2.4},{type:'float',x:t.x,y:t.y,txt:'BLIGHT STORM',color:'#9a6fc9'});   // a boiling nova of ash and rot
     for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){ const tx=t.x+dx,ty=t.y+dy, tt=tileAt(B,tx,ty); if(!tt)continue;
       if(['grass','brush','mire','road'].includes(tt.t))tt.blighted=true;              // the ground festers
       const z=unitAt(B,tx,ty); if(z&&z.hp>0&&!z.prop&&isEnemy(u,z)){ const d=ri(5,8); z.hp-=d; hit++;   // ignores armor (raw hp)
-        fx.push({type:'flash',uid:z.uid},{type:'float',x:tx,y:ty,txt:'-'+d,color:'#9a6fc9'});
+        fx.push({type:'burst',x:tx,y:ty,color:'#9a6fc9'},{type:'flash',uid:z.uid},{type:'float',x:tx,y:ty,txt:'-'+d,color:'#9a6fc9'});
         if(z.hp>0&&z.hp<=3&&z.kind==='pc')z.nearDeath=true;
         if(z.hp<=0){ applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } } }
     blog(B,`${u.name} tears the Blight open — a storm of ash and rot boils across the ground (${hit} caught).`);
@@ -2448,20 +2451,20 @@ function execAbility(B,u,ab,t){
     for(const z of B.units){ if(z.hp<=0||z.fled)continue;
       if(isEnemy(u,z)&&distC(u,z)<=2)z.warcried=true;
       else if(z.kind===u.kind&&z!==u&&distC(u,z)<=2)z.rattled=Math.max(0,z.rattled-1); }
-    fx.push({type:'float',x:u.x,y:u.y,txt:'WAR-CRY',color:'#c9a227'}); blog(B,`${u.name} bellows — the enemy line flinches.`);
+    fx.push({type:'nova',x:u.x,y:u.y,color:'#c9a227',r:2.3},{type:'float',x:u.x,y:u.y,txt:'WAR-CRY',color:'#c9a227'}); blog(B,`${u.name} bellows — the enemy line flinches.`);
     B.aim=null; return;
   }
   if(ab.k==='smokebomb'){
     u.smokeUsed=true; u.acted=true; let n=0;
     for(const z of B.units){ if(z.hp<=0||z.fled)continue; if(isEnemy(u,z)&&distC(u,z)<=2){z.warcried=true;n++;} }
-    fx.push({type:'float',x:u.x,y:u.y,txt:'SMOKE',color:'#7d93a3'}); blog(B,`${u.name} vanishes in a burst of ash — ${n} of the enemy grope blind.`);
+    fx.push({type:'smoke',x:u.x,y:u.y},{type:'float',x:u.x,y:u.y,txt:'SMOKE',color:'#7d93a3'}); blog(B,`${u.name} vanishes in a burst of ash — ${n} of the enemy grope blind.`);
     B.aim=null; return;
   }
 }
 function doCast(B,att,def){
   noticeAttack(B,att,def);
   const h=clamp(75+att.skl*3-def.spd*2,30,95);
-  fx.push({type:'arrow',fx:att.x,fy:att.y,tx:def.x,ty:def.y});
+  fx.push({type:'bolt',fx:att.x,fy:att.y,tx:def.x,ty:def.y,color:'#ffce7a',color2:'#c0391a'});   // blightfire — a fiery orb
   if(ri(1,100)<=h){
     const d=ri(4,7);
     def.hp-=d;
@@ -2698,7 +2701,7 @@ function threatScore(B,t){ // how tempting a target is to the enemy
 function minDistTo(list,p){ return list.reduce((m,t)=>Math.min(m,distC(t,p)),99); }
 function enemyBlightBolt(B,u,def){
   const h=clamp(65+u.skl*3-def.spd*2,30,90);
-  fx.push({type:'arrow',fx:u.x,fy:u.y,tx:def.x,ty:def.y});
+  fx.push({type:'bolt',fx:u.x,fy:u.y,tx:def.x,ty:def.y,color:'#d7a8ff',color2:'#5a2b86'});   // blightbolt — a violet magic orb
   if(ri(1,100)<=h){ const d=ri(3,5); def.hp-=d; fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:'-'+d,color:'#b08bc9'});
     blog(B,`${u.name} flings a gout of blightfire at ${def.name} for ${d} — armor is no help.`);
     if(def.hp>0&&def.hp<=3&&def.kind==='pc')def.nearDeath=true;
@@ -2727,7 +2730,8 @@ function enemySorcererTurn(B,u,pod,pcs){
   // 1) BLIGHT NOVA — armor-ignoring AoE; check BEFORE retreating, so a cluster of blades is a target, not a threat
   const inRad=pcs.filter(p=>distC(u,p)<=2);
   if((u.novaCd||0)<=0 && inRad.length>=2){
-    inRad.forEach(p=>{ const d=ri(2,4); p.hp-=d; fx.push({type:'flash',uid:p.uid},{type:'float',x:p.x,y:p.y,txt:'-'+d,color:'#c88bff'}); if(p.hp>0&&p.hp<=3&&p.kind==='pc')p.nearDeath=true; if(p.hp<=0)applyDeath(B,p); });
+    fx.push({type:'nova',x:u.x,y:u.y,color:'#c88bff',r:2.3});   // the blight nova rolls out from the sorcerer
+    inRad.forEach(p=>{ const d=ri(2,4); p.hp-=d; fx.push({type:'burst',x:p.x,y:p.y,color:'#c88bff'},{type:'flash',uid:p.uid},{type:'float',x:p.x,y:p.y,txt:'-'+d,color:'#c88bff'}); if(p.hp>0&&p.hp<=3&&p.kind==='pc')p.nearDeath=true; if(p.hp<=0)applyDeath(B,p); });
     u.novaCd=3; blog(B,`${u.name} throws its arms wide — a nova of blight erupts, and armor means nothing.`);
     if(!B.over){render();nextTurn();} return;
   }
@@ -2746,7 +2750,7 @@ function enemySorcererTurn(B,u,pod,pcs){
   if(u.raiseCd>0)u.raiseCd--;
   // 3) STRONGER BOLT — range 5, 4–7 damage, ignores armor
   const tgt=pcs.filter(p=>distC(u,p)>=1&&distC(u,p)<=5&&hasLOS(B,u,p)).sort((a,b)=>a.hp-b.hp)[0];
-  if(tgt){ const h=clamp(70+u.skl*3-tgt.spd*2,35,92); fx.push({type:'arrow',fx:u.x,fy:u.y,tx:tgt.x,ty:tgt.y});
+  if(tgt){ const h=clamp(70+u.skl*3-tgt.spd*2,35,92); fx.push({type:'bolt',fx:u.x,fy:u.y,tx:tgt.x,ty:tgt.y,color:'#d7a8ff',color2:'#5a2b86'});
     if(ri(1,100)<=h){ const d=ri(4,7); tgt.hp-=d; fx.push({type:'flash',uid:tgt.uid},{type:'float',x:tgt.x,y:tgt.y,txt:'-'+d,color:'#c88bff'});
       blog(B,`${u.name} hurls a lance of blightfire at ${tgt.name} for ${d} — armor is no help.`);
       if(tgt.hp>0&&tgt.hp<=3&&tgt.kind==='pc')tgt.nearDeath=true; if(tgt.hp<=0)applyDeath(B,tgt); }
@@ -3226,17 +3230,75 @@ function animateWalks(B){
   for(const u of B.units){
     if(u.hp<=0||u.fled)continue;
     const el=grid.querySelector(`.unit[data-uid="${u.uid}"]`);
-    if(!el)continue;                             // fogged / not on the board this render — don't track or animate
+    if(!el){ if(prev[u.uid])now[u.uid]=prev[u.uid]; continue; }   // fogged this render — keep last-known so it doesn't slide in when spotted
     now[u.uid]={x:u.x,y:u.y};
     const p=prev[u.uid];
     if(p&&(p.x!==u.x||p.y!==u.y)&&el.animate){
       const dx=(p.x-u.x)*TS, dy=(p.y-u.y)*TS;
       const steps=Math.max(Math.abs(p.x-u.x),Math.abs(p.y-u.y));
-      const dur=Math.min(150+steps*95,720);      // longer walks take a little longer — reads as steady footwork
-      el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'translate(0,0)'}],{duration:dur,easing:'linear'});
+      const dur=Math.min(140+steps*80,480);      // longer walks take a little longer, but finish inside the enemy-turn pacing
+      const tile=el.parentElement;               // lift the whole cell so the walker rides ABOVE ground/elevation tiles for the glide
+      if(tile)tile.style.zIndex='40';
+      el.style.zIndex='6';
+      const an=el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'translate(0,0)'}],{duration:dur,easing:'linear'});
+      an.onfinish=an.oncancel=()=>{ if(tile)tile.style.zIndex=''; el.style.zIndex=''; };
     }
   }
-  B._lastPos=now;
+  // Defer the snapshot to a MICROTASK. Enemy moves fire TWO synchronous renders (aiAct→render, then nextTurn→render);
+  // deferring keeps prev at the OLD position for both, so the SURVIVING element (2nd render) still animates instead of
+  // being cancelled. Microtasks flush at the end of the tick and fire regardless of tab visibility (unlike rAF).
+  queueMicrotask(()=>{ B._lastPos=now; });
+}
+/* ---- spell / ability fx primitives — each a short, self-cleaning DOM flourish over the grid, so every spell reads distinct ---- */
+function _fxGrid(){ return document.getElementById('grid'); }
+function fxBolt(fxx,fxy,txx,tyy,color,color2,dur){ const grid=_fxGrid(); if(!grid)return; const c=TSCUR, ax=fxx*c+c/2, ay=fxy*c+c/2, bx=txx*c+c/2, by=tyy*c+c/2;
+  const el=document.createElement('div');
+  el.style.cssText=`position:absolute;left:${ax}px;top:${ay}px;width:15px;height:15px;margin:-8px 0 0 -8px;border-radius:50%;pointer-events:none;z-index:32;background:radial-gradient(circle,#fff,${color||'#ffcf8a'} 45%,${color2||'#a8391a'} 80%,transparent);box-shadow:0 0 12px 4px ${color||'#ff8a3a'}`;
+  grid.appendChild(el);
+  const an=el.animate([{transform:'translate(0,0) scale(.7)'},{transform:`translate(${bx-ax}px,${by-ay}px) scale(1)`}],{duration:dur||240,easing:'ease-in'});
+  an.onfinish=an.oncancel=()=>{ el.remove(); fxBurst(txx,tyy,color||'#ff8a3a'); };
+}
+function fxBurst(x,y,color){ const grid=_fxGrid(); if(!grid)return; const c=TSCUR, R=c*0.42, cx=x*c+c/2, cy=y*c+c/2;
+  const el=document.createElement('div');
+  el.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;width:${R*2}px;height:${R*2}px;margin:${-R}px 0 0 ${-R}px;border-radius:50%;pointer-events:none;z-index:31;background:radial-gradient(circle,#fff,${color} 45%,transparent 72%)`;
+  grid.appendChild(el);
+  el.animate([{transform:'scale(.2)',opacity:1},{transform:'scale(1.35)',opacity:0}],{duration:300,easing:'ease-out'}).onfinish=()=>el.remove();
+}
+function fxNova(x,y,color,rT){ const grid=_fxGrid(); if(!grid)return; const c=TSCUR, R=(rT||1.4)*c, cx=x*c+c/2, cy=y*c+c/2;
+  const el=document.createElement('div');
+  el.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;width:${R*2}px;height:${R*2}px;margin:${-R}px 0 0 ${-R}px;border-radius:50%;pointer-events:none;z-index:31;border:3px solid ${color};box-shadow:0 0 16px ${color},inset 0 0 16px ${color}`;
+  grid.appendChild(el);
+  el.animate([{transform:'scale(.12)',opacity:.95},{transform:'scale(1)',opacity:0}],{duration:560,easing:'ease-out'}).onfinish=()=>el.remove();
+}
+function fxSpikes(x,y,color){ const grid=_fxGrid(); if(!grid)return; const c=TSCUR, cx=x*c+c/2, cy=y*c+c/2;
+  for(let i=0;i<7;i++){ const ang=i*(360/7)+ri(-10,10), el=document.createElement('div');
+    el.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;width:5px;height:${c*0.5}px;margin-left:-2.5px;transform-origin:top center;pointer-events:none;z-index:31;background:linear-gradient(${color},transparent);clip-path:polygon(50% 0,100% 100%,0 100%)`;
+    grid.appendChild(el);
+    el.animate([{transform:`rotate(${ang}deg) scaleY(0)`,opacity:1},{transform:`rotate(${ang}deg) scaleY(1)`,opacity:1,offset:.55},{transform:`rotate(${ang}deg) scaleY(1)`,opacity:0}],{duration:440,easing:'ease-out'}).onfinish=(n=>()=>n.remove())(el);
+  }
+}
+function fxWard(x,y,color){ const grid=_fxGrid(); if(!grid)return; const c=TSCUR, R=c*0.6, cx=x*c+c/2, cy=y*c+c/2;
+  const el=document.createElement('div');
+  el.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;width:${R*2}px;height:${R*2}px;margin:${-R}px 0 0 ${-R}px;border-radius:50%;pointer-events:none;z-index:29;border:2.5px solid ${color};box-shadow:0 0 12px ${color},inset 0 0 8px ${color}`;
+  grid.appendChild(el);
+  el.animate([{transform:'scale(1.6)',opacity:0},{transform:'scale(1)',opacity:.95,offset:.4},{transform:'scale(1)',opacity:.6,offset:.75},{transform:'scale(1.08)',opacity:0}],{duration:900,easing:'ease-out'}).onfinish=()=>el.remove();
+}
+function fxHeal(x,y,color){ const grid=_fxGrid(); if(!grid)return; const c=TSCUR, cx=x*c+c/2, cy=y*c+c/2, col=color||'#9ab86f';
+  const g=document.createElement('div');
+  g.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;width:${c*0.8}px;height:${c*0.8}px;margin:${-c*0.4}px 0 0 ${-c*0.4}px;border-radius:50%;pointer-events:none;z-index:29;background:radial-gradient(circle,${col},transparent 66%)`;
+  grid.appendChild(g); g.animate([{opacity:.75,transform:'scale(.5)'},{opacity:0,transform:'scale(1.15)'}],{duration:680,easing:'ease-out'}).onfinish=()=>g.remove();
+  for(let i=0;i<4;i++){ const off=ri(-Math.round(c*0.3),Math.round(c*0.3)), el=document.createElement('div');
+    el.style.cssText=`position:absolute;left:${cx+off}px;top:${cy}px;width:5px;height:5px;margin:-2.5px;border-radius:50%;pointer-events:none;z-index:30;background:${col};box-shadow:0 0 6px ${col}`;
+    grid.appendChild(el);
+    el.animate([{transform:'translateY(7px)',opacity:0},{transform:'translateY(0)',opacity:1,offset:.3},{transform:`translateY(${-Math.round(c*0.7)}px)`,opacity:0}],{duration:700+i*70,easing:'ease-out'}).onfinish=(n=>()=>n.remove())(el);
+  }
+}
+function fxSmoke(x,y){ const grid=_fxGrid(); if(!grid)return; const c=TSCUR, cx=x*c+c/2, cy=y*c+c/2;
+  for(let i=0;i<6;i++){ const ox=ri(-Math.round(c*0.5),Math.round(c*0.5)), oy=ri(-Math.round(c*0.45),Math.round(c*0.45)), el=document.createElement('div');
+    el.style.cssText=`position:absolute;left:${cx+ox}px;top:${cy+oy}px;width:${c*0.75}px;height:${c*0.75}px;margin:${-c*0.375}px 0 0 ${-c*0.375}px;border-radius:50%;pointer-events:none;z-index:31;background:radial-gradient(circle,rgba(150,150,158,.7),transparent 68%)`;
+    grid.appendChild(el);
+    el.animate([{transform:'scale(.3)',opacity:.8},{transform:'scale(1.5)',opacity:0}],{duration:760,easing:'ease-out'}).onfinish=(n=>()=>n.remove())(el);
+  }
 }
 function playFx(){
   const grid=document.getElementById('grid');
@@ -3260,6 +3322,13 @@ function playFx(){
       requestAnimationFrame(()=>{ el.style.left=(b.left+14)+'px'; el.style.top=(b.top+20)+'px'; });
       setTimeout(()=>el.remove(),280);
     }
+    else if(e.type==='bolt'){ fxBolt(e.fx,e.fy,e.tx,e.ty,e.color,e.color2,e.dur); }
+    else if(e.type==='burst'){ fxBurst(e.x,e.y,e.color); }
+    else if(e.type==='nova'){ fxNova(e.x,e.y,e.color,e.r); }
+    else if(e.type==='spikes'){ fxSpikes(e.x,e.y,e.color); }
+    else if(e.type==='ward'){ fxWard(e.x,e.y,e.color); }
+    else if(e.type==='heal'){ fxHeal(e.x,e.y,e.color); }
+    else if(e.type==='smoke'){ fxSmoke(e.x,e.y); }
   }
   fx=[];
 }
@@ -3303,7 +3372,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.46</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.47</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3731,13 +3800,14 @@ function renderBattle(){
       goldMoves = reachCosts(B,u,mp+moveBudget(u)).filter(g=>!blueMoves.some(b=>b.x===g.x&&b.y===g.y)); }
   }
   const abs=isPC?unitAbilities(u):[];
+  const canAct=isPC&&!u.acted&&(u.strikes||0)<maxStrikes(u);   // still has an attack/ability this turn — no action left ⇒ no hit-% shown
   const aiming=isPC&&B.aim&&!B.peek?abilityByKey(u,B.aim):null;
-  const targets=isPC&&!u.acted&&!B.aim&&!B.peek?attackTargets(B,u):[];
+  const targets=canAct&&!B.aim&&!B.peek?attackTargets(B,u):[];
   const casts=aiming?B.units.filter(t=>abilityValidTarget(B,u,aiming,t)):[];
   // a ranged unit's effective reach this turn (weapon range, +1 on high ground, capped in weather) — used to flag
   // enemies that ARE in range but whose line of sight is blocked, so the archer's range doesn't feel bugged
   const uw=isPC?wOf(u):null;
-  const uRangedReach=(isPC&&!u.acted&&!B.aim&&!B.peek&&uw&&uw.rng>1)?(wxCap(B,uw.rng)+(elevAt(B,u.x,u.y)>=2?1:0)):0;
+  const uRangedReach=(canAct&&!B.aim&&!B.peek&&uw&&uw.rng>1)?(wxCap(B,uw.rng)+(elevAt(B,u.x,u.y)>=2?1:0)):0;
   // threat overlay for an inspected enemy: everywhere it could move + strike next turn
   const iu=B.inspect?B.units.find(z=>z.uid===B.inspect&&z.hp>0&&!z.fled):null;
   const threat=new Set();
@@ -3838,7 +3908,7 @@ function renderBattle(){
              :(B.rain?`<span class="tag" style="color:#aab3c0;border-color:#3a4048" title="Rain — ranged range −1">RAIN</span>`:'');
   const strikesLeft=isPC?Math.max(0,maxStrikes(u)-(u.strikes||0)):0;
   const actTxt=!isPC?'':(u.acted?'Action —':strikesLeft>=2?'⚔ Strike ×2, or move':strikesLeft===1?'Attack ●':'Action —');
-  const pips=isPC?`<span class="pips">${esc(u.name)} · Move ${u.mp||0} · ${actTxt}</span>`:(B.phase==='enemy'?'<span class="hint">enemy phase…</span>':'<span class="hint">— tap a soldier —</span>');
+  const pips=isPC?`<span class="pips">${esc(u.name)} · Move ${Math.floor(u.mp||0)} · ${actTxt}</span>`:(B.phase==='enemy'?'<span class="hint">enemy phase…</span>':'<span class="hint">— tap a soldier —</span>');
   const anyAvail=B.phase==='player'&&B.units.some(z=>pcTurnLeft(z));
   const canAbil=isPC&&!u.acted&&(u.strikes||0)===0;   // an ability or brace is your action — not available once you've begun striking
   const actbar=`<div id="actbarImm">
@@ -3867,9 +3937,10 @@ function renderBattle(){
 /* ===================== IMMERSIVE BATTLE CAMERA — drag-pan, wheel/pinch-zoom ===================== */
 function clampZoom(z){ return clamp(z,0.25,2.8); }
 function battleGridPx(B){ return (B._ts||40); }                   // one tile's pixel step (no gap between tiles)
-function clampCam(B,vp){ const TS=battleGridPx(B), gw=GW*TS*B._cam.z, gh=GH*TS*B._cam.z, m=64;
-  if(gw<=vp.clientWidth) B._cam.x=(vp.clientWidth-gw)/2; else B._cam.x=clamp(B._cam.x, vp.clientWidth-gw-m, m);
-  if(gh<=vp.clientHeight) B._cam.y=(vp.clientHeight-gh)/2; else B._cam.y=clamp(B._cam.y, vp.clientHeight-gh-m, m); }
+function clampCam(B,vp){ const TS=battleGridPx(B), gw=GW*TS*B._cam.z, gh=GH*TS*B._cam.z;
+  const mx=Math.round(vp.clientWidth*0.5), my=Math.round(vp.clientHeight*0.5);   // half-viewport of black margin each side → any corner can be pulled to centre
+  if(gw<=vp.clientWidth) B._cam.x=(vp.clientWidth-gw)/2; else B._cam.x=clamp(B._cam.x, vp.clientWidth-gw-mx, mx);
+  if(gh<=vp.clientHeight) B._cam.y=(vp.clientHeight-gh)/2; else B._cam.y=clamp(B._cam.y, vp.clientHeight-gh-my, my); }
 function applyCam(B,pz,vp){ clampCam(B,vp); pz.style.transform=`translate(${Math.round(B._cam.x)}px,${Math.round(B._cam.y)}px) scale(${B._cam.z})`; }
 function centerCamOn(B,vp,gx,gy){ B._cam.x=vp.clientWidth/2-gx*B._cam.z; B._cam.y=vp.clientHeight/2-gy*B._cam.z; clampCam(B,vp); }
 function zoomAt(B,vp,clientX,clientY,nz){ const r=vp.getBoundingClientRect(), fx=clientX-r.left, fy=clientY-r.top;

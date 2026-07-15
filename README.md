@@ -11,6 +11,20 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.47 (2026-07-14) — Everyone Walks, Spell FX & Combat-Clarity Fixes
+A polish pass on motion, feedback, and clarity.
+
+**Enemies walk too.** The glide now works for the enemy AI, not just your soldiers — a rendering quirk (enemy moves fire two redraws back-to-back) was cancelling their animation. Walkers also ride **above** the ground and elevation tiles for the whole step, so they never disappear behind a wall or slope mid-move.
+
+**Every spell has its own animation.** Ashfire hurls a fiery orb; blightbolt a violet one; Bone Spears erupt as a starburst of shards; Blight Storm and War-Cry roll out expanding shockwaves; Healing Aura blooms a green ring with rising motes; Smoke Bomb puffs a grey cloud; Sanctuary, Protection, Ashen Ward and Rally each settle a coloured ward-ring onto their target (gold / steel / violet / green). Cleave and Shield Bash land with an impact ring.
+
+**Combat-clarity fixes.**
+- **Hit % is hidden once a soldier has no action left** — no more phantom to-hit numbers on a soldier who can't strike.
+- **Second attacks stay locked** until the level-5 Double Strike: a soldier who has moved, or who isn't yet level 5, can never swing twice (verified).
+- **No more dead stops on a fraction of a step.** A soldier with less than one full point of movement left now reads **Move 0**, shows no move tiles, and the "Next" button skips them instead of stranding you on a soldier who can't do anything.
+
+**A frame of black around the map.** You can now scroll a little past the map edge, so the corners are easy to bring into view instead of being pinned against the screen edge.
+
 ## v0.46 (2026-07-14) — Walking Tokens, Solid-Filling Walls & Cleaner Ground
 Battlefield feel and legibility.
 
