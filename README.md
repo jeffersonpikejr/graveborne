@@ -11,6 +11,17 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.48 (2026-07-14) — Battles Survive a Reload, Enemy Hit FX & Mobile Portrait Fix
+Mobile robustness and combat feedback.
+
+**Your fight is no longer lost on a rotate or refresh.** A battle was never written to the save, so when a mobile browser reloaded the page on an orientation change (they do this under memory pressure), the whole fight vanished — and re-entering felt like your party's turn had reset. Battles are now stashed when the page is hidden or unloaded and resumed exactly where they stood on the next open — same round, same positions, same actions spent (the map dimensions ride along, and the enemy AI is re-kicked if it was mid-phase).
+
+**Enemy hits animate now.** Enemy attacks were queuing their arrows, damage counters and "dodged/blocked" tags, but a double-redraw in the enemy turn wiped them before they drew. They're now deferred to draw on the settled frame — you'll see the arrow fly, the number pop, and the miss register, for foes as well as your own soldiers (spell effects included).
+
+**Portrait loads correctly the first time.** On some phones the map fit to a not-yet-settled viewport on first paint and only corrected after flipping to landscape and back. A viewport observer now re-fits the moment the real size is known (and on URL-bar show/hide), so the battlefield frames correctly from the start.
+
+**Also:** the "Next" button now consistently skips soldiers with less than a full step of movement left (matching the Move-0 rule).
+
 ## v0.47 (2026-07-14) — Everyone Walks, Spell FX & Combat-Clarity Fixes
 A polish pass on motion, feedback, and clarity.
 

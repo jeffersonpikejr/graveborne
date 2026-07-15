@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.47</title>
+<title>GRAVEBORNE — alpha v0.48</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -883,6 +883,28 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
   }
   if(touched)save();
   return true;} }catch(e){} return false; }
+// A battle is never written to the main save, so a page reload mid-fight (mobile browsers do this on orientation
+// change / memory pressure) used to drop the whole battle — which reads as "my party's turn reset." Stash the live
+// battle on hide/unload and resume it on next boot, so a rotate or refresh no longer loses your place.
+const ACTIVE_KEY='graveborne_active_v01';
+function stashBattle(){ try{
+  if(S&&S.battle&&!S.battle.over){
+    const skip={_vis:1,_conn:1,_lastPos:1,_lastPosRAF:1,_fitRetry:1};        // transient (Sets / timers) — rebuilt on render
+    // GW/GH are per-battle GLOBALS set by genBattleMap (not on the battle object); tileAt indexes tiles[y*GW+x], so
+    // they MUST be restored on resume or every tile lookup is wrong. Stash them alongside.
+    localStorage.setItem(ACTIVE_KEY, JSON.stringify({S,uid,t:Date.now(),GW,GH},(k,v)=>skip[k]?undefined:v));
+  } else localStorage.removeItem(ACTIVE_KEY);
+}catch(e){} }
+function clearStashedBattle(){ try{ localStorage.removeItem(ACTIVE_KEY); }catch(e){} }
+function tryResumeBattle(){ try{
+  const d=JSON.parse(localStorage.getItem(ACTIVE_KEY));
+  if(d&&d.S&&d.S.battle&&!d.S.battle.over&&(Date.now()-(d.t||0)<30*60000)){   // fresh (<30 min) so a long-abandoned fight doesn't resurrect
+    S=d.S; uid=d.uid; const B=S.battle;
+    if(typeof d.GW==='number')GW=d.GW; if(typeof d.GH==='number')GH=d.GH;     // restore the map dimensions tileAt() relies on
+    delete B._vis; delete B._conn; B._lastPos=null; B._camTouched=false;      // re-fit the camera to the current (possibly rotated) viewport
+    return true;
+  }
+}catch(e){} return false; }
 
 /* ============================== STRATEGY LAYER ============================== */
 function dangerOf(region){ return region.swallowed?3:(region.pressure>=70?3:region.pressure>=40?2:1); }
@@ -2636,6 +2658,7 @@ function endBattle(outcome){
     `<p>Twelve contracts. The company has a name now, and a graveyard.</p><p class="hint">This is where alpha v0.1 ends its authored arc — play on. The war doesn’t stop because the demo does.</p>`,
     [{label:'Play on',fn:()=>closeModal()}])); }
   S.battle=null;
+  clearStashedBattle();   // the fight is over — don't resurrect it on the next boot
   // a fought contract is consumed — won, lost, or fled
   S.contracts=S.contracts.filter(c=>c.id!==B.contractId);
   // a beaten map agent is gone from the map
@@ -3219,7 +3242,10 @@ function render(){
   const lg=document.getElementById('log'); if(lg)lg.scrollTop=0;
   if(S.battle) setupBattleView(S.battle);      // apply the pan/zoom camera & (re)bind gesture handlers
   if(S.battle) animateWalks(S.battle);         // slide any token that changed tile from its old square to its new one
-  playFx();
+  // Defer fx to a microtask so they draw on the FINAL grid of this tick. An enemy action fires two synchronous renders
+  // (aiAct→render, then nextTurn→render); running playFx inline would build the arrows/damage/dodge on the first grid,
+  // which the second render immediately wipes — so enemy hits showed no animation. The microtask runs once, after both.
+  queueMicrotask(playFx);
 }
 // FLIP walk animation: compare each visible unit's tile to where it was last render; if it moved, glide the freshly
 // re-rendered token from the OLD position to the new one. Uses the Web Animations API so nothing lingers in inline
@@ -3372,7 +3398,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.47</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.48</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3977,6 +4003,15 @@ function attachPanZoomOnce(){
   const refit=()=>{ if(S.battle)render(); };
   window.addEventListener('resize',refit);
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden)refit(); });
+  // Mobile portrait sometimes reports a not-yet-settled viewport (URL bar, safe-area) on the FIRST paint, so the map
+  // fits to the wrong size and only corrects after an orientation flip. A ResizeObserver on #app fires the moment the
+  // real size is known (and on every later change), and visualViewport catches the URL-bar show/hide that window
+  // 'resize' can miss. Both just re-fit (guarded by _camTouched, so the player's own pan/zoom is never overridden).
+  if(window.visualViewport){ try{ visualViewport.addEventListener('resize',refit); }catch(e){} }
+  if(window.ResizeObserver){ try{
+    let lw=0,lh=0; const ro=new ResizeObserver(es=>{ const r=es[0].contentRect; if(Math.abs(r.width-lw)>2||Math.abs(r.height-lh)>2){ lw=r.width; lh=r.height; refit(); } });
+    const ap=document.getElementById('app'); if(ap)ro.observe(ap);
+  }catch(e){} }
 }
 window.ZOOM=function(dir){ const B=S.battle; if(!B||!B._cam)return; const vp=document.getElementById('viewport'), pz=document.getElementById('panzoom'); if(!vp||!pz)return;
   const r=vp.getBoundingClientRect(); zoomAt(B,vp,r.left+vp.clientWidth/2,r.top+vp.clientHeight/2,clampZoom(B._cam.z*(dir>0?1.25:0.8))); applyCam(B,pz,vp); B._camTouched=true; };
@@ -3984,7 +4019,7 @@ window.LOGTOGGLE=function(){ const B=S.battle; if(!B)return; B._logOpen=!B._logO
 window.NEXTUNIT=function(){ const B=S.battle; if(!B||B.phase!=='player')return;                 // jump to the next soldier who can still act
   const order=B.units.filter(z=>z.kind==='pc'&&z.hp>0&&!z.fled); if(!order.length)return;
   const ci=order.findIndex(z=>z.uid===B.sel);
-  for(let i=1;i<=order.length;i++){ const z=order[(ci+i+order.length)%order.length]; if(!z.acted||(z.mp||0)>0){ selectUnit(z.uid); return; } } };
+  for(let i=1;i<=order.length;i++){ const z=order[(ci+i+order.length)%order.length]; if(pcTurnLeft(z)){ selectUnit(z.uid); return; } } };
 window.TILE=function(x,y){
   const B=S.battle; if(!B||B.over||activeModal)return;
   if(B.peek){ B.peekTile={x,y}; render(); return; }   // inspect mode: read the square, take no action (any phase)
@@ -4054,7 +4089,12 @@ function renderVictory(){
 /* ============================== BOOT ============================== */
 window.G={ get state(){return S;}, newGame, advanceDays, weeklyTick, startBattle, save, load,
   soldierById, rise, graves:()=>S.graves, dbgKill:(id)=>{const s=soldierById(id); if(s){S.battle=null; killSoldier(s); S.graves[S.graves.length-1].state='lost'; render();}} };
-if(!load()) newGame();
+if(tryResumeBattle()){                       // a fight was interrupted (reload / orientation change) — pick it back up
+  log('The fight resumes where it stood.','wk');
+  render();
+  if(S.battle&&S.battle.phase==='enemy'&&!S.battle.over){ try{ maybeAI(); }catch(e){} }   // re-kick the enemy AI (its timers died with the old page)
+  pumpModals();
+} else if(!load()) newGame();
 else {
   log('The record resumes.','wk');
   // self-heal interrupted choices: rites and feat picks owed from before a reload
@@ -4062,6 +4102,9 @@ else {
   for(const s of S.roster){ (s.pendingFeats||[]).forEach(p=>queueModal(()=>featModal(s,p.opts.filter(f=>!s.feats.includes(f)),p.stat))); }
   render(); pumpModals();
 }
+// persist a live battle when the page is hidden or unloaded (mobile rotate/refresh), so it can be resumed on boot
+window.addEventListener('pagehide',stashBattle);
+document.addEventListener('visibilitychange',()=>{ if(document.hidden)stashBattle(); });
 </script>
 </body>
 </html>
