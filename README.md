@@ -11,6 +11,13 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.52 (2026-07-15) — Subtler Move Tiles & More Vertical Scroll Room
+Battle-camera and readability.
+
+**Move/dash tile outlines are much subtler.** The blue (move) and gold (dash) grids were loud enough to wash out the terrain; their outlines are now ~60% more transparent, so they read as a quiet indicator and you can see the ground underneath.
+
+**More vertical scroll room, and the top stops clipping under the HUD.** Zoomed in, the map's top rows could jam under the roster with nowhere to scroll, and zooming with the +/- buttons made it worse. The +/- zoom now pivots around the clear band between the panels (not the raw screen centre), and there's far more black margin to scroll into — you can pull any edge well clear of the HUD.
+
 ## v0.51 (2026-07-15) — Charges on Solid Ground & the Maren-Proof Fix
 
 **Charges no longer spawn adrift in a chasm or a lake.** On maps with a chasm or deep water through the middle, "Protect the Charges" (and the "seize this point" objective) used to drop the villagers/wagons on a single grass tile ringed by impassable void. They now land on solid, reachable ground near the centre — verified across dozens of chasm and water maps.
