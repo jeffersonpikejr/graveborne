@@ -11,6 +11,15 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.50 (2026-07-15) — Charges on Solid Ground & Readable Mire
+Two map fixes from the field.
+
+**Charges no longer spawn adrift in a chasm or a lake.** On maps with a chasm or deep water through the middle, "Protect the Charges" (and the "seize this point" objective) used to drop the villagers/wagons on a single grass tile ringed by impassable void. They now land on solid, reachable ground near the centre — verified across dozens of chasm and water maps.
+
+**Mire reads as ground you can cross.** The fen-mud on causeway and marsh maps was rendered nearly black, so the top and bottom of those maps looked impassable when they were actually just slow going. Mire is now a lighter, wet muddy-olive with a faint sheen — clearly traversable, and clearly distinct from the deep-blue water that genuinely blocks you.
+
+_On the ash-haze bow question: an enemy two diagonal squares away is at shooting distance 2 (diagonals count as 1 for line-of-fire, unlike the 1.5 they cost to walk), which is inside the ash-haze range of 3 — so it is in range. If a shot isn't offered, it's because that soldier has already spent their action (the readout shows "Action —") or something breaks line of sight._
+
 ## v0.49 (2026-07-15) — Framed Map, Actions Dropdown & Paced Enemy Turns
 Battle-UI feel.
 

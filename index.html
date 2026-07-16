@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.49</title>
+<title>GRAVEBORNE — alpha v0.50</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1614,6 +1614,17 @@ function reachableRegion(B,sx,sy){
   return seen;
 }
 function connRegion(B){ if(!B._conn){ const sp=B.spawn||{x:1,y:Math.floor(GH/2)}; B._conn=reachableRegion(B,sp.x,sp.y); } return B._conn; } // cached: terrain is fixed after generation
+// a solid, REACHABLE landing tile near (x,y) for a charge or an objective point — never floating in a chasm/water gap
+// or perched on a lone bridge tile. Prefers open ground (most neighbours walkable) in the connected region, then any
+// reachable open tile, then the raw point. Keeps "protect the charges" / "hold the ground" objectives playable on every map.
+function chargeSpot(B,x,y){
+  const region=connRegion(B);
+  const inReg=(nx,ny)=>{ const t=tileAt(B,nx,ny); return !!(t&&!bImpass(t.t)&&region.has(nx+','+ny)&&!unitAt(B,nx,ny)); };
+  const solid=(nx,ny)=>{ if(!inReg(nx,ny))return false; let open=0; for(const[dx,dy]of[[1,0],[-1,0],[0,1],[0,-1]]){ const n=tileAt(B,nx+dx,ny+dy); if(n&&!bImpass(n.t))open++; } return open>=3; };
+  for(const test of [solid,inReg])
+    for(let r=0;r<=Math.max(GW,GH);r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){ if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue; if(test(x+dx,y+dy))return {x:x+dx,y:y+dy}; }
+  return {x,y};
+}
 // safety net: after ALL deployment, guarantee the whole battle is one connected component. The muster edge is
 // always passable, so its region is the main field; any unit (a foe OR a stray corner-cut PC/prop) sealed in a
 // walled pocket is dragged out to the nearest reachable tile. Makes every battle playable however the map generated.
@@ -1712,13 +1723,14 @@ function startBattle(contract,squadIds){
     spawnProp(B,'wagon',1,ly);
   }
   if(B.obj==='protect'){
-    const cy=Math.floor(GH/2), cx=Math.floor(GW/2);
-    if(B.caravanRaid){ spawnProp(B,'wagon',cx-1,cy-1); spawnProp(B,'wagon',cx,cy+1); }
-    else { spawnProp(B,'villager',cx-1,cy-1); spawnProp(B,'villager',cx,cy+1); }
+    const cy=Math.floor(GH/2), cx=Math.floor(GW/2), kind=B.caravanRaid?'wagon':'villager';
+    const s1=chargeSpot(B,cx,cy); spawnProp(B,kind,s1.x,s1.y);                          // solid ground near centre — not adrift in a chasm
+    const s2=chargeSpot(B, s1.x+(s1.x<GW-2?1:-1), s1.y); spawnProp(B,kind,s2.x,s2.y);   // second charge alongside the first
   }
   if(B.obj==='capture'){
     const c=B.ritualCenter||{x:Math.floor(GW*0.62),y:ri(2,GH-3)};
-    B.objTile={x:c.x,y:c.y}; const t=tileAt(B,c.x,c.y); if(t&&bImpass(t.t))t.t='grass';
+    const s=chargeSpot(B,c.x,c.y);                                                       // the point to seize must be reachable, on real ground
+    B.objTile={x:s.x,y:s.y}; const t=tileAt(B,s.x,s.y); if(t&&bImpass(t.t))t.t='grass';
   }
   // a rescued Underkingdom shade fights at your side as a guest — permanently yours if they survive the victory
   if(contract.cinderling&&S.roster.length<ROSTER_CAP){ const g=makeCinderling(); S.roster.push(g); squadIds=squadIds.concat(g.id); B.cinderlingId=g.id;
@@ -3404,7 +3416,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.49</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.50</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3700,7 +3712,7 @@ function pickSquad(cb){
     {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; S._loadout={kit:loadout.kit&&(S.kits||0)>0,horn:loadout.horn&&(S.horns||0)>0}; closeModal(); cb([...picked]); }},
     {label:'Not yet',fn:()=>closeModal()}]);
 }
-const TILE_BG={grass:'#28241b',road:'#37301f',bridge:'#463829',brush:'#262b1a',tree:'#1d2615',mire:'#1f2019',boulder:'#3c362c',rubble:'#332e27',column:'#332e27',stone:'#2e2a23',water:'#161c23',chasm:'#070809'};
+const TILE_BG={grass:'#28241b',road:'#37301f',bridge:'#463829',brush:'#262b1a',tree:'#1d2615',mire:'#33301e',boulder:'#3c362c',rubble:'#332e27',column:'#332e27',stone:'#2e2a23',water:'#161c23',chasm:'#070809'};
 const DECO_ALIAS={driftwood:'log',scree:'rock',rubblebit:'rock',hay:'tuft',mushroom:'fern'};
 // small, non-blocking grimdark debris that dresses the open ground (visual only). Returns inner SVG (no wrapper).
 function decoInner(kind,x,y){
@@ -3744,7 +3756,7 @@ function tileArt(t,x,y,tile){
   if(t==='water')return `<svg class="decor" viewBox="0 0 46 46"><rect width="46" height="46" fill="#0e141a" opacity=".38"/><path d="M4 ${16+v} q10 -4 20 0 t20 0 M4 ${26+v} q10 -4 20 0 t20 0 M4 ${36-v} q10 -4 20 0 t20 0" fill="none" stroke="#3b4855" stroke-width="1.5" opacity=".72"/></svg>`;
   if(t==='bridge')return `<svg class="decor" viewBox="0 0 46 46"><rect x="0" y="13" width="46" height="3" fill="#2a1d12"/><rect x="0" y="30" width="46" height="3" fill="#2a1d12"/><rect x="1" y="15" width="44" height="16" fill="#4a3728" stroke="#1d1409" stroke-width="1"/><rect x="1" y="15" width="44" height="3" fill="#5c4632"/><path d="M7 15 v16 M14 15 v16 M21 15 v16 M28 15 v16 M35 15 v16 M42 15 v16" stroke="#2a1d12" stroke-width="1.1"/><path d="M5 22 h8 M24 25 h9 M30 19 h6" stroke="#5a4632" stroke-width=".7" opacity=".6"/></svg>`;
   if(tile&&tile.blighted)return `<svg class="decor" viewBox="0 0 46 46">${groundTex(x,y,'grass')}<ellipse class="bpool" cx="23" cy="${28+v}" rx="13" ry="6" fill="#42305c" opacity=".62"/><circle cx="${15+v*3}" cy="${20+v}" r="1.6" fill="#9a6fc9"/><path d="M${18+v} ${28+v} q3 -9 8 -12" stroke="#6b4a95" stroke-width="1.3" fill="none"/></svg>`;
-  if(t==='mire')return `<svg class="decor" viewBox="0 0 46 46"><rect width="46" height="46" fill="#0c0e0a" opacity=".3"/>${groundTex(x,y,'grass')}<ellipse cx="${11+v*4}" cy="30" rx="8" ry="3.4" fill="#12181a" opacity=".55"/><ellipse cx="${30-v*3}" cy="18" rx="5" ry="2.2" fill="#12181a" opacity=".4"/>${tile&&tile.deco?decoInner(tile.deco,x,y):''}</svg>`;
+  if(t==='mire')return `<svg class="decor" viewBox="0 0 46 46">${groundTex(x,y,'grass')}<ellipse cx="${11+v*4}" cy="30" rx="9" ry="4" fill="#232619" opacity=".5"/><ellipse cx="${30-v*3}" cy="18" rx="6" ry="2.6" fill="#232619" opacity=".42"/><path d="M4 ${37+v} q7 -2.5 13 0 M25 ${40-v} q7 -2.5 13 0" fill="none" stroke="#5a6250" stroke-width="1" opacity=".33"/><path d="M8 12 q6 -2 11 0" fill="none" stroke="#5a6250" stroke-width="1" opacity=".25"/>${tile&&tile.deco?decoInner(tile.deco,x,y):''}</svg>`;
   if(t==='chasm')return `<svg class="decor" viewBox="0 0 46 46"><rect width="46" height="46" fill="#070809"/><ellipse cx="23" cy="24" rx="23" ry="21" fill="#000" opacity=".6"/><path d="M2 6 Q23 12 44 6" fill="none" stroke="#2a2419" stroke-width="1.4" opacity=".4"/></svg>`;
   if(t==='grass'||t==='road')return `<svg class="decor" viewBox="0 0 46 46">${groundTex(x,y,t)}${tile&&tile.deco?decoInner(tile.deco,x,y):''}</svg>`;
   return '';
