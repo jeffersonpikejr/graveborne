@@ -11,6 +11,17 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.53 (2026-07-16) — Class Build-Trees
+Every class now levels down one of two branches (or splashes a utility). At each veterancy you're offered **one feat from each branch + one utility**, labelled, with prerequisites gating the deeper feats — so you climb toward a signature payoff on purpose. Every old feat is preserved, and the level-5 capstone forks by build where it matters.
+
+- **Fighter** — *Battlemaster* (Riposte → Disarm → Trip: counter the whiff, weaken the heavy blow, sweep them off their feet) vs *Critknight* (Keen Edge → Deep Cut → Killing Blow: crits that bite past armor and rip a bonus strike).
+- **Ranger** — *Harrier* (Sure-Foot, Harrier, Windrunner: ignore rough ground, dodge on the move, loose a second arrow after you reposition) vs *Sharpshooter* (Marksman, Take Aim: a guaranteed critical aimed shot).
+- **Cleric** — *Aegis* (Vigil auto-mend, Bulwark of Faith armor ward) vs *Radiance* (Blessed Edge & Smite; **Zealot** turns the capstone into **Battle Hymn** — bless the whole line — instead of Healing Aura).
+- **Ash Acolyte** — *Pyre-Caller* (Ember-Veins, Blight-Reach, Pyre-Heart: the ranged glass cannon — bigger blightfire that **sears you** and stacks corruption each cast, but chains on a kill) vs *Vein-Dancer* (Serrated, Blood-High: a melee **crit** blade-dancer that drinks life back; **Serrated** turns the capstone into **Marrow Reap** — crit every foe around you — instead of Blight Storm).
+- **Shade** — *Assassin* (Assassinate: crit a reeling foe) vs *Evasion* (Elusive: harder to hit when you move).
+
+New under the hood: a crit system (chance-based and guaranteed aimed shots, capped), Ash-Acolyte burnout, and reactive Riposte. Designed and adversarially reviewed by a multi-agent pass; a mid-fight level-up now survives a reload.
+
 ## v0.52 (2026-07-15) — Subtler Move Tiles & More Vertical Scroll Room
 Battle-camera and readability.
 

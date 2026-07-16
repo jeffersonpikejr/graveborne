@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.52</title>
+<title>GRAVEBORNE — alpha v0.53</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -68,6 +68,7 @@
   .face svg{display:block;border:1px solid var(--line);border-radius:3px;background:#161310}
   .face.revf svg{border-color:#4a3a5a;box-shadow:0 0 8px rgba(122,79,163,.5)}
   .cmdr{color:var(--gold);border:1px solid var(--gold);border-radius:2px;padding:0 5px;font-size:11px}
+  .branchtag{display:inline-block;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#c9a227;border:1px solid rgba(201,162,39,.4);border-radius:2px;padding:0 4px;margin-right:2px;vertical-align:1px}
   .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;font-size:12.5px;color:var(--steel);margin:4px 0}
   .statup{color:#9ab86f;font-weight:bold}
   /* sneak minigame */
@@ -320,7 +321,7 @@ const FEATS={
  stalwart:{n:'Stalwart',d:'+15 resolve'},
  bonecarver:{n:'Bonecarver',d:'+3 damage vs the dead'},
  medic:{n:'Field Medic',d:'Ability: heal adjacent ally 5 HP (once per battle)'},
- sanctuary:{n:'Sanctuary',d:'Ability: heal all allies within 2 for 4 HP, incl. self (once per battle)'},
+ sanctuary:{n:'Sanctuary',d:'Ability: shelter an ally within 2 — no enemy can attack them until your next turn (once per battle).'},
  vengeful:{n:'Vengeful',d:'+20 hit, +2 dmg vs revenants of your bonded; immune to their callouts'},
  bulwark:{n:'Bulwark',d:'+1 armor'},
  reaper:{n:'Reaper',d:'Each kill: +5 hit for rest of battle (stacks)'},
@@ -334,26 +335,80 @@ const FEATS={
  rally:{n:'Rally',d:'COMMANDER. Ability: steady an adjacent ally — clear their rattle and grant +10 hit next turn.',leader:true},
  smokebomb:{n:'Smoke Bomb',d:'Ability (once per battle): drop a choking cloud — enemies within 2 are blinded (−10 to hit) until their next turn.'},
  garrote:{n:'Underkingdom Garrote',d:'+15 hit and +2 damage against an isolated target (no allies adjacent to it).'},
+ // — Fighter · Battlemaster (control) —
+ riposte:{n:'Riposte',d:'When an adjacent enemy misses you in melee, strike back once — resets each round.'},
+ disarm:{n:'Disarm',d:'Ability: roll to hit an adjacent enemy; on a hit their next attack is −2 damage and −10 to hit.',req:['riposte']},
+ trip:{n:'Trip',d:'Ability: roll to hit an adjacent enemy; on a hit they take 1–2 and lose their next turn.',req:['disarm']},
+ // — Fighter · Critknight (burst) —
+ 'keen-edge':{n:'Keen Edge',d:'Your weapon strikes crit for +3 (15% chance, +10% from high ground).'},
+ 'deep-cut':{n:'Deep Cut',d:'+10% crit, and your crits bite deeper (+4 instead of +3).',req:['keen-edge']},
+ 'killing-blow':{n:'Killing Blow',d:'+15% crit vs wounded (<50% HP); a crit rips open a bonus strike this turn (once).',req:['deep-cut']},
+ // — Ranger · Harrier (mobility) / Sharpshooter (power) —
+ surefoot:{n:'Sure-Foot',d:'Rough ground, mire, blight and 1-level slopes cost you no extra movement.',req:['fleet']},
+ harrier:{n:'Harrier',d:'On any turn you moved, attackers are −10 to hit you until your next turn.',req:['fleet']},
+ windrunner:{n:'Windrunner',d:'On a turn you moved, loose a second arrow; that follow-shot takes −15 to hit.',req:['skirmisher']},
+ marksman:{n:'Marksman',d:'Your aimed shot (first each turn) crits a full-HP target: +3 damage.',req:['deadeye']},
+ heavydraw:{n:'Take Aim',d:'When you do not move, your aimed shot (first each turn) crits any target: +3 damage.',req:['deadeye']},
+ // — Cleric · Aegis (protect+heal) / Radiance (offensive buffs) —
+ vigil:{n:'Vigil',d:'At the start of your turn, you and each adjacent ally mend 2 HP.',req:['medic']},
+ aegis:{n:'Bulwark of Faith',d:'Ability (once/battle): allies within 2 gain +2 armor until your next turn.',req:['medic']},
+ blessedge:{n:'Blessed Edge',d:'Ability: bless an ally within 2 — +2 damage on their strikes this round.'},
+ smite:{n:'Smite',d:'Ability: holy fire on a foe at range 2–3 — 2–4 dmg, ignores armor (+2 vs the dead).'},
+ zealot:{n:'Zealot',d:'Blessed Edge also grants +10 hit; Smite burns +1 hotter. Your capstone becomes Battle Hymn instead of Healing Aura.',req:['blessedge']},
+ battlehymn:{n:'Battle Hymn',d:'Level 5: allies within 2 (incl. you) gain +10 hit & +2 dmg this round (once per battle).'},
+ // — Acolyte · Pyre-Caller (ranged burnout) / Vein-Dancer (melee crit) —
+ emberveins:{n:'Ember-Veins',d:'ASH. Blight casts hit +2 — but each cast sears you (2 HP; 3 on Blight Storm) and feeds the graft (+1 extra corruption).',ash:true},
+ blightreach:{n:'Blight-Reach',d:'ASH. Your blight spells reach +1 tile and cast +5% surer.',ash:true,req:['emberveins']},
+ pyreheart:{n:'Pyre-Heart',d:'ASH. The first blight-kill each turn refunds the cast — hurl again. +1 corruption.',ash:true,req:['blightreach']},
+ serrated:{n:'Serrated Graft',d:'ASH. Bone barbs sheathe the blade: +20% melee crit (a crit adds +50% damage). A crit-kill feeds the graft (+1 corruption).',ash:true,req:['veindrink']},
+ bloodhigh:{n:'Blood-High',d:'The closer to death, the sharper: while below half HP, +20% melee crit and your crits drink +2 more HP.',req:['serrated']},
+ marrowreap:{n:'Marrow Reap',d:'Level 5: every adjacent enemy takes a guaranteed-critical melee hit; you drink from each. +1 corruption. Once per battle.',ash:true},
+ // — Shade · Assassin / Evasion —
+ assassinate:{n:'Assassinate',d:'Your strikes crit a reeling foe — off-balance, rooted, stunned, blinded, or shaken — adding your weapon’s top die.',req:['garrote']},
+ elusive:{n:'Elusive',d:'On any turn you moved, attackers are −10 to hit you. Can’t pin what won’t hold still.',req:['skirmisher']},
 };
 const CLASSES={
  fighter:{n:'Fighter', wpns:['shortsword','spear','axe','mace'], hp:[12,15],skl:[3,5],spd:[3,4],res:[30,42],arm:[0,1], start:'shieldwall', martial:true,
-   feats:['duelist','shieldwall','bulwark','berserker','executioner','reaper','stalwart'],
+   feats:['riposte','disarm','trip','keen-edge','deep-cut','killing-blow','berserker','executioner','reaper','duelist','bulwark','stalwart','shieldwall'],
+   branches:{ A:{n:'Battlemaster',feats:['riposte','disarm','trip']}, B:{n:'Critknight',feats:['keen-edge','deep-cut','killing-blow','berserker','executioner','reaper']}, misc:['duelist','bulwark','stalwart','shieldwall'] },
    d:'Line-breaker. Steel, and the stubbornness to stand in it. At veterancy (Lv 5) their blows come twice.'},
  ranger:{n:'Ranger', wpns:['bow','bow','spear'], hp:[10,13],skl:[3,5],spd:[4,5],res:[30,40],arm:[0,1], start:'deadeye', martial:true,
-   feats:['deadeye','fleet','skirmisher','executioner','duelist','hook'],
+   feats:['fleet','skirmisher','surefoot','harrier','windrunner','executioner','marksman','heavydraw','deadeye','duelist','hook'],
+   branches:{ A:{n:'Harrier',feats:['fleet','skirmisher','windrunner','harrier','surefoot']}, B:{n:'Sharpshooter',feats:['marksman','heavydraw','executioner']}, misc:['duelist','hook'] },
    d:'Eyes on the treeline. Kills what it can before it closes.'},
  cleric:{n:'Cleric', wpns:['mace','spear','shortsword'], hp:[11,14],skl:[2,4],spd:[3,4],res:[38,48],arm:[0,2], start:'sanctuary',
-   feats:['sanctuary','medic','stalwart','bonecarver','shieldwall','bulwark','vengeful'],
+   feats:['bulwark','shieldwall','medic','vigil','aegis','bonecarver','blessedge','smite','zealot','stalwart','vengeful','sanctuary'],
+   branches:{ A:{n:'Aegis',feats:['medic','vigil','aegis','bulwark','shieldwall']}, B:{n:'Radiance',feats:['blessedge','zealot','smite','bonecarver']}, misc:['stalwart','vengeful'] },
    d:'Field-surgeon and last rites both. Holds the line’s soul together.'},
  acolyte:{n:'Ash Acolyte', wpns:['shortsword','spear'], hp:[9,12],skl:[3,5],spd:[3,5],res:[28,40],arm:[0,1], start:'ashfire',
-   feats:['ashfire','veindrink','bonespears','ashward','executioner','fleet'],
+   feats:['emberveins','blightreach','pyreheart','bonespears','veindrink','serrated','bloodhigh','ashfire','ashward','executioner','fleet'],
+   branches:{ A:{n:'Pyre-Caller',feats:['emberveins','blightreach','pyreheart','bonespears']}, B:{n:'Vein-Dancer',feats:['veindrink','serrated','bloodhigh']}, misc:['ashfire','ashward','executioner','fleet'] },
    d:'Reads the Blight and answers it. Every rank of it a bill that comes due.'},
  shade:{n:'Underkingdom Shade', wpns:['shortsword','shortsword','spear'], hp:[9,12],skl:[4,6],spd:[5,6],res:[30,42],arm:[0,1], start:'smokebomb', martial:true,
-   feats:['smokebomb','garrote','skirmisher','fleet','duelist','executioner'],
+   feats:['garrote','executioner','assassinate','fleet','skirmisher','elusive','smokebomb','duelist'],
+   branches:{ A:{n:'Assassin',feats:['garrote','assassinate','executioner']}, B:{n:'Evasion',feats:['skirmisher','elusive','fleet']}, misc:['duelist'] },
    d:'A runner of the buried kingdom. Kills from the smoke and is gone before the body drops — no graft, no corruption, just craft.'},
 };
 const LEADER_FEATS=['warcry','rally']; // only the Commander is offered these
 function classFeatPool(s){ const c=CLASSES[s.cls]||CLASSES.fighter; let p=c.feats.slice(); if(s.commander)p=p.concat(LEADER_FEATS); return p; }
+// build-tree level-up: each veterancy offers the next feat of Branch A + Branch B + one Misc (prereqs gate depth)
+function reqMet(s,f){ const rq=FEATS[f]&&FEATS[f].req; if(!rq)return true; return Array.isArray(rq)?rq.every(r=>s.feats.includes(r)):s.feats.includes(rq); }
+function branchNext(s,list){ const e=(list||[]).filter(f=>!s.feats.includes(f)&&reqMet(s,f)); return e.length?e[0]:null; } // shallowest eligible (lists are authored climb-order) so prereq chains are reachable on purpose, not by luck
+function brNameOf(c,f){ if(!c.branches)return ''; if(c.branches.A.feats.includes(f))return c.branches.A.n; if(c.branches.B.feats.includes(f))return c.branches.B.n; if(LEADER_FEATS.includes(f))return 'Command'; return 'Utility'; }
+function offerFeats(s){
+  const c=CLASSES[s.cls]||CLASSES.fighter, owned=f=>s.feats.includes(f), out=[];
+  if(c.branches){
+    const a=branchNext(s,c.branches.A.feats); if(a)out.push(a);
+    const b=branchNext(s,c.branches.B.feats); if(b)out.push(b);
+    let m=(c.branches.misc||[]).filter(f=>!owned(f)&&reqMet(s,f));
+    if(s.commander)m=m.concat(LEADER_FEATS.filter(f=>!owned(f)));
+    if(m.length)out.push(m[ri(0,m.length-1)]);
+  }
+  if(out.length<3){ let rest=classFeatPool(s).filter(f=>!owned(f)&&!out.includes(f)&&reqMet(s,f));  // backfill exhausted branches / legacy classes
+    while(out.length<3&&rest.length)out.push(rest.splice(ri(0,rest.length-1),1)[0]); }
+  return out.slice(0,3);
+}
+function branchLean(s){ const c=CLASSES[s.cls]; if(!c||!c.branches)return 'A'; const cnt=l=>l.reduce((n,f)=>n+(s.feats.includes(f)?1:0),0); return cnt(c.branches.B.feats)>cnt(c.branches.A.feats)?'B':'A'; }
 const TRAITS={
  scarred:{n:'Scarred',d:'+3 resolve, and the face remembers. Survived a battle at death’s edge.',good:true},
  coldblooded:{n:'Cold-Blooded',d:'+5 hit, permanently. Three kills in one battle and the hands stopped shaking.',good:true},
@@ -1316,9 +1371,7 @@ function grantXp(s,amt){
     if(stat==='maxhp'){s.maxhp+=2;s.hp+=2;
       if(S.battle){const bu=S.battle.units.find(x=>x.kind==='pc'&&x.ref===s.id); if(bu){bu.maxhp+=2;bu.hp+=2;}}
     } else if(stat==='res'){s.res+=5;} else {s[stat]+=1;}
-    const opts=classFeatPool(s).filter(f=>!s.feats.includes(f)); // choices drawn from the soldier's class (+ Commander leadership)
-    const three=[];
-    while(three.length<3&&opts.length){ const f=opts.splice(ri(0,opts.length-1),1)[0]; three.push(f); }
+    const three=offerFeats(s);   // one from Branch A + one from Branch B + one Misc (prereq-gated build tree)
     s.pendingFeats=s.pendingFeats||[]; s.pendingFeats.push({opts:three,stat});
     queueModal(()=>featModal(s,three,stat));
   }
@@ -1335,10 +1388,10 @@ function featModal(s,opts,stat){
       </div>
       <div class="wline">${WPN_ICON[s.weapon]||'⚔'} <span class="tt" data-tip="${esc(wpnTip(s.weapon,s.wMod))}">${esc(s.wName||WEAPONS[s.weapon].n)}${s.wMod?' +'+s.wMod:''}</span> · 🛡 <span class="tt" data-tip="${esc(armorTip(s.armor))}">${ARMORS[s.armor].n}</span></div>
       <div class="featline">✦ ${featChips(s.feats)}</div>
-      ${s.level>=5?`<p style="margin:6px 0 0;color:var(--gold)">★ Veterancy capstone — ${(CLASSES[s.cls]&&CLASSES[s.cls].martial)?'<b>Double Strike</b>: they may strike twice if they hold their ground.':s.cls==='cleric'?'<b>Healing Aura</b>: a new spell that heals all allies within 2.':s.cls==='acolyte'?'<b>Blight Storm</b>: a 3×3 blight-nova hurled at range.':'a hardened veteran.'}</p>`:''}
+      ${s.level>=5?`<p style="margin:6px 0 0;color:var(--gold)">★ Veterancy capstone — ${(CLASSES[s.cls]&&CLASSES[s.cls].martial)?'<b>Double Strike</b>: they may strike twice if they hold their ground.':s.cls==='cleric'?(s.feats.includes('zealot')?'<b>Battle Hymn</b>: bless the whole line — +10 hit & +2 dmg.':'<b>Healing Aura</b>: a new spell that heals all allies within 2.'):s.cls==='acolyte'?(s.feats.includes('serrated')?'<b>Marrow Reap</b>: a whirl of bone that crits every adjacent foe.':'<b>Blight Storm</b>: a 3×3 blight-nova hurled at range.'):'a hardened veteran.'}</p>`:''}
     </div></div>
     <p class="hint" style="margin-top:8px">Choose a feat — remember: whatever you build, the Blight can give back.</p>`;
-  showModal('Veterancy',body,opts.map(f=>({label:`${FEATS[f].n} — ${FEATS[f].d}`,cls:'pick',fn:()=>{
+  showModal('Veterancy',body,opts.map(f=>({label:`${brNameOf(CLASSES[s.cls]||CLASSES.fighter,f)?`<span class="branchtag">${brNameOf(CLASSES[s.cls]||CLASSES.fighter,f)}</span> `:''}${FEATS[f].n} — ${FEATS[f].d}`,cls:'pick',fn:()=>{
     s.feats.push(f);
     if(s.pendingFeats&&s.pendingFeats.length)s.pendingFeats.shift();
     if(S.battle){const bu=S.battle.units.find(x=>x.kind==='pc'&&x.ref===s.id); if(bu)bu.feats.push(f);}
@@ -1910,7 +1963,7 @@ function bodyAt(B,x,y){return B.bodies.find(b=>b.x===x&&b.y===y);}
 /* ===== PHASE-BASED SQUAD TURNS =====
    Round = your Player Phase (move/act every soldier in any order you choose) then the Enemy Phase
    (every foe acts). B.queue drives ONLY the enemy phase now. */
-function clearTransient(u){ u.rooted=false; u.offbalance=false; u.warcried=false; u.rallied=false; u.warded=0; u.skirmished=false; u.sanctuary=0; } // sanctuary ward lasts through the enemy phase, clears at your next turn
+function clearTransient(u){ u.rooted=false; u.offbalance=false; u.warcried=false; u.rallied=false; u.warded=0; u.skirmished=false; u.sanctuary=0; u.disarmed=false; u.followShot=false; u.bless=null; } // sanctuary ward lasts through the enemy phase, clears at your next turn
 function buildEnemyQueue(B){
   B.queue=B.units.filter(u=>u.kind==='foe'&&u.hp>0&&!u.fled&&!u.prop).sort((a,b)=>b.spd-a.spd||a.uid-b.uid).map(u=>u.uid);
   B.qi=0;
@@ -1925,7 +1978,7 @@ function activeUnit(B){ // whom the player controls (player phase) or the AI run
 }
 // Double Strike is a CHOICE, not a free second swing: you may strike twice ONLY if you haven't moved this turn;
 // the moment you move you're down to one attack, and a second strike spends the movement you'd have used to reposition.
-function maxStrikes(u){ return (u.dbl && !u.moved) ? 2 : 1; }
+function maxStrikes(u){ let m=(u.dbl&&!u.moved)?2:1; if(u.feats&&u.feats.includes('windrunner')&&u.moved)m=Math.max(m,2); if(u.bonusStrike)m+=1; return m; }
 function pcTurnLeft(u){ if(u.kind!=='pc'||u.hp<=0||u.fled)return false;
   const canAct=!u.acted&&(u.strikes||0)<maxStrikes(u);   // can still attack (or, if unstruck, use an ability)
   const canMove=(u.mp||0)>=1&&(u.strikes||0)<2;           // needs a full point to step (a <1 leftover reaches no tile) — and not once a double strike is spent
@@ -1935,7 +1988,14 @@ function startPlayerPhase(B){
   // clear the soldiers' transient statuses at the top of their phase; foes shed theirs as they act (so a
   // War-Horn / Smoke Bomb / root applied during the player phase still bites them in the enemy phase)
   for(const u of B.units){ if(u.hp<=0||u.fled)continue;
-    if(u.kind==='pc'){ clearTransient(u); u.mp=moveBudget(u); u.acted=false; u.moved=false; u.strikes=0; u.defending=false; u.stunned=false; } }
+    if(u.kind==='pc'){ clearTransient(u); u.mp=moveBudget(u); u.acted=false; u.moved=false; u.strikes=0; u.defending=false; u.stunned=false;
+      u.riposted=false; u.bonusStrike=false; u.critStrikeUsed=false; u.pyreUsed=false; } }
+  // Cleric Vigil: at the top of the phase, each vigilant cleric and their adjacent allies mend 2 (each unit at most once, however many vigils are near)
+  const vigHealed=new Set();
+  for(const u of B.units){ if(u.hp<=0||u.fled||u.kind!=='pc'||!u.feats.includes('vigil'))continue;
+    for(const z of B.units){ if(z.hp<=0||z.fled||z.prop||z.kind!=='pc'||vigHealed.has(z.uid))continue;
+      if(z===u||adjacent(z,u)){ vigHealed.add(z.uid); const b=z.hp; z.hp=Math.min(z.maxhp,z.hp+2);
+        if(z.hp>b){ const zs=soldierById(z.ref); if(zs)zs.hp=z.hp; fx.push({type:'heal',x:z.x,y:z.y,color:'#9ab86f'},{type:'float',x:z.x,y:z.y,txt:'+2',color:'#9ab86f'}); } } } }
   if(B.podsActive)podSenseAll(B);
   const pcs=B.units.filter(u=>u.kind==='pc'&&u.hp>0&&!u.fled);
   B.sel=pcs.length?pcs[0].uid:null;          // auto-select the first soldier
@@ -2025,7 +2085,7 @@ function reachCosts(B,u,budget){
       if(dz>=2)continue;                                       // a cliff — can't climb or drop 2+ z-levels on foot
       const diag=dx!==0&&dy!==0;
       if(diag){ const ca=tileAt(B,c.x+dx,c.y),cb=tileAt(B,c.x,c.y+dy); if((!ca||bImpass(ca.t))&&(!cb||bImpass(cb.t)))continue; } // can't slip diagonally through a solid corner
-      let step=bMv(t.t)*(diag?1.5:1); if(t.blighted)step+=1; if(dz===1)step+=1; // diagonals ×1.5; the 1-level slope crossing costs the extra
+      const sf=u.feats&&u.feats.includes('surefoot'); let step=(sf?1:bMv(t.t))*(diag?1.5:1); if(t.blighted&&!sf)step+=1; if(dz===1&&!sf)step+=1; // diagonals ×1.5; slope/mire/blight cost extra (Sure-Foot waives it)
       const nd=c.d+step, k=x+','+y;
       if(nd<=budget+1e-9&&(best[k]===undefined||nd<best[k])){ best[k]=nd; const ex=out.find(o=>o.x===x&&o.y===y); if(ex)ex.cost=nd; else out.push({x,y,cost:nd}); q.push({x,y,d:nd}); }
     }
@@ -2122,6 +2182,32 @@ function attackTargets(B,u){
   return B.units.filter(t=>t.hp>0&&!t.fled&&!(t.sanctuary>0)&&isEnemy(u,t)&&inWeaponRange(B,u,t)); // sanctuary: can't be attacked
 }
 function isEnemy(a,b){return (a.kind==='foe')!==(b.kind==='foe');}
+const CRIT_CAP=60;   // unified crit ceiling (Critknight / Vein-Dancer / Assassin / Sharpshooter)
+// crit is a flat POST-armor damage add, resolved once per landed weapon strike (only in strike(), never in dmgOf/previews).
+// chance-based feats roll (capped); deterministic feats (aimed shot, assassinate) set `sure` and skip the roll. net = post-armor dmgOf.
+function critHit(B,att,def,net){
+  if(!att.feats||att.hp<=0)return 0;
+  const w=wOf(att), melee=w.rng===1, first=(att.strikes||0)===0;
+  let chance=0, bonus=0, sure=false;
+  if(melee){
+    if(att.feats.includes('keen-edge')){ chance+=15; bonus=Math.max(bonus,3); }
+    if(att.feats.includes('deep-cut')){ chance+=10; bonus=Math.max(bonus,4); }
+    if(att.feats.includes('killing-blow')&&def.hp<def.maxhp/2) chance+=15;
+    if(att.feats.includes('serrated')){ chance+=20; bonus=Math.max(bonus,Math.ceil(net/2)); }   // acolyte +50%
+    if(att.feats.includes('bloodhigh')&&att.hp<att.maxhp/2) chance+=20;
+    if(att.feats.includes('assassinate')&&(def.offbalance||def.rooted||def.stunned||def.warcried||def.shakenBy)){ sure=true; bonus=Math.max(bonus,w.hi); }
+  } else if(first){
+    if(att.feats.includes('heavydraw')&&!att.moved){ sure=true; bonus=Math.max(bonus,3); }
+    else if(att.feats.includes('marksman')&&def.hp===def.maxhp){ sure=true; bonus=Math.max(bonus,3); }
+  }
+  if(bonus<=0)return 0;
+  if(!sure){ const eh=elevAt(B,att.x,att.y)-elevAt(B,def.x,def.y); if(eh>0)chance+=10; if(ri(1,100)>Math.min(CRIT_CAP,chance))return 0; }
+  return bonus;
+}
+function burnout(u,hp){ if(!u.feats||!u.feats.includes('emberveins'))return;   // acolyte ranged self-sear; floored at 1
+  u.hp=Math.max(1,u.hp-hp); fx.push({type:'float',x:u.x,y:u.y,txt:'-'+hp,color:'#c0391a'});
+  if(u.kind==='pc'){const s=soldierById(u.ref); if(s)s.hp=u.hp;} }
+function applyBless(t,hit,dmg){ t.bless={hit:Math.max((t.bless&&t.bless.hit)||0,hit),dmg:Math.max((t.bless&&t.bless.dmg)||0,dmg)}; }  // non-stacking cleric buff token
 function hitChance(B,att,def){
   const w=wOf(att);
   let h=65+att.skl*3-def.spd*2+w.hitB;
@@ -2132,10 +2218,14 @@ function hitChance(B,att,def){
   const eh=elevAt(B,att.x,att.y)-elevAt(B,def.x,def.y);
   if(eh>0)h+=6; else if(eh<0)h-=4;                     // high ground vs uphill
   if(def.defending)h-=10;
+  if(def.feats.includes('harrier')&&def.moved)h-=10;    // ranger: harder to hit on a turn they moved
+  if(def.feats.includes('elusive')&&def.moved)h-=10;    // shade: same
   if(att.shakenBy)h-=10;
   if(att.offbalance)h-=10;
   if(att.warcried)h-=10;
+  if(att.followShot)h-=15;                              // windrunner follow-arrow
   if(att.rallied)h+=10;
+  if(att.bless)h+=att.bless.hit||0;                     // cleric Blessed Edge / Battle Hymn (Zealot)
   h-=att.rattled*5;
   h+=att.reaper*5;
   // bond adjacency
@@ -2168,6 +2258,8 @@ function dmgOf(B,att,def){
   if(att.feats.includes('bonecarver')&&def.undead)d+=3;
   if((att.traits||[]).includes('blightmarked')&&def.undead)d+=2;
   if(def.graveId&&att.kind==='pc'&&att.feats.includes('vengeful')&&isBondedToGrave(att,def.graveId))d+=2;
+  if(att.disarmed)d-=2;                                 // disarmed foe: weak next blow
+  if(att.bless)d+=att.bless.dmg||0;                     // cleric bless
   let arm=def.arm;
   arm+=(WEAPONS[def.weapon]&&WEAPONS[def.weapon].armor)||0; // mace & shield
   arm+=def.warded||0;
@@ -2179,6 +2271,19 @@ function dmgOf(B,att,def){
   }
   return Math.max(1,d-arm);
 }
+// Battlemaster Riposte: an adjacent PC with the feat counters a melee whiff, once per round. Uses dmgOf (NOT critHit) — no recursion.
+function maybeRiposte(B,def,att){
+  if(B._noRipo||def.kind!=='pc'||def.hp<=0||!def.feats.includes('riposte')||def.riposted)return;
+  if(att.hp<=0||wOf(att).rng>1||!adjacent(def,att))return;
+  def.riposted=true; B._noRipo=true; blog(B,`${def.name} answers the opening — riposte!`);
+  if(ri(1,100)<=hitChance(B,def,att)){ const rd=dmgOf(B,def,att); att.hp-=rd;
+    fx.push({type:'flash',uid:att.uid},{type:'float',x:att.x,y:att.y,txt:'-'+rd,color:'#c9a227'});
+    blog(B,`${def.name} ripostes ${att.name} for ${rd}.`);
+    if(att.hp<=0){ applyDeath(B,att); if(def.feats.includes('reaper'))def.reaper++; def.bkills=(def.bkills||0)+1;
+      if(def.kind==='pc'){const s=soldierById(def.ref); if(s){s.kills++; grantXp(s,att.xpv||3);}} } }
+  else blog(B,`${def.name}'s riposte goes wide.`);
+  B._noRipo=false;
+}
 function doAttack(B,att,def){
   noticeAttack(B,att,def);   // a struck patroller's pod wakes (and shouts) even from stealth
   const w=wOf(att);
@@ -2186,23 +2291,31 @@ function doAttack(B,att,def){
     const h=hitChance(B,att,def);
     if(w.rng>1) fx.push({type:'arrow',fx:att.x,fy:att.y,tx:def.x,ty:def.y});
     if(ri(1,100)<=h){
-      const d=dmgOf(B,att,def);
+      let d=dmgOf(B,att,def);
+      const cb=critHit(B,att,def,d);                    // unified crit: flat post-armor add on a landed strike
+      if(cb>0){ d+=cb;
+        if(att.feats.includes('assassinate')){ def.offbalance=false; def.rooted=false; }   // the sure-crit spends the opening — no infinite disarm→crit loop
+        if(att.feats.includes('killing-blow')&&att.kind==='pc'&&!att.critStrikeUsed&&maxStrikes(att)<2){   // never stacks a 3rd strike onto Double Strike
+          att.bonusStrike=true; att.critStrikeUsed=true; blog(B,`${att.name} tears the wound wider — another strike!`); } }
       def.hp-=d;
-      fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:'-'+d,color:'#e0593f'});
-      blog(B,`${att.name} hits ${def.name} for ${d} (${h}%).`);
+      fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:(cb>0?'✦ ':'')+'-'+d,color:cb>0?'#e8c65a':'#e0593f'});
+      blog(B,`${att.name} ${cb>0?'crits':'hits'} ${def.name} for ${d} (${h}%).`);
       if(w.rng===1&&att.feats.includes('veindrink')&&att.hp>0){
-        att.hp=Math.min(att.maxhp,att.hp+2);
-        fx.push({type:'float',x:att.x,y:att.y,txt:'+2',color:'#b08bc9'});
+        const heal=2+((cb>0&&att.feats.includes('bloodhigh')&&att.hp<att.maxhp/2)?2:0);   // Blood-High: crits drink deeper
+        att.hp=Math.min(att.maxhp,att.hp+heal);
+        fx.push({type:'float',x:att.x,y:att.y,txt:'+'+heal,color:'#b08bc9'});
         if(att.kind==='pc'){const ps=soldierById(att.ref); if(ps)ps.hp=att.hp;}
       }
       if(def.hp>0&&def.hp<=3&&def.kind==='pc')def.nearDeath=true;
       if(def.hp<=0){ applyDeath(B,def); if(att.feats.includes('reaper'))att.reaper++;
         att.bkills=(att.bkills||0)+1;
         if(att.kind==='pc'){const s=soldierById(att.ref); if(s){s.kills++; grantXp(s,def.xpv||3);
-          if(att.feats.includes('veindrink'))addCorruption(s,1);}} }
+          if(att.feats.includes('veindrink'))addCorruption(s,1);
+          if(cb>0&&att.feats.includes('serrated'))addCorruption(s,1);}} }
     } else {
       fx.push({type:'dodge',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:def.defending?'blocked':'dodged',color:'#7d93a3'});
       blog(B,`${att.name} misses ${def.name} (${h}%).`);
+      maybeRiposte(B,def,att);                          // Battlemaster: punish the whiff
     }
   }
   strike();
@@ -2327,7 +2440,8 @@ function tryAttack(targetUid){
   const t=B.units.find(z=>z.uid===targetUid);
   if(!t||!attackTargets(B,u).includes(t))return;
   const second=(u.strikes||0)>=1;
-  doAttack(B,u,t);
+  if(second&&u.moved&&u.feats.includes('windrunner'))u.followShot=true;   // -15 hit on the move-and-loose follow arrow
+  doAttack(B,u,t); u.followShot=false;
   u.strikes=(u.strikes||0)+1;
   if(second&&u.hp>0)blog(B,`${u.name} follows through — a second strike.`);
   // Skirmisher: attacking refreshes movement to a full budget (+1) — strike, then fade away (once)
@@ -2346,14 +2460,22 @@ function unitAbilities(u){
   if(!u||u.kind!=='pc')return [];
   const f=u.feats||[]; const w=WEAPONS[u.weapon]||{}; const out=[];
   const s=soldierById(u.ref), cls=s?s.cls:'', lvl=s?s.level:1;   // class/level unlock some abilities (cleric kit, capstones)
-  if(f.includes('ashfire'))out.push({k:'ashfire',label:'☄ Ashfire',range:4,side:'enemy',ranged:true,tip:'Blightfire — range 4, 4–7 dmg, ignores armor. +1 corruption.'});
-  if(f.includes('bonespears'))out.push({k:'bonespears',label:'☠ Bone Spears',range:3,side:'enemy',ranged:true,tip:'Range 3, 3–5 dmg, roots the target (no move next turn). +1 corruption.'});
+  const brxt=f.includes('blightreach')?1:0;   // Blight-Reach: +1 tile on every blight spell
+  if(f.includes('ashfire'))out.push({k:'ashfire',label:'☄ Ashfire',range:4+brxt,side:'enemy',ranged:true,tip:'Blightfire — 4–7 dmg, ignores armor. +1 corruption.'});
+  if(f.includes('bonespears'))out.push({k:'bonespears',label:'☠ Bone Spears',range:3+brxt,side:'enemy',ranged:true,tip:'3–5 dmg, roots the target (no move next turn). +1 corruption.'});
   if(f.includes('ashward'))out.push({k:'ashward',label:'✦ Ashen Ward',range:2,side:'ally',tip:'Ally within 2: +3 armor until their next turn. +1 corruption.'});
   if(f.includes('hook'))out.push({k:'hook',label:'⤛ Hook',range:2,side:'enemy',tip:'Yank an enemy within 2 one tile toward you; −10 to their hit next turn.'});
+  if(f.includes('disarm'))out.push({k:'disarm',label:'✖ Disarm',range:1,side:'enemy',tip:'On hit: target’s next attack is −2 dmg and −10 hit.'});
+  if(f.includes('trip'))out.push({k:'trip',label:'⤵ Trip',range:1,side:'enemy',tip:'On hit: 1–2 dmg and the target loses its next turn.'});
   if(f.includes('sanctuary')&&!u.sanctUsed)out.push({k:'sanctuary',label:'☨ Sanctuary',range:2,side:'ally',tip:'Shelter an ally within 2 in sanctuary — no enemy can attack them until your next turn (once per battle).'});
   if(cls==='cleric'&&!u.protectUsed)out.push({k:'protect',label:'✚ Protection',range:2,side:'ally',tip:'Bless an ally within 2: +1 armor for the rest of the battle (once per battle).'});
-  if(cls==='cleric'&&lvl>=5&&!u.auraUsed)out.push({k:'healaura',label:'✚ Healing Aura',range:0,side:'self',tip:'Level 5: heal all allies within 2 (incl. you) for 5 HP (once per battle).'});
-  if(cls==='acolyte'&&lvl>=5&&!u.stormUsed)out.push({k:'blightstorm',label:'✵ Blight Storm',range:5,side:'enemy',ranged:true,tip:'Level 5: a 3×3 blight-nova at range 5 — 5–8 damage (ignores armor) to every enemy caught, and the ground festers. +1 corruption. Once per battle.'});
+  if(f.includes('blessedge'))out.push({k:'blessedge',label:'✝ Bless',range:2,side:'ally',tip:'Ally within 2: +2 dmg (Zealot: +10 hit too) on their strikes this round.'});
+  if(f.includes('smite'))out.push({k:'smite',label:'✟ Smite',range:3,side:'enemy',ranged:true,tip:'Range 2–3: 2–4 dmg, ignores armor (+2 vs the dead).'});
+  if(f.includes('aegis')&&!u.aegisUsed)out.push({k:'aegis',label:'✚ Bulwark of Faith',range:0,side:'self',tip:'Allies within 2: +2 armor until your next turn. Once/battle.'});
+  if(cls==='cleric'&&lvl>=5){ if(f.includes('zealot')){ if(!u.hymnUsed)out.push({k:'battlehymn',label:'✝ Battle Hymn',range:0,side:'self',tip:'Level 5: allies within 2 (incl. you) gain +10 hit & +2 dmg this round. Once/battle.'}); }
+    else if(!u.auraUsed)out.push({k:'healaura',label:'✚ Healing Aura',range:0,side:'self',tip:'Level 5: heal all allies within 2 (incl. you) for 5 HP (once per battle).'}); }
+  if(cls==='acolyte'&&lvl>=5){ if(f.includes('serrated')){ if(!u.reapUsed)out.push({k:'marrowreap',label:'⚔ Marrow Reap',range:0,side:'self',tip:'Level 5: guaranteed-crit every adjacent foe; drink from each. +1 corruption. Once/battle.'}); }
+    else if(!u.stormUsed)out.push({k:'blightstorm',label:'✵ Blight Storm',range:5+brxt,side:'enemy',ranged:true,tip:'Level 5: a 3×3 blight-nova — 5–8 damage (ignores armor) to every enemy caught, and the ground festers. +1 corruption. Once per battle.'}); }
   if(f.includes('medic')&&!u.medicUsed)out.push({k:'medic',label:'✚ Field Medic',range:1,side:'ally',tip:'Heal an adjacent ally 5 HP (once per battle).'});
   if(w.bash)out.push({k:'bash',label:'⛊ Shield Bash',range:1,side:'enemy',tip:'Bash an adjacent enemy: knock them back and stagger them (they lose their next turn).'});
   if(w.cleave)out.push({k:'cleave',label:'🪓 Cleave',range:w.reach?2:1,side:'enemy',tip:'Strike for reduced damage, then carry the blow into one enemy standing next to your target.'});
@@ -2386,13 +2508,55 @@ function afterAbility(B,u){ if(!B.over)afterPcAct(u); }
 function execAbility(B,u,ab,t){
   if(t&&t.kind==='foe')noticeAttack(B,u,t);   // bone-spears/bash/hook on a patroller wakes its pod
   const corrupt=()=>{ if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} };
+  if(ab.k==='disarm'){ if(ri(1,100)<=hitChance(B,u,t)){ t.disarmed=true; t.offbalance=true;
+      fx.push({type:'float',x:t.x,y:t.y,txt:'DISARMED',color:'#c9a227'}); blog(B,`${u.name} beats ${t.name}'s guard aside — their next blow comes weak and wild.`); }
+    else blog(B,`${u.name} fails to disarm ${t.name}.`); u.acted=true; B.aim=null; return; }
+  if(ab.k==='trip'){ if(ri(1,100)<=hitChance(B,u,t)){ const d=ri(1,2); t.hp-=d; t.stunned=true;
+      fx.push({type:'nova',x:t.x,y:t.y,color:'#9aa7b3',r:0.8},{type:'float',x:t.x,y:t.y,txt:'DOWN',color:'#c9a227'});
+      blog(B,`${u.name} sweeps ${t.name} off their feet for ${d} — down and out next turn.`);
+      if(t.hp<=0){ applyDeath(B,t); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1;
+        if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,t.xpv||3);}} } }
+    else blog(B,`${u.name}'s sweep misses ${t.name}.`); u.acted=true; B.aim=null; return; }
+  if(ab.k==='blessedge'){ const z=u.feats.includes('zealot'); applyBless(t,z?10:0,2);
+    fx.push({type:'ward',x:t.x,y:t.y,color:'#e6d98a'},{type:'float',x:t.x,y:t.y,txt:z?'+2 / +10':'+2 DMG',color:'#e6d98a'});
+    blog(B,`${u.name} blesses ${t.name}'s edge — +2 damage${z?' and +10 hit':''} this round.`); u.acted=true; B.aim=null; return; }
+  if(ab.k==='smite'){ const z=u.feats.includes('zealot'), h=clamp(70+u.skl*3-t.spd*2,30,95);
+    fx.push({type:'bolt',fx:u.x,fy:u.y,tx:t.x,ty:t.y,color:'#e6d98a',color2:'#8a6a12',dur:150});
+    if(ri(1,100)<=h){ let d=ri(2,4)+(z?1:0); if(t.undead)d+=2; t.hp-=d;
+      fx.push({type:'burst',x:t.x,y:t.y,color:'#e6d98a'},{type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+d,color:'#e6d98a'});
+      blog(B,`${u.name} smites ${t.name} for ${d} (${h}%) — armor is no shield against the light.`);
+      if(t.hp>0&&t.hp<=3&&t.kind==='pc')t.nearDeath=true;
+      if(t.hp<=0){ applyDeath(B,t); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1;
+        if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,t.xpv||3);}} } }
+    else blog(B,`${u.name}'s smite gutters out (${h}%).`); u.acted=true; B.aim=null; return; }
+  if(ab.k==='aegis'){ u.aegisUsed=true; u.acted=true; let n=0;
+    fx.push({type:'nova',x:u.x,y:u.y,color:'#8fb0cf',r:2.3});
+    for(const z of B.units){ if(z.hp<=0||z.fled||z.prop)continue; if(z.kind===u.kind&&distC(u,z)<=2){ z.warded=Math.max(z.warded||0,2);
+      fx.push({type:'ward',x:z.x,y:z.y,color:'#8fb0cf'},{type:'float',x:z.x,y:z.y,txt:'+2 ARM',color:'#8fb0cf'}); n++; } }
+    blog(B,`${u.name} raises a bulwark of faith — ${n} of the line warded.`); B.aim=null; return; }
+  if(ab.k==='battlehymn'){ u.hymnUsed=true; u.acted=true; let n=0;
+    fx.push({type:'nova',x:u.x,y:u.y,color:'#e6d98a',r:2.3});
+    for(const z of B.units){ if(z.hp<=0||z.fled||z.prop)continue; if(z.kind===u.kind&&distC(u,z)<=2){ applyBless(z,10,2);
+      fx.push({type:'ward',x:z.x,y:z.y,color:'#e6d98a'},{type:'float',x:z.x,y:z.y,txt:'HYMN',color:'#e6d98a'}); n++; } }
+    blog(B,`${u.name} raises the Battle Hymn — ${n} of the line strike with wrath.`); B.aim=null; return; }
+  if(ab.k==='marrowreap'){ u.reapUsed=true; u.acted=true; let reapHeal=0;
+    fx.push({type:'nova',x:u.x,y:u.y,color:'#c9a227',r:1.6},{type:'float',x:u.x,y:u.y,txt:'MARROW REAP',color:'#c9a227'});
+    for(const z of B.units){ if(z.hp<=0||z.fled||z.prop||!isEnemy(u,z)||distC(u,z)>1)continue;
+      if(ri(1,100)<=hitChance(B,u,z)){ let d=dmgOf(B,u,z); d+=Math.ceil(d/2); z.hp-=d;   // guaranteed crit, still rolls to hit
+        fx.push({type:'flash',uid:z.uid},{type:'float',x:z.x,y:z.y,txt:'✦ -'+d,color:'#c9a227'});
+        if(u.feats.includes('veindrink')&&u.hp>0&&reapHeal<6){ const hh=Math.min(2,6-reapHeal); reapHeal+=hh; u.hp=Math.min(u.maxhp,u.hp+hh); if(u.kind==='pc'){const s=soldierById(u.ref); if(s)s.hp=u.hp;} }
+        if(z.hp<=0){ applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1;
+          if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } } }
+    if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} B.aim=null; return; }
   if(ab.k==='ashfire'){ doCast(B,u,t); return; }
   if(ab.k==='bonespears'){
     fx.push({type:'spikes',x:t.x,y:t.y,color:'#cdbfa0'});   // bone shards erupt from the ground under the target
-    const h=clamp(70+u.skl*3-t.spd*2,30,95);
-    if(ri(1,100)<=h){ const d=ri(3,5); t.hp-=d; t.rooted=true; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+d,color:'#b08bc9'}); blog(B,`Bone erupts under ${t.name} for ${d} — rooted fast.`); if(t.hp<=0){applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}} }
+    const h=clamp(70+u.skl*3-t.spd*2+(u.feats.includes('blightreach')?5:0),30,95);
+    if(ri(1,100)<=h){ const d=ri(3,5)+(u.feats.includes('emberveins')?2:0); t.hp-=d; t.rooted=true; fx.push({type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+d,color:'#b08bc9'}); blog(B,`Bone erupts under ${t.name} for ${d} — rooted fast.`); if(t.hp<=0){applyDeath(B,t); if(u.kind==='pc'){const s=soldierById(u.ref);if(s){s.kills++;grantXp(s,t.xpv||3);}}} }
     else blog(B,`The bone-spears shatter wide of ${t.name}.`);
-    corrupt(); u.acted=true; B.aim=null; return;
+    corrupt(); burnout(u,2); if(u.feats.includes('emberveins'))corrupt();
+    if(t.hp<=0&&u.feats.includes('pyreheart')&&!u.pyreUsed){ u.pyreUsed=true; corrupt(); blog(B,`The pyre roars — ${u.name} may hurl again.`); } else u.acted=true;
+    B.aim=null; return;
   }
   if(ab.k==='ashward'){ t.warded=3; fx.push({type:'ward',x:t.x,y:t.y,color:'#b08bc9'},{type:'float',x:t.x,y:t.y,txt:'ward',color:'#b08bc9'}); blog(B,`${u.name} shrouds ${t.name} in ash — +3 armor.`); corrupt(); u.acted=true; B.aim=null; return; }
   if(ab.k==='hook'){
@@ -2471,16 +2635,18 @@ function execAbility(B,u,ab,t){
     B.aim=null; return;
   }
   if(ab.k==='blightstorm'){
-    u.stormUsed=true; u.acted=true; let hit=0;
+    u.stormUsed=true; let hit=0, killed=false; const eb=u.feats.includes('emberveins')?2:0;
     fx.push({type:'nova',x:t.x,y:t.y,color:'#9a6fc9',r:2.4},{type:'float',x:t.x,y:t.y,txt:'BLIGHT STORM',color:'#9a6fc9'});   // a boiling nova of ash and rot
     for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){ const tx=t.x+dx,ty=t.y+dy, tt=tileAt(B,tx,ty); if(!tt)continue;
       if(['grass','brush','mire','road'].includes(tt.t))tt.blighted=true;              // the ground festers
-      const z=unitAt(B,tx,ty); if(z&&z.hp>0&&!z.prop&&isEnemy(u,z)){ const d=ri(5,8); z.hp-=d; hit++;   // ignores armor (raw hp)
+      const z=unitAt(B,tx,ty); if(z&&z.hp>0&&!z.prop&&isEnemy(u,z)){ const d=ri(5,8)+eb; z.hp-=d; hit++;   // ignores armor (raw hp)
         fx.push({type:'burst',x:tx,y:ty,color:'#9a6fc9'},{type:'flash',uid:z.uid},{type:'float',x:tx,y:ty,txt:'-'+d,color:'#9a6fc9'});
         if(z.hp>0&&z.hp<=3&&z.kind==='pc')z.nearDeath=true;
-        if(z.hp<=0){ applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } } }
+        if(z.hp<=0){ killed=true; applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } } }
     blog(B,`${u.name} tears the Blight open — a storm of ash and rot boils across the ground (${hit} caught).`);
-    if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);}             // the graft always takes its due
+    burnout(u,3);
+    if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1+(eb?1:0));}     // the graft always takes its due (Ember-Veins: +1 more)
+    if(killed&&u.feats.includes('pyreheart')&&!u.pyreUsed){ u.pyreUsed=true; if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} blog(B,`The pyre roars — ${u.name} may hurl again.`); } else u.acted=true;
     B.aim=null; return;
   }
   if(ab.k==='warcry'){
@@ -2500,10 +2666,10 @@ function execAbility(B,u,ab,t){
 }
 function doCast(B,att,def){
   noticeAttack(B,att,def);
-  const h=clamp(75+att.skl*3-def.spd*2,30,95);
+  const h=clamp(75+att.skl*3-def.spd*2+(att.feats.includes('blightreach')?5:0),30,95);
   fx.push({type:'bolt',fx:att.x,fy:att.y,tx:def.x,ty:def.y,color:'#ffce7a',color2:'#c0391a'});   // blightfire — a fiery orb
   if(ri(1,100)<=h){
-    const d=ri(4,7);
+    const d=ri(4,7)+(att.feats.includes('emberveins')?2:0);
     def.hp-=d;
     fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:'-'+d,color:'#b08bc9'});
     blog(B,`${att.name}’s ashfire sears ${def.name} for ${d} — armor means nothing to it.`);
@@ -2514,8 +2680,10 @@ function doCast(B,att,def){
     fx.push({type:'float',x:def.x,y:def.y,txt:'guttered',color:'#7a5f95'});
     blog(B,`${att.name}’s ashfire gutters out (${h}%).`);
   }
-  att.acted=true; B.aim=null;
+  B.aim=null;
   if(att.kind==='pc'){const s=soldierById(att.ref); if(s)addCorruption(s,1);}
+  burnout(att,2); if(att.feats.includes('emberveins')&&att.kind==='pc'){const s=soldierById(att.ref); if(s)addCorruption(s,1);}
+  if(def.hp<=0&&att.feats.includes('pyreheart')&&!att.pyreUsed){ att.pyreUsed=true; if(att.kind==='pc'){const s=soldierById(att.ref); if(s)addCorruption(s,1);} blog(B,`The pyre roars — ${att.name} may hurl again.`); } else att.acted=true;
 }
 function retreat(){
   const B=S.battle; if(!B||B.over||activeModal)return;
@@ -3422,7 +3590,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.52</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.53</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -4141,6 +4309,7 @@ if(tryResumeBattle()){                       // a fight was interrupted (reload 
   log('The fight resumes where it stood.','wk');
   render();
   if(S.battle&&S.battle.phase==='enemy'&&!S.battle.over){ try{ maybeAI(); }catch(e){} }   // re-kick the enemy AI (its timers died with the old page)
+  for(const s of S.roster){ (s.pendingFeats||[]).forEach(p=>queueModal(()=>featModal(s,p.opts.filter(f=>!s.feats.includes(f)),p.stat))); }   // a level-up earned mid-fight is still owed — the modalQ died with the old page
   pumpModals();
 } else if(!load()) newGame();
 else {
