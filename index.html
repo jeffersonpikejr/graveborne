@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.54</title>
+<title>GRAVEBORNE — alpha v0.55</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1641,16 +1641,25 @@ function podSenseAll(B){
   for(const pod of B.pods){ if(pod.state!=='charge')podSensePod(B,pod,eyes); }
 }
 function noticeAttack(B,att,def){ if(B.podsActive&&def&&def.kind==='foe'&&def.podId!=null&&B.pods&&B.pods[def.podId])alertPod(B,B.pods[def.podId],{x:att.x,y:att.y},'attacked'); }
+// path-aware step toward a point: route around barriers via the BFS field. Returns false if the point is walled off
+// from the unit entirely (so callers can give up / advance a waypoint instead of jamming a wall forever).
+function aiStepTo(B,u,wp){
+  const pf=pathField(B,wp.x,wp.y), cur=pf[u.x+','+u.y];
+  if(cur===undefined)return false;                                   // no walkable path to the point
+  const steps=reachable(B,u); if(!steps.length)return true;
+  const pd=s=>{ const v=pf[s.x+','+s.y]; return v===undefined?9999:v; };
+  steps.sort((a,b)=>pd(a)-pd(b));
+  if(pd(steps[0])<cur){ u.x=steps[0].x; u.y=steps[0].y; }
+  return true;
+}
 function aiPatrol(B,u,pod){
   const wp=(u.ai==='anchor')?pod.home:(pod.waypoints[pod.wi]||pod.home);
-  if(distC(u,wp)<=1){ pod.wi=(pod.wi+1)%Math.max(1,pod.waypoints.length); }
-  else { const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>distC(a,wp)-distC(b,wp)); u.x=steps[0].x;u.y=steps[0].y; } }  // patrol at full speed; no double-move (unaware)
+  if(distC(u,wp)<=1 || !aiStepTo(B,u,wp)){ pod.wi=(pod.wi+1)%Math.max(1,pod.waypoints.length); }  // reached it, or it's walled off → next waypoint
   u.moved=true;u.acted=true;
 }
 function aiInvestigate(B,u,pod){
   const wp=pod.lastSeen||pod.home;
-  if(distC(u,wp)<=1){ pod.state='patrol'; pod.lastSeen=null; }  // reached the noise, nothing there — fog break
-  else { const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>distC(a,wp)-distC(b,wp)); u.x=steps[0].x;u.y=steps[0].y; } }
+  if(distC(u,wp)<=1 || !aiStepTo(B,u,wp)){ pod.state='patrol'; pod.lastSeen=null; }  // reached the noise (or can't path to it) — give it up
   u.moved=true;u.acted=true;
 }
 function podsEligible(B,contract){ return ['slay','capture','assassinate'].includes(B.obj)&&!B.ambush&&!B.caravanRaid&&!contract.story&&!contract.reckoning; }
@@ -2095,6 +2104,23 @@ function reachCosts(B,u,budget){
 // backward-compatible for the AI: tiles within the unit's full budget (+bonus). Returned objects still expose .x/.y.
 function reachable(B,u,bonus){ return reachCosts(B,u,moveBudget(u)+(bonus||0)); }
 function pathCostTo(B,u,x,y,budget){ const t=reachCosts(B,u,budget).find(o=>o.x===x&&o.y===y); return t?t.cost:null; }
+// BFS path-distance field FROM a goal tile across walkable terrain (respects walls/water/chasm + cliffs, 8-directional
+// with the corner-cut rule, unit-agnostic). Lets the enemy AI route AROUND barriers instead of jamming straight-line at
+// a wall; a tile absent from the field is walled off from the goal entirely.
+function pathField(B,gx,gy){
+  const D={}; if(gx<0||gy<0||gx>=GW||gy>=GH)return D;
+  D[gx+','+gy]=0; const q=[[gx,gy]]; let qi=0;
+  while(qi<q.length){ const c=q[qi++], x=c[0], y=c[1], d=D[x+','+y];
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
+      const nx=x+dx,ny=y+dy; if(nx<0||ny<0||nx>=GW||ny>=GH||D[nx+','+ny]!==undefined)continue;
+      const t=tileAt(B,nx,ny); if(!t||bImpass(t.t))continue;
+      if(isCliff(elevAt(B,nx,ny),elevAt(B,x,y)))continue;
+      if(dx&&dy){ const a=tileAt(B,x+dx,y),b=tileAt(B,x,y+dy); if((!a||bImpass(a.t))&&(!b||bImpass(b.t)))continue; }  // no diagonal slip through a solid corner
+      D[nx+','+ny]=d+1; q.push([nx,ny]);
+    }
+  }
+  return D;
+}
 function distC(a,b){return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y));}
 function adjacent(a,b){return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y))===1;} // 8-directional: diagonals count (matches diagonal movement)
 function isIsolated(B,def){ return !B.units.some(z=>z!==def&&z.hp>0&&!z.fled&&!z.prop&&z.kind===def.kind&&distC(z,def)<=1); } // no same-side ally adjacent
@@ -3072,30 +3098,37 @@ function aiAct(u){
       if(distC(steps[0],target)>distC(u,target)){u.x=steps[0].x;u.y=steps[0].y;}
     }
   }
-  // move toward target if can't hit — with a cohesion pull so the pod doesn't string out
-  if(!inRange.includes(target)&&target){
+  // === PATH-AWARE PURSUIT === navigate AROUND ruins / rivers / chasms (a BFS field from the goal, not straight-line),
+  // and never throw the turn away fixated on a walled-off or far-off objective when a target is right in front of you.
+  let goalPF=null;
+  if(target&&!inRange.includes(target)){
+    goalPF=pathField(B,target.x,target.y); let cur=goalPF[u.x+','+u.y];
+    // objective too hard? walled off entirely, OR out of a two-move dash while something is already in range → take the ready kill
+    if(cur===undefined || (attackTargets(B,u).length && cur>moveBudget(u)*2)){
+      const easy=attackTargets(B,u).sort((a,b)=>a.hp-b.hp)[0];
+      if(easy){ target=easy; goalPF=null; }                                   // in range now — attack it, don't chase the far goal
+      else { let alt=null,ad=1e9,apf=null; for(const t of pcs.concat(charges)){ if(t===target)continue; const f=pathField(B,t.x,t.y); const d=f[u.x+','+u.y]; if(d!==undefined&&d<ad){ad=d;alt=t;apf=f;} }
+        if(alt){ target=alt; goalPF=apf; } }                                  // walled off from the goal → advance on the nearest foe we CAN reach
+    }
+  }
+  const pd=(pf,s)=>{ const v=pf[s.x+','+s.y]; return v===undefined?9999:v; };
+  if(goalPF&&target&&!attackTargets(B,u).includes(target)&&pd(goalPF,u)<9999){
     const steps=reachable(B,u);
     if(steps.length){
       const coh=s=>(centroid?Math.max(0,distC(s,centroid)-(pod.radius+2))*1.5:0);
-      steps.sort((a,b)=>((Math.abs(a.x-target.x)+Math.abs(a.y-target.y))+coh(a))-((Math.abs(b.x-target.x)+Math.abs(b.y-target.y))+coh(b)));
+      steps.sort((a,b)=>(pd(goalPF,a)+coh(a))-(pd(goalPF,b)+coh(b)));
       const best=steps[0];
-      if(!(w.rng>1&&distC(u,target)<=w.rng)){ u.x=best.x;u.y=best.y; }
+      if(!(w.rng>1&&distC(u,target)<=w.rng) && pd(goalPF,best)<pd(goalPF,u)){ u.x=best.x;u.y=best.y; }   // move only if it's real progress around the terrain
     }
   }
   const nowRange=attackTargets(B,u);
   const hit=nowRange.includes(target)?target:(nowRange.sort((a,b)=>a.hp-b.hp)[0]||null);
   if(hit) doAttack(B,u,hit);
   else if(target&&w.rng===1&&!nowRange.length){
-    // couldn't reach anyone this turn — a melee foe with a reason to close (it's engaged/pursuing, never on patrol)
-    // spends its turn on a SECOND move: a double-move to close the gap, just like the player's dash (no attack after).
-    // Pure commit — the dash minimises distance to the target with NO cohesion drag, so an out-of-reach foe
-    // reliably closes its whole budget instead of being leashed to the (now-behind) pod centroid.
-    const steps=reachable(B,u);
-    if(steps.length){
-      steps.sort((a,b)=>(Math.abs(a.x-target.x)+Math.abs(a.y-target.y))-(Math.abs(b.x-target.x)+Math.abs(b.y-target.y)));
-      const best=steps[0];
-      if((Math.abs(best.x-target.x)+Math.abs(best.y-target.y))<(Math.abs(u.x-target.x)+Math.abs(u.y-target.y))){ u.x=best.x;u.y=best.y; }
-    }
+    // couldn't reach anyone — a melee foe with a reason to close spends its turn on a SECOND move (a dash) to keep
+    // closing along the path around the terrain, just like the player's dash (no attack after).
+    const pf=goalPF||pathField(B,target.x,target.y);
+    if(pd(pf,u)<9999){ const steps=reachable(B,u); if(steps.length){ steps.sort((a,b)=>pd(pf,a)-pd(pf,b)); const best=steps[0]; if(pd(pf,best)<pd(pf,u)){ u.x=best.x;u.y=best.y; } } }
   }
   if(!B.over){ render(); pauseNextTurn(); }
 }
@@ -3590,7 +3623,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.54</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.55</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
