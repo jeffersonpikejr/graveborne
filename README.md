@@ -11,6 +11,9 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.54 (2026-07-16) — Level-up label hotfix
+The branch tags on the level-up screen were showing their raw `<span>` markup as text (the modal escaped the whole label). Modal buttons can now carry a styled HTML label while everything else stays escaped, so the **BATTLEMASTER / CRITKNIGHT / …** chips render as intended.
+
 ## v0.53 (2026-07-16) — Class Build-Trees
 Every class now levels down one of two branches (or splashes a utility). At each veterancy you're offered **one feat from each branch + one utility**, labelled, with prerequisites gating the deeper feats — so you climb toward a signature payoff on purpose. Every old feat is preserved, and the level-5 capstone forks by build where it matters.
 

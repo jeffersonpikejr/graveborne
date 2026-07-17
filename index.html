@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.53</title>
+<title>GRAVEBORNE — alpha v0.54</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1391,7 +1391,7 @@ function featModal(s,opts,stat){
       ${s.level>=5?`<p style="margin:6px 0 0;color:var(--gold)">★ Veterancy capstone — ${(CLASSES[s.cls]&&CLASSES[s.cls].martial)?'<b>Double Strike</b>: they may strike twice if they hold their ground.':s.cls==='cleric'?(s.feats.includes('zealot')?'<b>Battle Hymn</b>: bless the whole line — +10 hit & +2 dmg.':'<b>Healing Aura</b>: a new spell that heals all allies within 2.'):s.cls==='acolyte'?(s.feats.includes('serrated')?'<b>Marrow Reap</b>: a whirl of bone that crits every adjacent foe.':'<b>Blight Storm</b>: a 3×3 blight-nova hurled at range.'):'a hardened veteran.'}</p>`:''}
     </div></div>
     <p class="hint" style="margin-top:8px">Choose a feat — remember: whatever you build, the Blight can give back.</p>`;
-  showModal('Veterancy',body,opts.map(f=>({label:`${brNameOf(CLASSES[s.cls]||CLASSES.fighter,f)?`<span class="branchtag">${brNameOf(CLASSES[s.cls]||CLASSES.fighter,f)}</span> `:''}${FEATS[f].n} — ${FEATS[f].d}`,cls:'pick',fn:()=>{
+  showModal('Veterancy',body,opts.map(f=>({label:`${brNameOf(CLASSES[s.cls]||CLASSES.fighter,f)?brNameOf(CLASSES[s.cls]||CLASSES.fighter,f)+' · ':''}${FEATS[f].n} — ${FEATS[f].d}`,lhtml:`${brNameOf(CLASSES[s.cls]||CLASSES.fighter,f)?`<span class="branchtag">${esc(brNameOf(CLASSES[s.cls]||CLASSES.fighter,f))}</span> `:''}${esc(FEATS[f].n)} — ${esc(FEATS[f].d)}`,cls:'pick',fn:()=>{
     s.feats.push(f);
     if(s.pendingFeats&&s.pendingFeats.length)s.pendingFeats.shift();
     if(S.battle){const bu=S.battle.units.find(x=>x.kind==='pc'&&x.ref===s.id); if(bu)bu.feats.push(f);}
@@ -3428,7 +3428,7 @@ function render(){
   else html=renderCompany();
   if(activeModal){
     html+=`<div id="modalBack"><div id="modal"><h2>${esc(activeModal.title)}</h2>${activeModal.html}
-      <div class="btns">${activeModal.btns.map((b,i)=>`<button class="${b.cls||''}" ${b.disabled?'disabled':''} onclick="MODALBTN(${i})">${esc(b.label)}</button>`).join('')}</div></div></div>`;
+      <div class="btns">${activeModal.btns.map((b,i)=>`<button class="${b.cls||''}" ${b.disabled?'disabled':''} onclick="MODALBTN(${i})">${b.lhtml?b.lhtml:esc(b.label)}</button>`).join('')}</div></div></div>`;
   }
   app.innerHTML=html;
   const lg=document.getElementById('log'); if(lg)lg.scrollTop=0;
@@ -3590,7 +3590,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.53</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.54</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
