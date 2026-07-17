@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.55</title>
+<title>GRAVEBORNE — alpha v0.56</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1948,11 +1948,48 @@ function spawnProp(B,kind,x,y){
 }
 function spawnRevenant(B,g){
   const it=(g.iter||0)+(g.snap.ashPromised?1:0); // the Ash keeps its side of the bargain
-  const u={uid:nid(),kind:'foe',ekey:'revenant',name:g.name+', Returned',hp:g.snap.maxhp+4+it*2,maxhp:g.snap.maxhp+4+it*2,
-    skl:g.snap.skl+1,spd:g.snap.spd,res:99,weapon:g.snap.weapon,wMod:(g.snap.wMod||0)+it,arm:g.snap.armor,
-    dmgBonus:g.snap.dmgBonus||0,traits:[],
-    feats:g.snap.feats.slice(),undead:true,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:8+it*2,graveId:g.id};
+  const snapLvl=g.snap.level||2, cls=g.snap.cls||'fighter', CL=CLASSES[cls]||CLASSES.fighter;
+  // A revenant scales UP to the company — it always overmatches your best by ~2 levels (plus each Conclave
+  // improvement), never a frozen relic of the level it died at. Below the snapshot it can't drop.
+  const pcLvls=B.units.filter(u=>u.kind==='pc').map(u=>{const s=soldierById(u.ref);return s?s.level:1;});
+  const revLvl=clamp(Math.max(2,snapLvl,...pcLvls)+2+it, snapLvl, 8);
+  const graft=Math.max(0,revLvl-snapLvl);
+  let hp=g.snap.maxhp, skl=g.snap.skl+1, spd=g.snap.spd, arm=g.snap.armor,
+      wMod=(g.snap.wMod||0)+it, dmgBonus=(g.snap.dmgBonus||0);
+  for(let i=0;i<graft;i++){ hp+=3; const r=(snapLvl+i)%3; if(r===0)skl++; else if(r===1)dmgBonus++; else arm++; } // per-level graft
+  hp+=4+it*2;                                          // grave-menace HP floor on top of the level graft
+  if(revLvl>=6)spd++;                                  // an advanced revenant is quicker than it was in life
+  const feats=g.snap.feats.slice(), cap=Math.min(6,g.snap.feats.length+graft);   // its build fills out along the class it favored
+  for(const f of [...CL.branches.A.feats,...CL.branches.B.feats,...(CL.branches.misc||[])]){ if(feats.length>=cap)break; if(!feats.includes(f))feats.push(f); }
+  const dbl=!!(CL.martial&&revLvl>=5);                 // a martial revenant at veterancy strikes twice, like your own
+  const u={uid:nid(),kind:'foe',ekey:'revenant',name:g.name+', Returned',hp,maxhp:hp,
+    skl,spd,res:99,weapon:g.snap.weapon,wMod,arm,dmgBonus,traits:[],dbl,revLvl,ai:null,regen:0,podId:null,
+    feats,undead:true,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:10+it*3+graft,graveId:g.id};
   placeRight(B,u); B.units.push(u); B.revGraveIds.push(g.id);
+  spawnRevenantRetinue(B,u,revLvl,it);
+}
+// The dead do not walk alone: a revenant leads a detachment of the risen, buffed to match its advance.
+// Built as its own pod so the retinue coordinates (patrol → charge together) around the revenant as anchor.
+function spawnRevenantRetinue(B,rev,revLvl,it){
+  const T=worldTier(), dgr=Math.max(2,B.danger||2);
+  const n=clamp(2+(revLvl>=5?1:0)+(T>=2?1:0)+it,2,4);          // 2–4 henchmen, deeper retinues on advanced revenants
+  B.pods=B.pods||[]; B.podsActive=true; if(B.raised==null)B.raised=0;  // flat-deploy foes keep podId:null and are untouched by pod logic
+  const home={x:rev.x,y:rev.y}, radius=3;
+  const pod={id:B.pods.length,state:'patrol',doctrine:'revenant',dname:'Revenant Retinue',home,radius,
+    waypoints:makeWaypoints(B,home,radius),wi:ri(0,3),members:[rev.uid],lastSeen:null,spotterUid:null};
+  rev.podId=pod.id;
+  const comp=['graveguard','husk','husk','hound'];             // a graveguard bulwark leads; husks and a hound fill the ranks
+  const bump=2+Math.max(0,revLvl-3);                           // mid-to-high buff, scaling with how advanced the revenant is
+  for(let i=0;i<n;i++){ if(foeCount(B)>=MAXFOES)break;
+    const h=spawnEnemy(B,comp[i%comp.length],dgr,false);
+    const spot=nearOpen(B,rev.x,rev.y,4); if(spot){h.x=spot.x;h.y=spot.y;}   // muster around the revenant, not scattered
+    h.podId=pod.id; h.undead=true;
+    h.hp+=bump; h.maxhp+=bump; h.skl+=1;
+    if(revLvl>=5&&WEAPONS[h.weapon]&&WEAPONS[h.weapon].up)h.weapon=WEAPONS[h.weapon].up;
+    h.name=(revLvl>=6?'Dread ':'Risen ')+h.name;
+    pod.members.push(h.uid);
+  }
+  B.pods.push(pod);
 }
 function placeRight(B,u){
   // deploy in the quarter of the field FARTHEST from the company's muster point (west edge for directional
@@ -2443,9 +2480,13 @@ function calloutModal(B,g){
       effect=`<p class="hint">${esc(benched.name)} stayed in camp. Word of this will reach them anyway (−2 resolve).</p>`; }
   }
   const it=g.iter?`<p class="hint">The Conclave has improved her ${g.iter} time${g.iter>1?'s':''}. Her old kit is still legible under the grafts.</p>`:'';
+  const ru=B.units.find(u=>u.ekey==='revenant'&&u.graveId===g.id);
+  const shownLvl=ru&&ru.revLvl?ru.revLvl:g.snap.level;
+  const retinue=(ru&&ru.podId!=null&&B.pods&&B.pods[ru.podId])?B.pods[ru.podId].members.length-1:0;
+  const retLine=retinue?` She does not walk alone — ${retinue} of the risen march at her back.`:'';
   return showModal(`${g.name}, Returned`,
     `<div class="face revf" style="float:right;margin-left:8px">${faceSvg(g.face,{size:60,revenant:true})}</div>
-     <p>Across the field, a figure in your old colors. Level ${g.snap.level}. ${esc(FEATS[g.snap.feats[0]]?FEATS[g.snap.feats[0]].n:'')}${g.snap.feats.length>1?' + '+(g.snap.feats.length-1)+' more':''} — the build is yours. The face is hers. Barely.</p><div class="callout">“${esc(line)}”</div>${effect}${it}`,
+     <p>Across the field, a figure in your old colors — <b>Level ${shownLvl}</b> now, grown past what you buried. ${esc(FEATS[g.snap.feats[0]]?FEATS[g.snap.feats[0]].n:'')}${g.snap.feats.length>1?' + '+(g.snap.feats.length-1)+' more':''} — the build is yours. The face is hers. Barely.${retLine}</p><div class="callout">“${esc(line)}”</div>${effect}${it}`,
     [{label:'Steel yourselves',fn:()=>closeModal()}]);
 }
 function tryMove(x,y){
@@ -3623,7 +3664,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.55</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.56</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
