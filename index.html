@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.57</title>
+<title>GRAVEBORNE — alpha v0.58</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1723,7 +1723,41 @@ function makeWaypoints(B,home,r){
   [[r,0],[0,r],[-r,0],[0,-r]].forEach(([dx,dy])=>{ const o=nearOpen(B,clamp(home.x+dx,0,GW-1),clamp(home.y+dy,0,GH-1),1); if(o&&!wps.some(w=>w.x===o.x&&w.y===o.y))wps.push(o); });
   return wps.length>1?wps:[{x:home.x,y:home.y}];
 }
-function deployPods(B,contract,ct,danger){
+/* ---- v0.58 power-budget encounters: every battle prices its enemies off the company it faces.
+   Danger skulls stay meaningful as RATIOS of company power (☠ comfortable · ☠☠ a real sweat · ☠☠☠ pressure test),
+   anchored so a fresh squad sees week-1 numbers unchanged — the scaling correction lands from L3 on. ---- */
+const PB_RATIO={1:0.50,2:0.85,3:1.25}, PB_FLOOR={1:10,2:16,3:24}, PB_CEIL={1:5,2:9,3:12};
+function soldierPowerOf(s){ const w=WEAPONS[s.weapon]||{};
+  return 3+(s.level||1)*2+(w.tier||1)+(s.wMod||0)*2+(s.armor||0)*1.5+((s.feats&&s.feats.length)||0)*0.8
+        +(s.dmgBonus||0)+((s.level>=5&&CLASSES[s.cls]&&CLASSES[s.cls].martial)?2:0); }
+function squadPowerOf(ids){ return ids.map(soldierById).filter(Boolean).reduce((a,s)=>a+soldierPowerOf(s),0); }
+function battleBudget(P,danger){ const d=clamp(danger||1,1,3); return Math.max(P*PB_RATIO[d],PB_FLOOR[d]); }
+function foeCost(key,danger){ const e=ENEMIES[key]; return e?e.xp+((danger||1)>=3?2:0):0; }
+function foePowerOf(u){ const e=ENEMIES[u.ekey]; if(!e||u.prop)return 0;
+  const wt=(((WEAPONS[u.weapon]||{}).tier||1))-(((WEAPONS[e.w]||{}).tier||1));   // upgraded steel is real power
+  return e.xp+(u.wMod||0)*2+(u.arm-e.arm)*2+Math.max(0,(u.maxhp-e.hp-3))/3+(u.skl-e.skl)*2+Math.max(0,wt)*3; }
+// budget pool: live combat foes only — props (nests/menhirs) aren't power, and revenants + their
+// retinues ride ON TOP of the budget (the premium threat already self-scales per v0.56)
+function pbFoes(B){ return B.units.filter(u=>u.kind==='foe'&&!u.prop&&u.hp>0&&!u.graveId&&!u.revguard); }
+function battleFoePower(B){ return pbFoes(B).reduce((a,u)=>a+foePowerOf(u),0); }
+// quality top-up: when the count ceiling strands budget, spend it making the spawned foes HARDER —
+// late-game danger 3 is not fourteen chaff units, it is twelve named problems.
+function topUpFoes(B,budget){
+  let total=battleFoePower(B), guard=300;
+  while(total<budget-1&&guard-->0){
+    const cands=pbFoes(B).filter(u=>(u._pb||0)<9);      // per-unit cap: no husk becomes a god
+    if(!cands.length)break;
+    const u=pick(cands), w=WEAPONS[u.weapon];
+    const ups=[{c:1,f:()=>{u.hp+=3;u.maxhp+=3;}},{c:2,f:()=>u.skl+=1},{c:2,f:()=>u.wMod=(u.wMod||0)+1},{c:2,f:()=>u.arm+=1}];
+    if(w&&w.up)ups.push({c:3,f:()=>u.weapon=w.up});
+    const up=pick(ups); up.f(); u._pb=(u._pb||0)+up.c; total+=up.c;
+    const base=ENEMIES[u.ekey].n;                        // earned prefixes, only on untagged names
+    if(u._pb>=6&&u.name==='Veteran '+base)u.name='Elite '+base;
+    else if(u._pb>=6&&u.name===base)u.name='Elite '+base;
+    else if(u._pb>=3&&u.name===base)u.name='Veteran '+base;
+  }
+}
+function deployPods(B,contract,ct,danger,budget,ceil){
   // pod count tracks the skull rating: N skulls → N or N+1 pods (danger 1 → 1–2, danger 2 → 2–3, danger 3 → 3–4)
   const podN=clamp(danger+(chance(50)?1:0),1,5);
   const homes=pickHomes(B,podN); B.pods=[]; B.raised=0;
@@ -1737,18 +1771,16 @@ function deployPods(B,contract,ct,danger){
     const dk=(pi===vipPi&&vipDk)?vipDk:pick(vipChoices), doc=POD_DOCTRINES[dk];
     const radius=ri(3,4);
     const pod={id:pi,state:'patrol',doctrine:dk,dname:doc.n,home,radius,waypoints:makeWaypoints(B,home,radius),wi:ri(0,3),members:[],lastSeen:null,spotterUid:null};
-    // pods grow with the skull rating and, later, with the world tier — full comps come out mid/late game
-    const size=clamp(2+(danger>=3?1:0)+(T>=2?1:0)+(chance(30)?1:0),2,doc.comp.length);
-    for(let i=0;i<size;i++){ if(foeCount(B)>=MAXFOES)break;
-      const u=spawnEnemy(B,doc.comp[i],danger,false);      // doctrine-ordered composition (special unit first)
+    // v0.58: members are BOUGHT from the battle budget's per-pod share, walking the doctrine's comp
+    // in order (special unit first). First two are guaranteed — a pod is never less than a pair.
+    // Quality (the old elite promotion) now comes from the unified topUpFoes pass, budget-accounted.
+    const share=budget/podN; let spent=0;
+    for(let i=0;i<doc.comp.length;i++){ if(foeCount(B)>=Math.min(MAXFOES,ceil))break;
+      const c=foeCost(doc.comp[i],danger);
+      if(i>=2&&spent+c>share)break;
+      const u=spawnEnemy(B,doc.comp[i],danger,false);
       const spot=nearOpen(B,home.x,home.y,3)||home; u.x=spot.x;u.y=spot.y;u.podId=pi;
-      // last member is promoted to an elite at danger 3 OR mid-game; the buff scales with tier
-      if((danger>=3||T>=2)&&i===size-1&&u.ai!=='caster'&&u.ai!=='sorcerer'){
-        const hb=3+2*Math.max(0,T-2); u.hp+=hb; u.maxhp+=hb; u.skl+=1;
-        if(T>=3&&WEAPONS[u.weapon]&&WEAPONS[u.weapon].up)u.weapon=WEAPONS[u.weapon].up;
-        u.name=(T>=4?'Elite ':'Veteran ')+u.name;
-      }
-      pod.members.push(u.uid);
+      spent+=c; pod.members.push(u.uid);
     }
     // a caster/sorcerer's melee packmates become its bodyguards — they screen the VIP and hold formation
     if(podMembers(B,pod).some(m=>m.ai==='caster'||m.ai==='sorcerer'))
@@ -1829,17 +1861,25 @@ function startBattle(contract,squadIds){
       dbl:!!(CLASSES[s.cls]&&CLASSES[s.cls].martial&&s.level>=5),
       moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,mendUsed:false,smokeUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
   });
-  // enemies — patrolling pods on generic hunts; flat deploy for set-pieces & aggro objectives
+  // enemies — patrolling pods on generic hunts; flat deploy for set-pieces & aggro objectives.
+  // v0.58: EVERY path buys from the power budget — the skulls price the fight relative to the company.
   const danger=contract.danger;
   const flank=(B.obj==='escort'||B.obj==='protect');
+  const P=squadPowerOf(squadIds), budget=battleBudget(P,danger);
+  const ceil=Math.min(MAXFOES,PB_CEIL[clamp(danger||1,1,3)]+(contract.type==='hold'?1:0));
+  B.ppower=Math.round(P); B.pbudget=Math.round(budget);
   B.podsActive=podsEligible(B,contract)&&!contract.comp;
   if(B.podsActive){
-    deployPods(B,contract,ct,danger);
+    deployPods(B,contract,ct,danger,budget,ceil);
   } else if(contract.comp){
-    contract.comp.forEach(k=>spawnEnemy(B,k,danger,flank));
+    contract.comp.forEach(k=>spawnEnemy(B,k,danger,flank));   // authored identity always spawns whole
+    // surplus budget reinforces with comp-consistent bodies (never more of the leader at index 0)
+    const gi=contract.comp.length>1?1:0;
+    while(battleFoePower(B)<budget-6&&foeCount(B)<ceil)
+      spawnEnemy(B,contract.comp[gi+ri(0,contract.comp.length-1-gi)],danger,flank);
   } else {
-    const count=clamp(2+danger+(contract.type==='hold'?1:0),3,7);
-    for(let i=0;i<count;i++)spawnEnemy(B,pick(ct.pool),danger,flank);
+    let n=0;
+    while((n<3||battleFoePower(B)<budget)&&foeCount(B)<ceil){ spawnEnemy(B,pick(ct.pool),danger,flank); n++; }
   }
   if(B.obj==='assassinate'){
     let lead=contract.leader?B.units.find(z=>z.kind==='foe'&&z.ekey===contract.leader):null;
@@ -1873,6 +1913,7 @@ function startBattle(contract,squadIds){
         weapon:'shortsword',wMod:0,arm:2,feats:[],traits:[],undead:true,x:p.x,y:p.y,moved:true,acted:true,
         shakenBy:null,rattled:0,reaper:0,xpv:5,graveId:null,fled:false}); }
   }
+  topUpFoes(B,budget);   // v0.58: spend budget the count ceiling stranded — quality over headcount
   // revenant injection
   const risenHere=S.graves.filter(g=>g.state==='risen'&&g.regionId===region.id);
   let revs=[];
@@ -1984,7 +2025,7 @@ function spawnRevenantRetinue(B,rev,revLvl,it){
   for(let i=0;i<n;i++){ if(foeCount(B)>=MAXFOES)break;
     const h=spawnEnemy(B,comp[i%comp.length],dgr,false);
     const spot=nearOpen(B,rev.x,rev.y,4); if(spot){h.x=spot.x;h.y=spot.y;}   // muster around the revenant, not scattered
-    h.podId=pod.id; h.undead=true;
+    h.podId=pod.id; h.undead=true; h.revguard=true;   // rides on top of the power budget, like the revenant itself
     h.hp+=bump; h.maxhp+=bump; h.skl+=1;
     if(revLvl>=5&&WEAPONS[h.weapon]&&WEAPONS[h.weapon].up)h.weapon=WEAPONS[h.weapon].up;
     h.name=(revLvl>=6?'Dread ':'Risen ')+h.name;
@@ -3665,7 +3706,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.57</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.58</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
