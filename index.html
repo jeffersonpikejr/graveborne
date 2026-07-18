@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.59</title>
+<title>GRAVEBORNE — alpha v0.60</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -417,6 +417,53 @@ const TRAITS={
  nervous:{n:'Nervous',d:'−4 resolve. Some battles never quite end.',good:false},
  blightmarked:{n:'Blight-Marked',d:'+2 damage vs the dead, −3 resolve. It whispers back now.',good:false},
  grieving:{n:'Grieving',d:'−5 resolve until their bonded dead is laid to rest.',good:false},
+};
+/* ===== v0.60 — DEEDS & NAME LEVELS =====
+   Past level 5 the XP track is dead. What comes after is earned by DEEDS: discrete, earn-once acts
+   detected from events the game already emits. ✦ personal = she did it herself (killer/survivor only);
+   the Banneret gate demands at least one, so a soldier can't ride the squad's coat-tails to a banner. */
+const DEEDS={
+ gravequiet:  {n:'Gravequiet',      line:'Put one of the company’s own dead back in the ground. It stayed there.', tag:'grave',   personal:true},
+ trollfeller: {n:'Trollfeller',     line:'Felled a thing the levies won’t stand in front of.',                     tag:'company', personal:true},
+ hexbreaker:  {n:'Hexbreaker',      line:'Opened a Blight-sorcerer’s throat mid-verse.',                           tag:'company', personal:true},
+ gravekissed: {n:'Grave-Kissed',    line:'Bled to the edge of the grave and walked back unescorted.',              tag:'company', personal:true},
+ coldcount:   {n:'The Cold Count',  line:'Five in one field. The company stopped counting. The Blight didn’t.',    tag:'karsk',   personal:true},
+ secondburial:{n:'Second Burial',   line:'Stood over a bound friend’s second death and did not look away.',        tag:'folk',    personal:true},
+ shieldfolk:  {n:'Shield of the Folk',line:'Brought every charge home breathing. The Folk keep that kind of ledger.',tag:'folk'},
+ ritekeeper:  {n:'Rite-Keeper',     line:'Spoke the rite to its last word while the dead pressed the line.',       tag:'folk'},
+ crownwork:   {n:'Crownwork',       line:'Did crown-work on the road and took crown coin for it. The heirs keep lists.',tag:'karsk'},
+ gravewright: {n:'Gravewright',     line:'Has answered for the company’s dead and paid the ground its price.',     tag:'grave'},
+};
+const NAME_LEVELS={6:{n:'Banneret'},7:{n:'Sworn'}};
+const DEED_L6=3;                       // deeds to raise a banner — at least one must be ✦ personal
+const BANNER_COST=60, RESWEAR_COST=40, SWORD_WAGE=2, MAX_FIELD_SWORDS=2;
+const SWORD_TIERS=[{n:'Green',pw:7},{n:'Proven',pw:9,at:3},{n:'Oathkept',pw:11,at:7}];   // pw = the tunable that decides gift-vs-tax
+const SWORD_HOOKS=[
+ {h:'owes the Undercrown a debt with interest',      die:'dies with the Undercrown’s debt unpaid. Someone will come asking who inherits it.', go:'takes her debt somewhere it can’t find your banner.'},
+ {h:'deserted Aldric’s third column and never says why', die:'dies still not saying why. The column will hear of it before you do.',          go:'walks. She has done this before, and knows the road.'},
+ {h:'her brother sells bodies to the Conclave',      die:'dies, and somewhere a ledger gets a new line in a hand she’d recognise.',           go:'goes to her brother. You can guess what he sells her.'},
+ {h:'was sworn to another banner once; doesn’t name it', die:'dies sworn twice and buried under neither name.',                               go:'was sworn to another banner once. Now she has been sworn to two, and kept neither.'},
+ {h:'buried a village and kept the bell-rope',       die:'dies with the bell-rope still knotted at her wrist.',                               go:'goes back to the village she buried. Someone has to ring it.'},
+ {h:'took the oath to get out of a cell',            die:'dies free, which was the whole arrangement.',                                       go:'walks out as quietly as she walked in. The cell is still there.'},
+ {h:'says the Blight spoke to her once and was polite', die:'dies, and does not look surprised about it.',                                    go:'goes to listen for it again. She said it was polite.'},
+ {h:'hunted for a lord who hunted her back',         die:'dies with a lord’s bounty still uncollected.',                                      go:'goes to finish a hunt that started without her.'},
+ {h:'came for the wages and stayed for her',         die:'dies for a wage she stopped counting weeks ago.',                                   go:'came for the wages. With the banner down, there are none.'},
+ {h:'won’t say which side she held at the Fords',    die:'dies without ever saying which side she held at the Fords.',                        go:'goes before anyone asks again about the Fords.'},
+];
+/* Oaths — her oath is HERS, not yours. banner/karsk/folk ship; the rest are reserved enum slots (v0.61+). */
+const OATHS={
+ banner:{n:'The Banner',patron:'your company',
+   vow:'I swore to the ones beside me. Nothing over the hill has ever loved you back.',
+   perk:'+5 resolve to every soldier who marches beside her.',
+   strings:'None but the ones you already carry. She asks nothing a sellsword can’t give.'},
+ karsk:{n:'The Crown',patron:'Karsk',
+   vow:'The crown pardons what it cannot afford to punish. I mean to be expensive.',
+   perk:'A crown stipend of 6c a week, and Karsk work pays a tenth more.',
+   strings:'The crown calls its sworn. It always does. Expect the rider.'},
+ folk:{n:'The Folk',patron:'the Folk',
+   vow:'Someone has to remember what all this is for. The bell, the field, the names.',
+   perk:'+2 provisions a week, and the villages remember your rescues twice over.',
+   strings:'The Folk ask little. A tithe of bread when the bell rings. It will ring.'},
 };
 const WEAPONS={
  shortsword:{n:'Shortsword',lo:2,hi:4,rng:1,hitB:0,tier:1,up:'armingsword'},
@@ -857,7 +904,8 @@ function makeSoldier(clsKey){
   const maxhp=ri(C.hp[0],C.hp[1]);
   return {id:nid(),name,cls,bg:bgIdx,hp:maxhp,maxhp,skl:ri(C.skl[0],C.skl[1]),spd:ri(C.spd[0],C.spd[1]),res:ri(C.res[0],C.res[1]),
           weapon:pick(C.wpns),wMod:0,wName:null,armor:ri(C.arm[0],C.arm[1]),feats:(C.start?[C.start]:[]),xp:0,level:1,bonds:[],battles:0,
-          rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0};
+          rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0,
+          deeds:[],retinue:[],oath:null,bannerWeek:0};
 }
 function makeCinderling(){ // the rare underkingdom smoke-runner: fights as a guest, joins if they live
   const s=makeSoldier('shade');
@@ -876,6 +924,46 @@ function addTrait(s,id){
   return true;
 }
 function clearGrieving(s){ if(s.traits.includes('grieving')){ s.traits=s.traits.filter(t=>t!=='grieving'); s.res+=5; } }
+/* ---- v0.60 deeds: biography, not XP. Earn-once per soldier, forever. ---- */
+function deedAdd(s,id,note){
+  if(!s||!s.alive||!DEEDS[id])return false;
+  s.deeds=s.deeds||[];
+  if(s.deeds.some(d=>d.id===id))return false;
+  s.deeds.push({id,week:S.week,note:note||null});
+  log(`⚑ It will be told at the fire: ${s.name} — ${DEEDS[id].n}. ${DEEDS[id].line}`,'good');
+  S.chronicle.push(`Week ${S.week}: ${s.name} — ${DEEDS[id].n}.`);
+  (S._deedsBatch=S._deedsBatch||[]).push({sid:s.id,id});
+  return true;
+}
+function deedsOf(s){ return (s&&s.deeds)||[]; }
+function hasPersonalDeed(s){ return deedsOf(s).some(d=>DEEDS[d.id]&&DEEDS[d.id].personal); }
+// notable kills are marked on the UNIT during the fight, then read once at endBattle (victory only)
+function noteKill(att,def){
+  if(!att||att.kind!=='pc'||att.sword||!def||def.spawned)return;   // swords earn no deeds; raised chaff isn't a feat of arms
+  const m=att.bMarks=(att.bMarks||[]);
+  if(def.ekey==='revenant'&&def.graveId)m.push('rev:'+def.graveId);
+  else if(def.ekey==='blighttroll')m.push('troll');
+  else if(def.ekey==='blightsorc')m.push('sorc');
+}
+function isSword(u){ return !!(u&&u.sword); }
+// Name Levels are earned, never bought with XP. L6 needs three tellings, one of them hers alone.
+function nameEligible(s){
+  if(!s||!s.alive||s.guest)return 0;
+  if(s.level===5&&deedsOf(s).length>=DEED_L6&&hasPersonalDeed(s))return 6;
+  if(s.level===6&&deedsOf(s).some(d=>d.week>(s.bannerWeek||0)))return 7;
+  return 0;
+}
+function swordTier(w){ return SWORD_TIERS[Math.min(w.tier||0,SWORD_TIERS.length-1)]; }
+function livingSwords(s){ return ((s&&s.retinue)||[]).filter(w=>w.alive); }
+function makeSword(){
+  const cls=chance(70)?'fighter':'ranger', C=CLASSES[cls];
+  const name=pick(NAMES.filter(n=>!S.usedNames.includes(n)))||pick(NAMES)+' II';
+  S.usedNames.push(name);
+  const hookId=ri(0,SWORD_HOOKS.length-1), maxhp=12+ri(0,2);
+  return {id:nid(),name,face:makeFace(),cls,weapon:pick(C.wpns),wMod:0,armor:1,
+    hp:maxhp,maxhp,skl:C.skl[0]+1,spd:C.spd[0],res:20,
+    tier:0,battlesWith:0,alive:true,joined:S.week,hookId};
+}
 function addCorruption(s,amt){
   s.corr=(s.corr||0)+amt;
   if(s.corr===4){ s.res=Math.max(10,s.res-5); log(`${s.name}’s graft has started whispering (−5 resolve). She answers it, sometimes.`,'blight'); }
@@ -889,6 +977,37 @@ function log(msg,cls){ S.log.unshift({msg,cls:cls||'',week:S.week}); if(S.log.le
 
 /* ============================== SAVE / LOAD ============================== */
 function save(){ if(S.battle) return; try{ localStorage.setItem('graveborne_v01',JSON.stringify({S,uid})); }catch(e){} }
+// pre-v0.60 backfill. Idempotent and null-safe, and called from BOTH load() AND tryResumeBattle() —
+// the resume path replaces S wholesale and never touches load(), so a version bump landing while a battle
+// is stashed (the mobile-rotate case the stash exists for) would otherwise resume into a save with no deeds.
+function migrateV060(){
+  let touched=false;
+  for(const arr of [S.roster,S.hirePool,S.deserters]) for(const p of (arr||[])){
+    if(!p.deeds){p.deeds=[];touched=true;}
+    if(!p.retinue){p.retinue=[];touched=true;}
+    if(p.oath===undefined){p.oath=null;touched=true;}
+    if(p.bannerWeek===undefined){p.bannerWeek=0;touched=true;}
+  }
+  for(const g of (S.graves||[])){ if(g.snap&&!g.snap.deeds){g.snap.deeds=[];touched=true;}
+    if(g.snap&&!g.snap.retinue){g.snap.retinue=[];touched=true;} }
+  if(S.deedPrimerSeen===undefined){S.deedPrimerSeen=false;touched=true;}
+  if(S.oathTension===undefined){S.oathTension=null;touched=true;}
+  if(S.pendingSwordFate===undefined){S.pendingSwordFate=[];touched=true;}
+  // evidence-gated seeding: receipts only, never gifts — a mid-campaign veteran shouldn't be permanently deedless
+  if(!S._deedSeeded){
+    S._deedSeeded=true; touched=true;
+    for(const s of (S.roster||[])){
+      if(s.gravetempered)deedAddQuiet(s,'secondburial','from before the count was kept');
+      if((s.kills||0)>=10)deedAddQuiet(s,'coldcount','from before the count was kept');
+      if(s.commander&&S.story&&S.story.stage>=5)deedAddQuiet(s,'crownwork','from before the count was kept');
+    }
+  }
+  return touched;
+}
+function deedAddQuiet(s,id,note){   // seeding writes the record without the fire-side announcement
+  if(!s||!DEEDS[id])return; s.deeds=s.deeds||[];
+  if(!s.deeds.some(d=>d.id===id))s.deeds.push({id,week:S.week,note});
+}
 function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01')); if(d&&d.S&&!d.S.battle){S=d.S;uid=d.uid;
   S.regions.forEach(r=>{ if(r.swallowed&&r.salvage===undefined) r.salvage=6; }); // pre-salvage saves
   // pre-world-map saves: add the day clock and the wider March
@@ -939,6 +1058,7 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
     const bh=bs.length?pick(bs):randomWildHex();
     if(bh){ if(!bh.feat)bh.feat='barrow'; S.story.meetWeek=S.week+3; S.story.meetHex={q:bh.q,r:bh.r}; touched=true; }
   }
+  if(migrateV060())touched=true;
   if(touched)save();
   return true;} }catch(e){} return false; }
 // A battle is never written to the main save, so a page reload mid-fight (mobile browsers do this on orientation
@@ -959,6 +1079,7 @@ function tryResumeBattle(){ try{
   if(d&&d.S&&d.S.battle&&!d.S.battle.over&&(Date.now()-(d.t||0)<30*60000)){   // fresh (<30 min) so a long-abandoned fight doesn't resurrect
     S=d.S; uid=d.uid; const B=S.battle;
     if(typeof d.GW==='number')GW=d.GW; if(typeof d.GH==='number')GH=d.GH;     // restore the map dimensions tileAt() relies on
+    migrateV060();                                                            // the resume path skips load() — backfill here too, or a mid-battle version bump resumes into a save with no deeds
     delete B._vis; delete B._conn; B._lastPos=null; B._camTouched=false;      // re-fit the camera to the current (possibly rotated) viewport
     return true;
   }
@@ -990,6 +1111,7 @@ function genContracts(){
     pay+=(p?travelDays(p):1)*6;                                        // distance pays
     const rk=ct.employer==='Karsk'?'karsk':ct.employer==='Village elders'?'folk':null;
     if(rk&&S.rep){ if(S.rep[rk]>=25)pay=Math.round(pay*1.15); else if(S.rep[rk]<=-25)pay=Math.round(pay*0.75); }
+    if(rk==='karsk'&&oathPaying('karsk'))pay=Math.round(pay*1.10);   // a sworn sword at court is worth coin
     S.contracts.push({id:nid(),type,regionId:r.id,pay,danger,q:anchor.q,r:anchor.r,expires:S.week+2,obj:rollObjective(type)});
   }
   // frontier floor — ONLY in the first three weeks: keep one danger-1 contract open so a green company has
@@ -1164,13 +1286,16 @@ function travelTo(q,r,contractId){
 function weeklyTick(){
   if(S.over)return;
   S.week++;
-  const wages=S.roster.length*3;
+  const swordCount=S.roster.reduce((a,s)=>a+livingSwords(s).length,0);
+  const wages=S.roster.length*3+swordCount*SWORD_WAGE;      // sworn swords draw a retainer, and eat
   S.coin-=wages;
-  const eaten=Math.min(S.prov,S.roster.length);
-  S.prov-=S.roster.length;
+  const mouths=S.roster.length+swordCount;
+  const eaten=Math.min(S.prov,mouths);
+  S.prov-=mouths;
   let starved=false;
   if(S.prov<0){ S.prov=0; starved=true; }
-  log(`Week ${S.week} — wages ${wages}c${starved?'; the larder is empty':''}.`,'wk');
+  log(`Week ${S.week} — wages ${wages}c${swordCount?` (incl. ${swordCount} sworn sword${swordCount>1?'s':''})`:''}${starved?'; the larder is empty':''}.`,'wk');
+  oathWeekly();
   if(S.coin<0){ S.coin=0; S.roster.forEach(s=>s.res=Math.max(10,s.res-3)); log('The company goes unpaid. Resolve suffers.','bad'); }
   // desertion check when unpaid/starving
   if(starved){ S.roster.forEach(s=>{ s.hp=Math.max(1,s.hp-2); }); log('Hunger gnaws the line. Everyone weakens.','bad');
@@ -1734,8 +1859,11 @@ function squadPowerOf(ids){ return ids.map(soldierById).filter(Boolean).reduce((
 // The budget is calibrated to the strongest squad the player COULD field — the top partyCap() soldiers by
 // power — not to whoever they actually marched. Benching the A-team or fielding the wounded is a strategic
 // choice, not a difficulty discount: the enemy is priced to what you could have brought.
+// v0.60: every living sworn sword prices in UNCONDITIONALLY — not attached to her liege's rank. Otherwise
+// promoting a deliberately weak soldier keeps her under the top-cap cut and fields a slot-free unpriced body.
+function retinuePowerAll(){ return S.roster.reduce((a,s)=>a+livingSwords(s).reduce((b,w)=>b+swordTier(w).pw,0),0); }
 function rosterBestPower(){ const cap=partyCap();
-  return S.roster.map(s=>soldierPowerOf(s)).sort((a,b)=>b-a).slice(0,cap).reduce((a,p)=>a+p,0); }
+  return S.roster.map(s=>soldierPowerOf(s)).sort((a,b)=>b-a).slice(0,cap).reduce((a,p)=>a+p,0)+retinuePowerAll(); }
 function battleBudget(P,danger){ const d=clamp(danger||1,1,3); return Math.max(P*PB_RATIO[d],PB_FLOOR[d]); }
 function foeCost(key,danger){ const e=ENEMIES[key]; return e?e.xp+((danger||1)>=3?2:0):0; }
 function foePowerOf(u){ const e=ENEMIES[u.ekey]; if(!e||u.prop)return 0;
@@ -1864,8 +1992,26 @@ function startBattle(contract,squadIds){
     B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,cmdr:!!s.commander,
       weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
       dbl:!!(CLASSES[s.cls]&&CLASSES[s.cls].martial&&s.level>=5),
-      moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,mendUsed:false,smokeUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false});
+      moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,mendUsed:false,smokeUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false,bMarks:[]});
   });
+  // v0.60 — sworn swords march with their banneret. They take no muster slot: they are hers, not yours.
+  let swordsOut=0;
+  squadIds.forEach(id=>{
+    const s=soldierById(id); if(!s)return;
+    const pcu=B.units.find(z=>z.kind==='pc'&&z.ref===id); if(!pcu)return;
+    for(const w of livingSwords(s)){
+      if(swordsOut>=MAX_FIELD_SWORDS)break;
+      const spot=nearOpen(B,pcu.x,pcu.y,3); if(!spot)break;
+      swordsOut++;
+      B.units.push({uid:nid(),kind:'pc',sword:true,ref:null,swordId:w.id,ownerId:s.id,name:w.name,
+        hp:w.hp,maxhp:w.maxhp,skl:w.skl,spd:w.spd,res:w.res,weapon:w.weapon,wMod:w.wMod,dmgBonus:0,arm:w.armor,
+        feats:[],traits:[],undead:false,x:spot.x,y:spot.y,stance:s.swordStance||'guard',
+        moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false,bMarks:[]});
+    }
+  });
+  B.chargesTotal=B.units.filter(u=>u.kind==='ally').length;   // for Shield of the Folk: every charge home breathing
+  if(squadIds.some(id=>{const s=soldierById(id);return s&&s.oath&&s.oath.to==='banner'&&s.oath.state!=='broken';}))
+    B.units.forEach(u=>{ if(u.kind==='pc')u.res+=5; });        // the Oathbanner — steadier for standing near her
   // enemies — patrolling pods on generic hunts; flat deploy for set-pieces & aggro objectives.
   // v0.58: EVERY path buys from the power budget — the skulls price the fight relative to the company.
   const danger=contract.danger;
@@ -2027,13 +2173,19 @@ function spawnRevenantRetinue(B,rev,revLvl,it){
   rev.podId=pod.id;
   const comp=['graveguard','husk','husk','hound'];             // a graveguard bulwark leads; husks and a hound fill the ranks
   const bump=2+Math.max(0,revLvl-3);                           // mid-to-high buff, scaling with how advanced the revenant is
+  // v0.60 — the swords who fell beside her come back beside her, by name. This is the whole point of a banner.
+  const g=rev.graveId?S.graves.find(x=>x.id===rev.graveId):null;
+  const sworn=(g&&g.snap&&g.snap.retinue)?g.snap.retinue.slice():[];
   for(let i=0;i<n;i++){ if(foeCount(B)>=MAXFOES)break;
-    const h=spawnEnemy(B,comp[i%comp.length],dgr,false);
+    const rw=sworn.shift();
+    const h=spawnEnemy(B,rw?'graveguard':comp[i%comp.length],dgr,false);
     const spot=nearOpen(B,rev.x,rev.y,4); if(spot){h.x=spot.x;h.y=spot.y;}   // muster around the revenant, not scattered
     h.podId=pod.id; h.undead=true; h.revguard=true;   // rides on top of the power budget, like the revenant itself
     h.hp+=bump; h.maxhp+=bump; h.skl+=1;
     if(revLvl>=5&&WEAPONS[h.weapon]&&WEAPONS[h.weapon].up)h.weapon=WEAPONS[h.weapon].up;
-    h.name=(revLvl>=6?'Dread ':'Risen ')+h.name;
+    if(rw){ h.name=rw.name+', Still Sworn'; h.face=rw.face; h.stillSworn=true;
+            if(rw.weapon)h.weapon=rw.weapon; h.hp+=2*(rw.tier||0); h.maxhp+=2*(rw.tier||0); }
+    else h.name=(revLvl>=6?'Dread ':'Risen ')+h.name;
     pod.members.push(h.uid);
   }
   B.pods.push(pod);
@@ -2067,12 +2219,12 @@ function curUnit(B){ const id=B.queue[B.qi]; return B.units.find(u=>u.uid===id&&
 function activeUnit(B){ // whom the player controls (player phase) or the AI runs (enemy phase)
   if(!B)return null;
   if(B.phase==='enemy')return curUnit(B);
-  return B.sel?B.units.find(u=>u.uid===B.sel&&u.hp>0&&!u.fled&&u.kind==='pc'):null;
+  return B.sel?B.units.find(u=>u.uid===B.sel&&u.hp>0&&!u.fled&&u.kind==='pc'&&!u.sword):null;
 }
 // Double Strike is a CHOICE, not a free second swing: you may strike twice ONLY if you haven't moved this turn;
 // the moment you move you're down to one attack, and a second strike spends the movement you'd have used to reposition.
 function maxStrikes(u){ let m=(u.dbl&&!u.moved)?2:1; if(u.feats&&u.feats.includes('windrunner')&&u.moved)m=Math.max(m,2); if(u.bonusStrike)m+=1; return m; }
-function pcTurnLeft(u){ if(u.kind!=='pc'||u.hp<=0||u.fled)return false;
+function pcTurnLeft(u){ if(u.kind!=='pc'||u.sword||u.hp<=0||u.fled)return false;   // swords act in the Retinue Step, not the player's
   const canAct=!u.acted&&(u.strikes||0)<maxStrikes(u);   // can still attack (or, if unstruck, use an ability)
   const canMove=(u.mp||0)>=1&&(u.strikes||0)<2;           // needs a full point to step (a <1 leftover reaches no tile) — and not once a double strike is spent
   return canAct||canMove; }
@@ -2090,7 +2242,7 @@ function startPlayerPhase(B){
       if(z===u||adjacent(z,u)){ vigHealed.add(z.uid); const b=z.hp; z.hp=Math.min(z.maxhp,z.hp+2);
         if(z.hp>b){ const zs=soldierById(z.ref); if(zs)zs.hp=z.hp; fx.push({type:'heal',x:z.x,y:z.y,color:'#9ab86f'},{type:'float',x:z.x,y:z.y,txt:'+2',color:'#9ab86f'}); } } } }
   if(B.podsActive)podSenseAll(B);
-  const pcs=B.units.filter(u=>u.kind==='pc'&&u.hp>0&&!u.fled);
+  const pcs=B.units.filter(u=>u.kind==='pc'&&!u.sword&&u.hp>0&&!u.fled);
   B.sel=pcs.length?pcs[0].uid:null;          // auto-select the first soldier
   if(!B.over)render();
 }
@@ -2105,7 +2257,53 @@ function startEnemyPhase(B){
     else if(!u){ nextTurn(); } else { maybeAI(); }
   }
 }
-function endPlayerPhase(){ const B=S.battle; if(!B||B.over||B.phase!=='player')return; startEnemyPhase(B); }
+/* ---- v0.60 The Retinue Step — sworn swords act after the company, before the enemy.
+   Synchronous by design: no timers, so a stash/resume can never strand a half-run phase. ---- */
+function swordPhase(B){
+  const swords=B.units.filter(z=>isSword(z)&&z.hp>0&&!z.fled);
+  if(!swords.length)return;
+  for(const u of swords){
+    if(B.over)return;
+    clearTransient(u); u.mp=moveBudget(u); u.acted=false; u.moved=false; u.strikes=0;
+    try{ swordAct(B,u); }catch(e){}
+  }
+  if(!B.over)render();
+}
+function swordAct(B,u){
+  const bn=B.units.find(z=>z.kind==='pc'&&!z.sword&&z.ref===u.ownerId&&z.hp>0&&!z.fled);
+  const strikeNow=()=>{
+    const inR=attackTargets(B,u); if(!inR.length)return false;
+    const onHer=bn?inR.filter(z=>adjacent(z,bn)):[];          // the sword's whole purpose: peel what's on her
+    const pool=onHer.length?onHer:inR;
+    doAttack(B,u,pool.slice().sort((a,b)=>a.hp-b.hp)[0]);
+    return true;
+  };
+  if(strikeNow())return;
+  // nothing in reach — close. Guard: stay at her shoulder. Loose: hunt.
+  let goal=null;
+  if(u.stance==='guard'&&bn&&distC(u,bn)>2)goal=bn;
+  if(!goal){
+    const foes=B.units.filter(z=>z.kind==='foe'&&z.hp>0&&!z.fled&&!z.prop);
+    if(!foes.length)return;
+    const onHer=bn?foes.filter(z=>adjacent(z,bn)):[];
+    const pool=onHer.length?onHer:(u.stance==='guard'&&bn?foes.filter(z=>distC(z,bn)<=4):foes);
+    goal=(pool.length?pool:foes).slice().sort((a,b)=>distC(u,a)-distC(u,b))[0];
+  }
+  if(!goal)return;
+  const pf=pathField(B,goal.x,goal.y), cur=pf[u.x+','+u.y];
+  if(cur!==undefined){
+    const steps=reachable(B,u);
+    if(steps.length){
+      const pd=s=>{ const v=pf[s.x+','+s.y]; return v===undefined?9999:v; };
+      steps.sort((a,b)=>pd(a)-pd(b));
+      if(pd(steps[0])<cur){ u.x=steps[0].x; u.y=steps[0].y; u.moved=true; }
+    }
+  }
+  strikeNow();
+}
+function endPlayerPhase(){ const B=S.battle; if(!B||B.over||B.phase!=='player')return;
+  swordPhase(B); if(B.over)return;               // the retinue moves with the company, not against it
+  startEnemyPhase(B); }
 function endEnemyPhase(B){
   B.round++;                              // (matches the old rollover order: advance the round, then tick)
   blightTick(B); if(B.over)return;
@@ -2127,7 +2325,7 @@ function nextTurn(){ // enemy-phase advancer (player phase is driven by selectio
   render(); maybeAI();
 }
 // selection + turn-flow helpers for the player phase
-function selectUnit(uid){ const B=S.battle; if(!B||B.phase!=='player'||B.over)return; uid=Number(uid); const u=B.units.find(z=>z.uid===uid&&z.kind==='pc'&&z.hp>0&&!z.fled); if(!u)return; B.sel=uid; B.aim=null; B.inspect=null; B._actMenu=false; render(); }
+function selectUnit(uid){ const B=S.battle; if(!B||B.phase!=='player'||B.over)return; uid=Number(uid); const u=B.units.find(z=>z.uid===uid&&z.kind==='pc'&&!z.sword&&z.hp>0&&!z.fled); if(!u)return; B.sel=uid; B.aim=null; B.inspect=null; B._actMenu=false; render(); }
 function afterPcAct(u){ // after a soldier moves/acts: stay on it if it still has a turn, else advance to the next, else the enemy moves
   const B=S.battle; if(!B||B.over||B.phase!=='player')return;
   B._actMenu=false;   // any action closes the dropdown
@@ -2261,7 +2459,7 @@ function objTick(B){
     // nest birth-rate scales with the skull rating, then 3× rarer across the board: danger 3 every 3rd round, danger 2 every 6th, danger 1 every 9th
     const birthEvery=3*(4-clamp(B.danger||1,1,3));
     if(nest&&nest.hp>0&&mobiles<7&&B.round%birthEvery===0){
-      const sp=spawnEnemy(B,pick(['husk','hound']),1,false);
+      const sp=spawnEnemy(B,pick(['husk','hound']),1,false); sp.spawned=true;   // nest-born chaff earns no honours
       const born=B.units[B.units.length-1];
       born.x=clamp(nest.x+ri(-1,1),0,GW-1); born.y=clamp(nest.y+ri(-1,1),0,GH-1);
       if(unitAt(B,born.x,born.y)!==born){born.x=nest.x;born.y=Math.max(0,nest.y-1);}
@@ -2389,7 +2587,7 @@ function maybeRiposte(B,def,att){
   if(ri(1,100)<=hitChance(B,def,att)){ const rd=dmgOf(B,def,att); att.hp-=rd;
     fx.push({type:'flash',uid:att.uid},{type:'float',x:att.x,y:att.y,txt:'-'+rd,color:'#c9a227'});
     blog(B,`${def.name} ripostes ${att.name} for ${rd}.`);
-    if(att.hp<=0){ applyDeath(B,att); if(def.feats.includes('reaper'))def.reaper++; def.bkills=(def.bkills||0)+1;
+    if(att.hp<=0){ applyDeath(B,att); if(def.feats.includes('reaper'))def.reaper++; def.bkills=(def.bkills||0)+1; noteKill(def,att);   // counterattack: the DEFENDER is the killer here
       if(def.kind==='pc'){const s=soldierById(def.ref); if(s){s.kills++; grantXp(s,att.xpv||3);}} } }
   else blog(B,`${def.name}'s riposte goes wide.`);
   B._noRipo=false;
@@ -2418,7 +2616,7 @@ function doAttack(B,att,def){
       }
       if(def.hp>0&&def.hp<=3&&def.kind==='pc')def.nearDeath=true;
       if(def.hp<=0){ applyDeath(B,def); if(att.feats.includes('reaper'))att.reaper++;
-        att.bkills=(att.bkills||0)+1;
+        att.bkills=(att.bkills||0)+1; noteKill(att,def);
         if(att.kind==='pc'){const s=soldierById(att.ref); if(s){s.kills++; grantXp(s,def.xpv||3);
           if(att.feats.includes('veindrink'))addCorruption(s,1);
           if(cb>0&&att.feats.includes('serrated'))addCorruption(s,1);}} }
@@ -2440,14 +2638,32 @@ function applyDeath(B,u){
     checkEnd(B);
     return;
   }
+  if(isSword(u)){
+    // The ledger has no page for the sworn: no body to carry, no grave to answer for. Only the hook she brought.
+    const owner=soldierById(u.ownerId), w=owner?livingSwords(owner).find(x=>x.id===u.swordId):null;
+    if(w)w.alive=false;
+    const hk=SWORD_HOOKS[(w&&w.hookId)||0];
+    blog(B,`☠ ${u.name} ${hk?hk.die:'falls, and the oath falls with her.'}`);
+    const bnu=B.units.find(z=>z.kind==='pc'&&!z.sword&&z.ref===u.ownerId&&z.hp>0&&!z.fled);
+    if(bnu&&ri(1,100)>bnu.res+20){ bnu.rattled=Math.min(2,bnu.rattled+1); blog(B,`${bnu.name} watches her sword go down.`); }
+    checkEnd(B);
+    return;
+  }
   if(u.kind==='pc'){
     const s=soldierById(u.ref);
     blog(B,`☠ ${s?s.name:u.name} FALLS.`);
     B.bodies.push({soldierId:u.ref,name:u.name,x:u.x,y:u.y});
     if(s){ killSoldier(s); }
-    // resolve checks for the living
+    // resolve checks for the living — her own sworn swords break or plant their feet instead
     for(const w of B.units){
       if(w.kind!=='pc'||w.hp<=0||w.fled)continue;
+      if(isSword(w)){
+        if(w.ownerId!==u.ref)continue;                       // another banneret's sword feels nothing for this death
+        if(ri(1,100)>w.res+25){ w.fled=true; blog(B,`${w.name} breaks — the oath is face-down in the mud.`); }
+        else { w.avenging=true; w.stance='loose'; w.dmgBonus=(w.dmgBonus||0)+2;
+               blog(B,`${w.name} plants her feet over the body.`); }
+        continue;
+      }
       const ws=soldierById(w.ref);
       let res=w.res+(w.feats.includes('stalwart')?15:0)+(ws&&ws.gravetempered?10:0);
       if(ri(1,100)>res+30){ w.rattled=Math.min(2,w.rattled+1); blog(B,`${w.name} is rattled by the death.`); }
@@ -2474,7 +2690,12 @@ function killSoldier(s){
   removeFromRoster(s);
   if(s.guest){ S.chronicle.push(`Week ${S.week}: the underkingdom shade fell before it could be sworn in.`); return; } // a guest who never joined leaves no grave
   const snap={maxhp:s.maxhp,skl:s.skl,spd:s.spd,weapon:s.weapon,wMod:s.wMod,armor:s.armor,feats:s.feats.slice(),level:s.level,
-              cls:s.cls,commander:!!s.commander,dmgBonus:s.dmgBonus||0,ashPromised:!!s.ashPromised,corr:s.corr||0};
+              cls:s.cls,commander:!!s.commander,dmgBonus:s.dmgBonus||0,ashPromised:!!s.ashPromised,corr:s.corr||0,
+              deeds:deedsOf(s).map(d=>d.id), oath:s.oath?{to:s.oath.to,state:s.oath.state}:null,
+              // her whole retinue is captured here because the soldier object leaves the roster with her;
+              // endBattle then PRUNES every sword that survived (walked or stayed). Only the ones who fell
+              // beside her remain — which is what rises with her. Skipping the prune is the double-life bug.
+              retinue:(s.retinue||[]).map(w=>({id:w.id,name:w.name,face:w.face,cls:w.cls,weapon:w.weapon,tier:w.tier,hookId:w.hookId}))};
   const bonds=s.bonds.map(b=>b.id);
   S.graves.push({id:nid(),soldierId:s.id,name:s.name,bg:s.bg,snap,bonds,state:'field',regionId:S.battle?S.battle.regionId:0,
                  weekDied:S.week,iter:0,hook:s.ashPromised?'a promise to the Ash, unkept':bgOf(s).hook,face:s.face});
@@ -2490,8 +2711,11 @@ function layToRest(B,g){
   for(const u of B.units){ if(u.shakenBy===g.id)u.shakenBy=null; }
   // gravetempered for bonded partner present
   const partner=B.units.find(u=>u.kind==='pc'&&u.hp>0&&!u.fled&&g.bonds.includes(u.ref));
-  if(partner){ const s=soldierById(partner.ref); if(s&&!s.gravetempered){ s.gravetempered=true; s.res+=10;
-    blog(B,`${s.name} watched it end. Gravetempered: +10 resolve, permanently.`); } }
+  if(partner){ const s=soldierById(partner.ref);
+    if(s&&!s.gravetempered){ s.gravetempered=true; s.res+=10;
+      blog(B,`${s.name} watched it end. Gravetempered: +10 resolve, permanently.`); }
+    if(s&&!g.wasSold)deedAdd(s,'secondburial','saw '+g.name+' to rest');   // an honour you sold her for isn't one
+  }
   for(const bid of g.bonds){ const b=soldierById(bid); if(b)clearGrieving(b); }
   // gear echo — unless you sold her; the Conclave's grafts crumble with her
   if(!g.wasSold) queueModal(()=>gearEchoModal(g));
@@ -2531,9 +2755,17 @@ function calloutModal(B,g){
   const shownLvl=ru&&ru.revLvl?ru.revLvl:g.snap.level;
   const retinue=(ru&&ru.podId!=null&&B.pods&&B.pods[ru.podId])?B.pods[ru.podId].members.length-1:0;
   const retLine=retinue?` She does not walk alone — ${retinue} of the risen march at her back.`:'';
+  // her sworn swords, by name and by face — the beat dies if it lives in a tooltip
+  const sw=(g.snap&&g.snap.retinue)||[];
+  const swornLine=sw.length?`<div class="scard" style="margin-top:8px">
+      <div class="face revf">${faceSvg(sw[0].face,{size:44,revenant:true})}</div><div class="sbody">
+      <p style="margin:0">${esc(sw[0].name)}${sw.length>1?` and ${sw.length-1} more`:''} walk${sw.length>1?'':'s'} at her left hand still.</p>
+      <p class="hint" style="margin:2px 0 0">“Still Sworn” is not a title any more. It is a diagnosis.</p></div></div>`:'';
+  const deedLine=(g.snap&&g.snap.deeds&&g.snap.deeds.length)
+    ? `<p class="hint">The stories you told about her walk with her: ${esc(g.snap.deeds.map(d=>DEEDS[d]?DEEDS[d].n:'').filter(Boolean).join(', '))}.</p>`:'';
   return showModal(`${g.name}, Returned`,
     `<div class="face revf" style="float:right;margin-left:8px">${faceSvg(g.face,{size:60,revenant:true})}</div>
-     <p>Across the field, a figure in your old colors — <b>Level ${shownLvl}</b> now, grown past what you buried. ${esc(FEATS[g.snap.feats[0]]?FEATS[g.snap.feats[0]].n:'')}${g.snap.feats.length>1?' + '+(g.snap.feats.length-1)+' more':''} — the build is yours. The face is hers. Barely.${retLine}</p><div class="callout">“${esc(line)}”</div>${effect}${it}`,
+     <p>Across the field, a figure in your old colors — <b>Level ${shownLvl}</b> now, grown past what you buried. ${esc(FEATS[g.snap.feats[0]]?FEATS[g.snap.feats[0]].n:'')}${g.snap.feats.length>1?' + '+(g.snap.feats.length-1)+' more':''} — the build is yours. The face is hers. Barely.${retLine}</p>${deedLine}${swornLine}<div class="callout">“${esc(line)}”</div>${effect}${it}`,
     [{label:'Steel yourselves',fn:()=>closeModal()}]);
 }
 function tryMove(x,y){
@@ -2628,7 +2860,7 @@ function execAbility(B,u,ab,t){
   if(ab.k==='trip'){ if(ri(1,100)<=hitChance(B,u,t)){ const d=ri(1,2); t.hp-=d; t.stunned=true;
       fx.push({type:'nova',x:t.x,y:t.y,color:'#9aa7b3',r:0.8},{type:'float',x:t.x,y:t.y,txt:'DOWN',color:'#c9a227'});
       blog(B,`${u.name} sweeps ${t.name} off their feet for ${d} — down and out next turn.`);
-      if(t.hp<=0){ applyDeath(B,t); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1;
+      if(t.hp<=0){ applyDeath(B,t); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; noteKill(u,t);
         if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,t.xpv||3);}} } }
     else blog(B,`${u.name}'s sweep misses ${t.name}.`); u.acted=true; B.aim=null; return; }
   if(ab.k==='blessedge'){ const z=u.feats.includes('zealot'); applyBless(t,z?10:0,2);
@@ -2640,7 +2872,7 @@ function execAbility(B,u,ab,t){
       fx.push({type:'burst',x:t.x,y:t.y,color:'#e6d98a'},{type:'flash',uid:t.uid},{type:'float',x:t.x,y:t.y,txt:'-'+d,color:'#e6d98a'});
       blog(B,`${u.name} smites ${t.name} for ${d} (${h}%) — armor is no shield against the light.`);
       if(t.hp>0&&t.hp<=3&&t.kind==='pc')t.nearDeath=true;
-      if(t.hp<=0){ applyDeath(B,t); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1;
+      if(t.hp<=0){ applyDeath(B,t); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; noteKill(u,t);
         if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,t.xpv||3);}} } }
     else blog(B,`${u.name}'s smite gutters out (${h}%).`); u.acted=true; B.aim=null; return; }
   if(ab.k==='aegis'){ u.aegisUsed=true; u.acted=true; let n=0;
@@ -2659,7 +2891,7 @@ function execAbility(B,u,ab,t){
       if(ri(1,100)<=hitChance(B,u,z)){ let d=dmgOf(B,u,z); d+=Math.ceil(d/2); z.hp-=d;   // guaranteed crit, still rolls to hit
         fx.push({type:'flash',uid:z.uid},{type:'float',x:z.x,y:z.y,txt:'✦ -'+d,color:'#c9a227'});
         if(u.feats.includes('veindrink')&&u.hp>0&&reapHeal<6){ const hh=Math.min(2,6-reapHeal); reapHeal+=hh; u.hp=Math.min(u.maxhp,u.hp+hh); if(u.kind==='pc'){const s=soldierById(u.ref); if(s)s.hp=u.hp;} }
-        if(z.hp<=0){ applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1;
+        if(z.hp<=0){ applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; noteKill(u,z);
           if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } } }
     if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} B.aim=null; return; }
   if(ab.k==='ashfire'){ doCast(B,u,t); return; }
@@ -2707,7 +2939,7 @@ function execAbility(B,u,ab,t){
     u.acted=true; B.aim=null; return;
   }
   if(ab.k==='cleave'){
-    const credit=(z)=>{ if(z.hp<=0){ applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } };
+    const credit=(z)=>{ if(z.hp<=0){ applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; noteKill(u,z); if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } };
     const h=hitChance(B,u,t);
     if(ri(1,100)<=h){
       const d=Math.max(1,Math.floor(dmgOf(B,u,t)*0.6));   // reduced primary — the price of hitting two
@@ -2756,7 +2988,7 @@ function execAbility(B,u,ab,t){
       const z=unitAt(B,tx,ty); if(z&&z.hp>0&&!z.prop&&isEnemy(u,z)){ const d=ri(5,8)+eb; z.hp-=d; hit++;   // ignores armor (raw hp)
         fx.push({type:'burst',x:tx,y:ty,color:'#9a6fc9'},{type:'flash',uid:z.uid},{type:'float',x:tx,y:ty,txt:'-'+d,color:'#9a6fc9'});
         if(z.hp>0&&z.hp<=3&&z.kind==='pc')z.nearDeath=true;
-        if(z.hp<=0){ killed=true; applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } } }
+        if(z.hp<=0){ killed=true; applyDeath(B,z); if(u.feats.includes('reaper'))u.reaper++; u.bkills=(u.bkills||0)+1; noteKill(u,z); if(u.kind==='pc'){const s=soldierById(u.ref); if(s){s.kills++; grantXp(s,z.xpv||3);}} } } }
     blog(B,`${u.name} tears the Blight open — a storm of ash and rot boils across the ground (${hit} caught).`);
     burnout(u,3);
     if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1+(eb?1:0));}     // the graft always takes its due (Ember-Veins: +1 more)
@@ -2788,7 +3020,7 @@ function doCast(B,att,def){
     fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:'-'+d,color:'#b08bc9'});
     blog(B,`${att.name}’s ashfire sears ${def.name} for ${d} — armor means nothing to it.`);
     if(def.hp<=0){ applyDeath(B,def); if(att.feats.includes('reaper'))att.reaper++;
-      att.bkills=(att.bkills||0)+1;
+      att.bkills=(att.bkills||0)+1; noteKill(att,def);
       if(att.kind==='pc'){const s=soldierById(att.ref); if(s){s.kills++; grantXp(s,def.xpv||3);}} }
   } else {
     fx.push({type:'float',x:def.x,y:def.y,txt:'guttered',color:'#7a5f95'});
@@ -2815,7 +3047,7 @@ function retreat(){
 function checkEnd(B){
   if(B.over)return;
   const foes=B.units.filter(u=>u.kind==='foe'&&u.hp>0&&!u.fled);
-  const pcs=B.units.filter(u=>u.kind==='pc'&&u.hp>0&&!u.fled);
+  const pcs=B.units.filter(u=>u.kind==='pc'&&!u.sword&&u.hp>0&&!u.fled);   // a sworn sword left standing does not hold the field
   const allies=B.units.filter(u=>u.kind==='ally'&&u.hp>0);
   if((B.obj==='protect'||B.obj==='escort')&&!allies.length&&!B.objFailed){
     B.objFailed=true;
@@ -2829,6 +3061,236 @@ function checkEnd(B){
   }
   if(!foes.length){ endBattle('victory'); }
   else if(!pcs.length){ endBattle('defeat'); }
+}
+/* ---- v0.60 endBattle helpers: honours, retinue bookkeeping, and the death web ---- */
+function swordSync(B,u,outcome){
+  const owner=soldierById(u.ownerId); if(!owner)return;      // her banneret fell — the death web owns her now
+  const w=(owner.retinue||[]).find(x=>x.id===u.swordId); if(!w)return;
+  w.hp=Math.max(0,u.hp);
+  if(u.hp<=0){ w.alive=false; return; }
+  if(u.fled)return;
+  owner.swordStance=u.stance||'guard';
+  if(outcome!=='victory')return;                             // tiers advance on WON fields only — no retreat-scum ticks
+  w.battlesWith=(w.battlesWith||0)+1;
+  const nx=SWORD_TIERS[(w.tier||0)+1];
+  if(nx&&nx.at&&w.battlesWith>=nx.at){
+    w.tier=(w.tier||0)+1; w.maxhp+=3; w.hp=w.maxhp; w.skl+=1;
+    if(w.tier>=2){ w.armor+=1; const wp=WEAPONS[w.weapon]; if(wp&&wp.up)w.weapon=wp.up; }
+    log(`${w.name} is ${nx.n} now — ${w.battlesWith} fields at ${owner.name}’s shoulder.`,'good');
+  }
+}
+function detectDeeds(B,outcome){
+  S._deedsBatch=[];                                          // consume only what THIS battle produced
+  const won=(outcome==='victory'), earned=(won||B.round>1);
+  if(!earned)return;
+  const survivors=B.units.filter(u=>u.kind==='pc'&&!u.sword&&u.hp>0&&!u.fled)
+                         .map(u=>({u,s:soldierById(u.ref)})).filter(z=>z.s);
+  for(const {u,s} of survivors){
+    if(won) for(const m of (u.bMarks||[])){
+      if(m==='troll')deedAdd(s,'trollfeller');
+      else if(m==='sorc')deedAdd(s,'hexbreaker');
+      else if(m.indexOf('rev:')===0){
+        const g=S.graves.find(x=>x.id===Number(m.slice(4)));
+        // you cannot buy an honour from the Conclave: a grave you sold mints nothing
+        if(g&&g.wasSold)log(`You sold ${g.name}. Putting her down settles a debt; it does not earn an honour.`,'blight');
+        else deedAdd(s,'gravequiet',g?('put '+g.name+' down'):null);
+      }
+    }
+    if(won&&B.round>1&&(B.danger||1)>=2&&u.nearDeath)deedAdd(s,'gravekissed');
+    if(won&&(u.bkills||0)>=5)deedAdd(s,'coldcount');
+  }
+  if(!won)return;                                            // squad honours require holding the field
+  const all=survivors.map(z=>z.s);
+  const chargesOk=(B.chargesTotal||0)>0&&B.units.filter(u=>u.kind==='ally'&&u.hp>0).length===B.chargesTotal;
+  if(['protect','escort'].includes(B.obj)&&!B.objFailed&&chargesOk)all.forEach(s=>deedAdd(s,'shieldfolk'));
+  if(B.type==='reclaim'&&!B.ambush&&(B.danger||1)>=2)all.forEach(s=>deedAdd(s,'ritekeeper'));
+  if(B.storyBeat==='courier'||B.storyBeat==='heir')all.forEach(s=>deedAdd(s,'crownwork'));
+}
+// Resolved SYNCHRONOUSLY and written to state: modal closures die on a reload, and a lost roll would leave a
+// walker inside snap.retinue to rise beside her own living self.
+function resolveSwordFates(B){
+  const told=[];
+  for(const b of B.bodies){
+    const g=graveOfSoldier(b.soldierId);
+    if(!g||!g.snap||!(g.snap.retinue||[]).length)continue;
+    const fell=[];
+    for(const rw of g.snap.retinue){
+      const su=B.units.find(z=>isSword(z)&&z.swordId===rw.id);
+      if(!su||su.hp<=0){ fell.push(rw); continue; }           // died beside her — rides the grave
+      const hk=SWORD_HOOKS[rw.hookId||0];
+      told.push({name:rw.name,graveName:g.name,stays:chance(45),go:hk?hk.go:'walks without a word.'});
+    }
+    g.snap.retinue=fell;                                      // PRUNE — a sword who lived never rises
+  }
+  for(const t of told){
+    if(t.stays)S.chronicle.push(`Week ${S.week}: ${t.name} buried ${t.graveName} and stayed to see the season out.`);
+    else { S.chronicle.push(`Week ${S.week}: ${t.name} left the company. She ${t.go}`);
+           log(`${t.name} ${t.go}`,'bad'); }
+  }
+  return told;
+}
+function deedsModal(){
+  const batch=(S._deedsBatch||[]).slice(); S._deedsBatch=[];
+  if(!batch.length){closeModal();return;}
+  const primer=!S.deedPrimerSeen?`<p class="hint" style="margin-bottom:8px">There is nothing left to teach a soldier past five. Kills are wages, and wages get spent. What counts now is what gets told at other fires — the revenant put back in the ground, the road that held. <b>Three tellings</b> to her name, one of them hers alone, and a town to hear them, and the company can raise her banner.</p>`:'';
+  S.deedPrimerSeen=true;
+  const rows=batch.map(e=>{ const s=soldierById(e.sid), D=DEEDS[e.id];
+    return `<div class="scard"><div class="face">${s?faceSvg(s.face,{size:44}):''}</div><div class="sbody">
+      <p style="margin:0"><b>${esc(s?s.name:'—')}</b> — <span style="color:var(--gold)">${esc(D.n)}</span></p>
+      <p class="hint" style="margin:2px 0 0">${esc(D.line)}</p></div></div>`; }).join('');
+  showModal('Deeds of the Field',primer+rows,[{label:'It will be told',cls:'primary',fn:()=>closeModal()}]);
+}
+/* ---- v0.60 OATHS — her oath is hers, not yours ---- */
+function gravewrightCheck(g,paid){
+  // the flavour line claims a price; only grant it when a price was actually paid
+  const c=S.roster.find(x=>x.commander); if(!c)return;
+  const bondPartner=(g.bonds||[]).includes(c.id);
+  if(paid&&(S.coin<30||bondPartner))deedAdd(c,'gravewright','answered for '+g.name);
+  else if(!paid&&bondPartner)deedAdd(c,'gravewright','burned '+g.name+' herself');
+}
+function oathHolders(to){ return S.roster.filter(s=>s.oath&&s.oath.state!=='broken'&&(!to||s.oath.to===to)); }
+function oathWeekly(){
+  S._oathCrisisWeek=null;                                   // one crisis modal per week; suppressed ones re-queue below
+  // a patron pays for service, not for a name on a roster
+  for(const s of oathHolders()){
+    const idle=S.week-(s.lastFieldedWeek||s.oath.swornWeek||S.week);
+    const paying=(idle<3);
+    if(s.oath.fielded&&!paying){ s.oath.fielded=false;
+      log(`⚜ ${OATHS[s.oath.to].patron}’s paymaster asks, politely, what exactly is being bought with ${s.name}.`,'bad'); }
+    else if(!s.oath.fielded&&paying){ s.oath.fielded=true; }
+  }
+  const k=oathPaying('karsk'); if(k){ S.coin+=6; }
+  const f=oathPaying('folk');  if(f){ S.prov+=2; }
+  // strain heals if you behave
+  for(const s of oathHolders()){
+    if((s.oath.strain||0)>0&&S.week-(s.oath.lastStrainWeek||0)>=3){
+      s.oath.strain--; s.oath.lastStrainWeek=S.week;
+      if(s.oath.strain<2&&s.oath.state==='strained')s.oath.state='kept';
+    }
+  }
+  // The foretold demand. The receipt is the swearing itself — the patron SAID it would come.
+  const T=S.oathTension;
+  if(T&&S.week>=T.armWeek){
+    const s=soldierById(T.soldierId);
+    S.oathTension=null;
+    if(s&&s.oath&&s.oath.state!=='broken')queueModal(()=>oathDemandModal(s));
+  }
+  // a crisis suppressed by the weekly cap comes back
+  const pending=oathHolders().find(s=>(s.oath.strain||0)>=3);
+  if(pending&&!S._oathCrisisWeek){ S._oathCrisisWeek=S.week; queueModal(()=>oathCrisisModal(pending)); }
+}
+function oathDemandModal(s){
+  if(!s||!s.oath){closeModal();return;}
+  const to=s.oath.to, O=OATHS[to];
+  const body=to==='karsk'
+    ? `<div class="scard"><div class="face">${faceSvg(s.face,{size:50})}</div><div class="sbody">
+       <p style="margin-top:0"><b>${esc(s.name)}</b> — sworn to the Crown</p></div></div>
+       <p>The rider wears the Gate’s grey and does not dismount. “The crown calls its sworn to the Fords. Two weeks’ garrison. Her oath, her duty — your inconvenience is noted, Commander, and irrelevant.”</p>
+       <p class="hint">She told you this would come. It was written into the oath.</p>`
+    : `<div class="scard"><div class="face">${faceSvg(s.face,{size:50})}</div><div class="sbody">
+       <p style="margin-top:0"><b>${esc(s.name)}</b> — sworn to the Folk</p></div></div>
+       <p>The bell rings at first light and keeps ringing. A tithe of bread, they said, when the bell rings. It is ringing.</p>
+       <p class="hint">She told you this would come. It was written into the oath.</p>`;
+  showModal(to==='karsk'?'The Rider Does Not Dismount':'The Bell Is Ringing',body,[
+    {label:to==='karsk'?'Send her — two weeks under the crown’s colours (+20c back-pay on return)':'Give the tithe (25c) — the villages remember',cls:'pick',
+      disabled:to!=='karsk'&&S.coin<25,fn:()=>{
+      if(to==='karsk'){ s.benchedUntil=S.week+2; S.coin+=20; repAdd('karsk',5); log(`${s.name} rides for the Fords under the crown’s colours.`,'wk'); }
+      else { S.coin-=25; repAdd('folk',5); log('The tithe goes out with the carts. The bell stops at noon.','good'); }
+      s.oath.strain=0; s.oath.state='kept'; closeModal(); }},
+    {label:'Refuse the patron — she watches you do it',cls:'danger',fn:()=>{
+      oathStrain(s,2,`the company refused ${OATHS[to].patron} to her face`); closeModal(); }},
+  ]);
+}
+function oathPaying(to){                                   // ONE paying oath per patron — later swords get the strings only
+  const h=oathHolders(to).filter(s=>s.oath.state!=='broken');
+  if(!h.length)return null;
+  const first=h.slice().sort((a,b)=>(a.oath.swornWeek||0)-(b.oath.swornWeek||0))[0];
+  return (first.oath.fielded===false)?null:first;          // a patron stops paying for a sword it never sees
+}
+function normTag(t){ return String(t||'').replace(/[’']/g,"'").toLowerCase(); }
+const OATH_BG={'karsk deserter':'karsk','shieldbearer':'karsk',"heir's blade":'karsk','sellsword':'karsk',
+  'gravedigger':'folk','bell-ringer':'folk','poacher':'folk','cartwright':'folk','thornwood exile':'folk',
+  'field-chirurgeon':'folk','plague survivor':'folk','huntsman':'folk',
+  'oathbreaker':'banner','temple ward':'banner','seminary novice':'banner','ash-touched':'banner',
+  'failed apprentice':'banner','debt-runner':'banner'};
+function oathAffinity(s){
+  const sc={karsk:0,folk:0};
+  const t=normTag((bgOf(s)||{}).tag);
+  if(OATH_BG[t]&&sc[OATH_BG[t]]!==undefined)sc[OATH_BG[t]]+=3;
+  if((s.kills||0)>=12)sc.karsk+=1;                          // the crown collects killers
+  if(s.gravetempered)sc.folk+=1;
+  if(deedsOf(s).some(d=>DEEDS[d.id]&&DEEDS[d.id].tag==='karsk'))sc.karsk+=2;
+  if(deedsOf(s).some(d=>DEEDS[d.id]&&DEEDS[d.id].tag==='folk'))sc.folk+=2;
+  for(const k of ['karsk','folk']){
+    const r=(S.rep&&S.rep[k])||0;
+    if(r>=25)sc[k]+=2; if(r<=-25)sc[k]=-99;                 // a faction you've wronged does not court your veterans
+  }
+  return Object.keys(sc).filter(k=>sc[k]>=2).sort((a,b)=>sc[b]-sc[a]);
+}
+function swearOath(s,to){
+  const O=OATHS[to]; if(!O)return;
+  s.level=7; s.maxhp+=2; s.hp+=2; s.res+=5;
+  s.oath={to,state:'kept',strain:0,swornWeek:S.week,vow:O.vow,receipts:[],fielded:true};
+  log(`${s.name} is Sworn — to ${O.patron}. “${O.vow}”`,'wk');
+  S.chronicle.push(`Week ${S.week}: ${s.name} swore to ${O.patron}.`);
+  // The receipt for the coming demand is the swearing itself: the patron SAID what it would ask.
+  if(to!=='banner')S.oathTension={soldierId:s.id,armWeek:S.week+2};
+  save();
+}
+function oathModal(s){
+  const opts=['banner'].concat(oathAffinity(s).slice(0,2));
+  const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+    <p style="margin-top:0"><b>${esc(s.name)}</b> <span class="tag">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">${esc(bgOf(s).tag)}</span></p>
+    <p class="hint" style="margin:2px 0">${esc(bgOf(s).line)}</p></div></div>
+    <p>Word of the deed travels. At six a soldier has a name; at seven the name has suitors. ${esc(s.name)} comes to your fire with an offer already in her hand — and it is hers to take, not yours.</p>`;
+  showModal('The Oath',body,opts.map(k=>{ const O=OATHS[k];
+    return {label:`${O.n} — ${O.perk} Strings: ${O.strings}`,
+      lhtml:`<span class="branchtag">${esc(O.n)}</span> ${esc(O.perk)}<br><span class="hint">Strings: ${esc(O.strings)}</span>`,
+      cls:'pick',fn:()=>{ swearOath(s,k); closeModal(); }};
+  }).concat([{label:'She swears nothing — not yet. (The offer comes again on her next deed.)',fn:()=>closeModal()}]));
+}
+function oathStrain(s,amt,receipt){
+  if(!s||!s.oath||s.oath.state==='broken')return;
+  s.oath.strain=clamp((s.oath.strain||0)+amt,0,3);
+  s.oath.receipts=(s.oath.receipts||[]).concat(receipt).slice(-2);
+  s.oath.lastStrainWeek=S.week;
+  if(s.oath.strain>=2&&s.oath.state==='kept')s.oath.state='strained';
+  log(`⚜ ${s.name}’s oath to ${OATHS[s.oath.to].patron} strains — ${receipt}`,'blight');
+  if(s.oath.strain>=3&&!S._oathCrisisWeek){ S._oathCrisisWeek=S.week; queueModal(()=>oathCrisisModal(s)); }
+}
+function sellStrainWarning(){
+  const f=oathHolders('folk')[0], k=oathHolders('karsk')[0];
+  const who=[f&&f.name+'’s oath to the Folk',k&&k.name+'’s oath to the Crown'].filter(Boolean);
+  return who.length?` — ${who.join(' and ')} will strain`:'';
+}
+function sellStrainApply(g){
+  for(const s of oathHolders('folk'))oathStrain(s,(g.bonds||[]).includes(s.id)?3:2,`you sold ${g.name} to the Conclave`);
+  for(const s of oathHolders('karsk'))oathStrain(s,1,`the company traffics with the Conclave`);
+}
+function oathCrisisModal(s){
+  if(!s||!s.oath||s.oath.state==='broken'){closeModal();return;}
+  const O=OATHS[s.oath.to], last=(s.oath.receipts||[]).slice(-1)[0]||'what the company has been doing';
+  const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+     <p style="margin-top:0"><b>${esc(s.name)}</b> — sworn to ${esc(O.patron)}</p>
+     <p class="hint" style="margin:2px 0">Because ${esc(last)}.</p></div></div>
+    <p>${esc(s.name)} stands at the wagon-tongue with her arms folded. “I swore to ${esc(O.patron)} before I swore to your ledger. Make it right, or ride out one short.”</p>`;
+  showModal('Ride Out One Short',body,[
+    {label:'Make it right (40c) — the debt is paid in the open',cls:'pick',disabled:S.coin<40,fn:()=>{
+      S.coin-=40; s.oath.strain=0; s.oath.state='kept'; repAdd(s.oath.to==='folk'?'folk':'karsk',4);
+      log(`The company makes it right. ${s.name}’s oath holds.`,'good'); closeModal(); }},
+    {label:'March without her — she keeps the oath, you keep the contract',cls:'pick',fn:()=>{
+      s.benchedUntil=S.week+1; s.oath.strain=2; s.oath.state='strained';
+      log(`${s.name} stays with the wagons. She does not say goodbye.`,'bad'); closeModal(); }},
+    {label:'Release her — she goes with the oath intact',cls:'pick',fn:()=>{
+      log(`${s.name} is released from the company. She keeps her oath, and her word about you.`,'wk');
+      S.chronicle.push(`Week ${S.week}: ${s.name} was released to ${OATHS[s.oath.to].patron}.`);
+      S.deserters=S.deserters||[]; S.deserters.push({name:s.name,level:s.level,town:atSettlement()||0,released:true});
+      removeFromRoster(s); closeModal(); }},
+    {label:'Refuse her — the oath breaks on your word',cls:'danger',fn:()=>{
+      s.oath.state='broken'; s.oath.strain=3; s.res=Math.max(10,s.res-5);
+      repAdd(s.oath.to==='folk'?'folk':'karsk',-10);
+      log(`${s.name} is forsworn. She stays — and everyone can read it on her.`,'bad'); closeModal(); }},
+  ]);
 }
 function endBattle(outcome){
   const B=S.battle; if(!B||B.over)return;
@@ -2845,10 +3307,11 @@ function endBattle(outcome){
   const deployed=[];
   for(const u of B.units){
     if(u.kind!=='pc')continue;
+    if(isSword(u)){ swordSync(B,u,outcome); continue; }   // swords take no XP, no traits, no bonds — their track is the tier
     const s=soldierById(u.ref);
     if(s){ s.hp=Math.max(0,u.hp);
       if(u.hp>0){
-        deployed.push(s); s.battles++; grantXp(s,outcome==='victory'?2:(B.round>1?1:0));
+        deployed.push(s); s.battles++; s.lastFieldedWeek=S.week; grantXp(s,outcome==='victory'?2:(B.round>1?1:0));
         // battle leaves marks — one per fight, good or bad
         if(B.round>1){
           if(u.hp<=3||u.nearDeath)addTrait(s,'scarred');
@@ -2872,10 +3335,24 @@ function endBattle(outcome){
       log(`${a.name} and ${b.name} are bound now — ${BOND_TYPES[type]}. (+5 hit adjacent. And a debt the Blight can collect.)`,'blight');
     }
   }
+  // v0.60 — the retinue's fate resolves BEFORE the honours: bodies answered first, then what gets told.
+  // Both are synchronous state writes; only the presentation queues, and only one Name-system modal per battle.
+  const swordTales=resolveSwordFates(B);
+  detectDeeds(B,outcome);
+  if(swordTales.length){
+    const t=swordTales[0];
+    queueModal(()=>showModal('The Oath Outlives Her',
+      `<p>${esc(t.name)} was sworn to <b>${esc(t.graveName)}</b>, and ${esc(t.graveName)} is dead.</p>`+
+      (t.stays?`<p>She stays. She has nowhere better, and the banner is still warm.</p>`
+              :`<p>She ${esc(t.go)}</p>`),
+      [{label:'Let her be',cls:'primary',fn:()=>closeModal()}]));
+  } else if((S._deedsBatch||[]).length){
+    queueModal(()=>deedsModal());
+  }
   // bodies
   if(outcome==='victory'){
     for(const b of B.bodies){ const g=graveOfSoldier(b.soldierId); if(g&&g.state==='field'){ g.state='recovered'; queueModal(()=>ritesModal(g)); } }
-    if(B.ambush){ log('The road is cleared. The column moves on.','good'); repAdd('folk',B.type==='purge'?3:2); }
+    if(B.ambush){ log('The road is cleared. The column moves on.','good'); repAdd('folk',(B.type==='purge'?3:2)*(oathPaying('folk')?2:1)); }
     else if(B.objFailed){
       log('The field is yours; the contract is not. The charges died, and the pay died with them.','bad');
       const emp=CONTRACT_TYPES[B.type].employer;
@@ -3003,13 +3480,15 @@ function ritesModal(g){
     [
       {label:`Bury (12c) — ${S.regions[g.regionId].swallowed?'in ground the Blight already holds — she will not stay down':'safe, unless the ground itself is taken'}`,fn:()=>{ if(S.coin<12)return; S.coin-=12; g.state='buried'; repAdd('folk',1);
         log(`${g.name} is buried in ${S.regions[g.regionId].name}.`);
+        gravewrightCheck(g,true);
         if(S.regions[g.regionId].swallowed){ rise(g,'You buried her in ground the Blight already holds.'); }
         closeModal(); }, disabled:!canBury, cls:'pick'},
       {label:`Burn — denies the Blight forever; the company watches (−2 resolve, everyone)${bonded.length?`; ${bonded.map(b=>b.name).join(' & ')} take it harder (−3 more)`:''}`,fn:()=>{ g.state='burned';
         S.roster.forEach(r=>{r.res=Math.max(10,r.res-2);});
         bonded.forEach(b=>{b.res=Math.max(10,b.res-3);});
+        gravewrightCheck(g,false);
         log(`${g.name} burns. Whatever she left unfinished stays that way. The company watches in silence.`,'bad'); closeModal(); }, cls:'pick'},
-      {label:`Sell to the Conclave (+${(S.rep&&S.rep.conclave>=25?40:30)+(S.story&&S.story.heir==='casmir'?10:0)}c) — they will send her back improved, and the company will know what you did`,cls:'pick',fn:()=>{ g.state='sold'; g.wasSold=true; S.coin+=(S.rep&&S.rep.conclave>=25?40:30)+(S.story&&S.story.heir==='casmir'?10:0);
+      {label:`Sell to the Conclave (+${(S.rep&&S.rep.conclave>=25?40:30)+(S.story&&S.story.heir==='casmir'?10:0)}c) — they will send her back improved, and the company will know what you did${sellStrainWarning()}`,cls:'pick',fn:()=>{ g.state='sold'; g.wasSold=true; sellStrainApply(g); S.coin+=(S.rep&&S.rep.conclave>=25?40:30)+(S.story&&S.story.heir==='casmir'?10:0);
         S.roster.forEach(r=>{r.res=Math.max(10,r.res-2);});
         repAdd('conclave',6); repAdd('folk',-3); repAdd('karsk',-2);
         log(`You sell ${g.name}’s body to a Conclave broker. The coin spends the same. The company counts it anyway (−2 resolve, everyone).`,'blight'); closeModal(); }},
@@ -3041,7 +3520,7 @@ function enemyCasterTurn(B,u,pod,pcs){
   // raise the dead: pull a husk up from the ground (limited, on a cooldown)
   if((u.raiseCd||0)<=0 && (B.raised||0)<5 && foeCount(B)<MAXFOES && chance(65)){
     const spot=nearOpen(B,u.x,u.y,2);
-    if(spot){ const hk=spawnEnemy(B,'husk',1,false); hk.x=spot.x;hk.y=spot.y;hk.podId=u.podId; if(pod)pod.members.push(hk.uid);
+    if(spot){ const hk=spawnEnemy(B,'husk',1,false); hk.spawned=true; hk.x=spot.x;hk.y=spot.y;hk.podId=u.podId; if(pod)pod.members.push(hk.uid);
       B.raised=(B.raised||0)+1; u.raiseCd=3; B.queue.push(hk.uid);   // tail of THIS round — never buildQueue mid-turn (it resets qi and replays everyone)
       blog(B,`${u.name} spreads its hands — the ground heaves, and a husk claws its way up to serve.`);
       if(!B.over){render();pauseNextTurn();} return; }
@@ -3068,7 +3547,7 @@ function enemySorcererTurn(B,u,pod,pcs){
   // 2) RAISE a graveguard — stronger than the mage's husk; shares the battle raise-cap
   if((u.raiseCd||0)<=0 && (B.raised||0)<4 && foeCount(B)<MAXFOES && chance(55)){
     const spot=nearOpen(B,u.x,u.y,2);
-    if(spot){ const gg=spawnEnemy(B,'graveguard',1,false); gg.x=spot.x;gg.y=spot.y;gg.podId=u.podId; if(pod)pod.members.push(gg.uid);
+    if(spot){ const gg=spawnEnemy(B,'graveguard',1,false); gg.spawned=true; gg.x=spot.x;gg.y=spot.y;gg.podId=u.podId; if(pod)pod.members.push(gg.uid);
       B.raised=(B.raised||0)+1; u.raiseCd=4; B.queue.push(gg.uid);   // tail of THIS round — never buildQueue mid-turn (it resets qi and replays everyone)
       blog(B,`${u.name} chants low — the earth splits and a graveguard rises armored for war.`);
       if(!B.over){render();pauseNextTurn();} return; }
@@ -3711,7 +4190,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.59</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.60</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -3823,7 +4302,8 @@ function soldierCard(s,inHire,idx){
   return `<div class="card scard">
     <div class="face">${faceSvg(s.face,{size:46})}</div>
     <div class="sbody">
-      <span class="nm">${esc(s.name)}</span>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag tt" data-tip="${esc((CLASSES[s.cls]||CLASSES.fighter).d)}">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">${esc(bg.tag)}</span> <span class="tag">Lv ${s.level}</span>
+      <span class="nm">${esc(s.name)}</span>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag tt" data-tip="${esc((CLASSES[s.cls]||CLASSES.fighter).d)}">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">${esc(bg.tag)}</span> <span class="tag">Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}</span>
+      ${oathChip(s)}
       ${s.gravetempered?'<span class="tag revtag tt" data-tip="Watched one of their own laid to rest: +10 resolve, permanently.">gravetempered</span>':''}
       <div class="bg">${esc(bg.line)}</div>
       <div class="hpbar"><div style="width:${Math.round(100*s.hp/s.maxhp)}%"></div></div>
@@ -3833,12 +4313,85 @@ function soldierCard(s,inHire,idx){
       ${bondTxt?`<div class="bond">Bound: ${esc(bondTxt)}</div>`:''}
       ${s.traits&&s.traits.length?`<div class="featline traitchip">${s.traits.map(t=>`<span class="tt" data-tip="${esc(TRAITS[t].d)}">${TRAITS[t].n}</span>`).join(' · ')}</div>`:''}
       ${s.corr?`<div class="featline corrchip"><span class="tt" data-tip="Corruption: the graft feeds on use. At 4 and 7 it takes something back — and her revenant will be stronger for it.">Corruption ${s.corr}</span></div>`:''}
+      ${deedChips(s)}
+      ${retinueLine(s)}
       ${inHire?`<button ${S.coin<hireCost(s)?'disabled':''} onclick="HIRE(${idx})">Hire — ${hireCost(s)}c</button>`
-              :`${nextArm?((S.unlocks&&S.unlocks.armor)?`<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${nextArm.n} (${armorCost(s.armor+1)}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Armorsmith's Tools on a Quartermaster commission to fit heavier armor.">🔒 Armorsmith's Tools</span>`):''}${(WEAPONS[s.weapon]&&WEAPONS[s.weapon].up&&atSettlement()!==null)?((S.unlocks&&S.unlocks.reforge)?`<button ${S.coin<reforgeCost()?'disabled':''} onclick="REFORGE(${s.id})" title="Reforge to a finer weapon at the smithy">Reforge → ${WEAPONS[WEAPONS[s.weapon].up].n} (${reforgeCost()}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Blacksmith's Anvil on a Quartermaster commission to reforge weapons.">🔒 Blacksmith's Anvil</span>`):''}`}
+              :`${nameButtons(s)}${nextArm?((S.unlocks&&S.unlocks.armor)?`<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${nextArm.n} (${armorCost(s.armor+1)}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Armorsmith's Tools on a Quartermaster commission to fit heavier armor.">🔒 Armorsmith's Tools</span>`):''}${(WEAPONS[s.weapon]&&WEAPONS[s.weapon].up&&atSettlement()!==null)?((S.unlocks&&S.unlocks.reforge)?`<button ${S.coin<reforgeCost()?'disabled':''} onclick="REFORGE(${s.id})" title="Reforge to a finer weapon at the smithy">Reforge → ${WEAPONS[WEAPONS[s.weapon].up].n} (${reforgeCost()}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Blacksmith's Anvil on a Quartermaster commission to reforge weapons.">🔒 Blacksmith's Anvil</span>`):''}`}
     </div>
   </div>`;
 }
 function reforgeCost(){ return (S.story&&S.story.heir==='aldric')?36:45; }
+/* ---- v0.60 card surfaces: deeds are biography, so they live on the card ---- */
+function deedChips(s){
+  const ds=deedsOf(s);
+  if(!ds.length){
+    if(s.level!==5)return '';
+    const n=ds.length;
+    return `<div class="featline"><span class="hint tt" data-tip="There is nothing left to teach her past five. What counts now is what gets told at other fires. Three tellings — one of them hers alone — and a town to hear them.">⚑ Deeds ${n}/${DEED_L6} — the Banner</span></div>`;
+  }
+  const show=ds.slice(0,4).map(d=>{ const D=DEEDS[d.id]; if(!D)return '';
+    return `<span class="tt" data-tip="${esc(D.line+(d.note?' ('+d.note+', week '+d.week+')':' (week '+d.week+')'))}">${esc(D.n)}</span>`; }).filter(Boolean).join(' · ');
+  const more=ds.length>4?` <span class="hint">+${ds.length-4}</span>`:'';
+  const gate=s.level===5?` <span class="hint">(${ds.length}/${DEED_L6}${hasPersonalDeed(s)?'':' — none yet hers alone'})</span>`:'';
+  return `<div class="featline traitchip">⚑ ${show}${more}${gate}</div>`;
+}
+function oathChip(s){
+  if(!s.oath)return '';
+  const O=OATHS[s.oath.to]||{n:'—',patron:'—',vow:''};
+  const st=s.oath.state, col=st==='broken'?'#d98074':st==='strained'?'#c9a227':'#9ab86f';
+  const label=st==='broken'?'Forsworn':`Sworn: ${O.n}`;
+  const tip=`${O.vow}\n${st==='broken'?'The oath is broken. −5 resolve, and everyone can read it on her.':'State: '+st}${(s.oath.receipts||[]).length?'\n— '+(s.oath.receipts||[]).join('\n— '):''}`;
+  return `<span class="tag tt" style="border-color:${col};color:${col}" data-tip="${esc(tip)}">⚜ ${esc(label)}</span>`;
+}
+function retinueLine(s){
+  const ws=livingSwords(s); if(!ws.length)return '';
+  return `<div class="bond">⚔ ${ws.map(w=>{ const hk=SWORD_HOOKS[w.hookId||0];
+    return `<span class="tt" data-tip="${esc((hk?hk.h:'')+' — '+w.battlesWith+' fields at her shoulder')}">${esc(w.name)} (${esc(swordTier(w).n)})</span>`;
+  }).join(', ')} — sworn to her, not to you</div>`;
+}
+function nameButtons(s){
+  if(atSettlement()===null)return '';
+  const e=nameEligible(s);
+  if(e===6)return `<button ${S.coin<BANNER_COST?'disabled':''} onclick="BANNER(${s.id})" title="Raise her banner: she takes a sworn sword of her own.">⚑ Raise her banner (${BANNER_COST}c)</button>`;
+  if(e===7)return `<button onclick="OATHUP(${s.id})" title="Her name has suitors now.">⚜ Hear her oath</button>`;
+  if(s.level>=6&&!livingSwords(s).length)return `<button ${S.coin<RESWEAR_COST?'disabled':''} onclick="BANNER(${s.id})" title="Her banner has no hands to hold it.">⚔ Swear a new sword (${RESWEAR_COST}c)</button>`;
+  return '';
+}
+// Candidates are rolled ONCE and persisted before the modal renders — reloading never re-rolls her sword.
+function offerBanner(s){
+  const first=(s.level===5);
+  const cost=first?BANNER_COST:RESWEAR_COST;
+  if(S.coin<cost)return;
+  if(!s.swordCandidates||!s.swordCandidates.length){ s.swordCandidates=[makeSword(),makeSword(),makeSword()]; save(); }
+  const witness=(()=>{
+    const b=(s.bonds||[]).map(x=>soldierById(x.id)).filter(Boolean)[0];
+    if(b)return `<p class="hint">${esc(b.name)} ties the first knot in the banner cord.</p>`;
+    const dead=(s.bonds||[]).map(x=>S.graves.find(g=>g.soldierId===x.id)).filter(Boolean)[0];
+    if(dead)return `<p class="hint">The banner carries a name stitched small at the hem: ${esc(dead.name)}.</p>`;
+    return '';
+  })();
+  const deedList=deedsOf(s).map(d=>`<div class="statline">⚑ <b>${esc(DEEDS[d.id].n)}</b>${d.note?' — '+esc(d.note):''} <span class="hint">(week ${d.week})</span></div>`).join('');
+  const head=first
+    ? `<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+        <p style="margin-top:0">The company sews a banner no lord issued.</p>${deedList}</div></div>${witness}
+       <p>Choose the sword who kneels to it. The oath is to <b>her</b>, not to you.</p>`
+    : `<p>${esc(s.name)}’s banner has no hands to hold it. Another comes to kneel.</p>`;
+  showModal(first?'Raise the Banner':'Swear a New Sword',head,
+    s.swordCandidates.map((w,i)=>({
+      label:`${w.name} — ${(CLASSES[w.cls]||CLASSES.fighter).n}, ${WEAPONS[w.weapon].n}. ${SWORD_HOOKS[w.hookId].h}.`,
+      lhtml:`<b>${esc(w.name)}</b> — ${esc((CLASSES[w.cls]||CLASSES.fighter).n)}, ${esc(WEAPONS[w.weapon].n)}<br><span class="hint">${esc(SWORD_HOOKS[w.hookId].h)}</span>`,
+      cls:'pick',fn:()=>{
+        S.coin-=cost;
+        const chosen=s.swordCandidates[i]; s.swordCandidates=null;
+        s.retinue=(s.retinue||[]).filter(x=>x.alive); s.retinue.push(chosen);
+        if(first){ s.level=6; s.bannerWeek=S.week; s.skl+=1; s.res+=5; }
+        log(`⚑ ${s.name} raises her banner. ${chosen.name} kneels to it — ${SWORD_HOOKS[chosen.hookId].h}.`,'good');
+        S.chronicle.push(`Week ${S.week}: ${s.name} raised her banner; ${chosen.name} swore to it.`);
+        closeModal();
+      }})).concat([{label:'Not yet',fn:()=>closeModal()}]));
+}
+window.BANNER=function(id){ const s=soldierById(id); if(s)offerBanner(s); };
+window.OATHUP=function(id){ const s=soldierById(id); if(s&&nameEligible(s)===7)oathModal(s); };
 window.REFORGE=function(id){ if(!(S.unlocks&&S.unlocks.reforge))return; const s=soldierById(id); if(!s)return; const w=WEAPONS[s.weapon]; if(!w||!w.up||atSettlement()===null)return; const c=reforgeCost(); if(S.coin<c)return; S.coin-=c; s.weapon=w.up; s.wName=null; log(`${s.name}’s ${w.n} is reforged into a ${WEAPONS[w.up].n}.`,'good'); save(); render(); };
 window.SHRINE=function(){ const h=caravanHex(); if(!h||h.feat!=='shrine'||S.coin<30)return; S.coin-=30; const r=S.regions[h.region]; r.pressure=Math.max(3,r.pressure-12); repAdd('folk',3); blightCreep(); log(`You kneel at the shrine and give coin to the rite. The Blight loosens its grip on ${r.name} (−12 pressure).`,'good'); save(); render(); };
 function partyUpCost(){ return (S.partyUp||0)>=2?null:((S.partyUp||0)===0?100:200); } // 4→5 costs 100, 5→6 costs 200
@@ -3995,13 +4548,18 @@ function pickSquad(cb){
   const loadout={kit:false,horn:false};
   const build=()=>{
     const cap=partyCap();
-    const list=S.roster.map(s=>`<button class="pick" onclick="TOG(${s.id})">${picked.has(s.id)?'☑':'☐'} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(WEAPONS[s.weapon].n)}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}</button>`).join('');
+    const list=S.roster.map(s=>{
+      const benched=(s.benchedUntil||0)>=S.week;
+      const sw=livingSwords(s);
+      return `<button class="pick" ${benched?'disabled':''} onclick="TOG(${s.id})">${benched?'⊘':(picked.has(s.id)?'☑':'☐')} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(WEAPONS[s.weapon].n)}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}${deedsOf(s).length?' ⚑'+deedsOf(s).length:''}${sw.length?` <span class="hint">+ brings ${esc(sw.map(w=>w.name).join(', '))}</span>`:''}${benched?` <span class="hint">— sworn elsewhere this week</span>`:''}</button>`;
+    }).join('');
     let items='';
     if((S.kits||0)>0) items+=`<button class="pick" onclick="LOAD('kit')">${loadout.kit?'☑':'☐'} 🩹 Chirurgeon’s Kit — deploy at full HP (×${S.kits})</button>`;
     if((S.horns||0)>0) items+=`<button class="pick" onclick="LOAD('horn')">${loadout.horn?'☑':'☐'} 📯 War Horn — enemies open the fight shaken (×${S.horns})</button>`;
     return `<p class="hint">Pick up to ${cap} (${picked.size}/${cap}). The wounded die faster — and what dies unrecovered comes back.</p>${list}${items?`<div class="hint" style="margin-top:8px">Bring consumables (spent only if you march):</div>${items}`:''}`;
   };
-  window.TOG=function(id){ if(picked.has(id))picked.delete(id); else if(picked.size<partyCap())picked.add(id); activeModal.html=build(); render(); };
+  window.TOG=function(id){ const sd=soldierById(id); if(sd&&(sd.benchedUntil||0)>=S.week)return;
+    if(picked.has(id))picked.delete(id); else if(picked.size<partyCap())picked.add(id); activeModal.html=build(); render(); };
   window.LOAD=function(k){ loadout[k]=!loadout[k]; activeModal.html=build(); render(); };
   showModal('Muster the squad',build(),[
     {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; S._loadout={kit:loadout.kit&&(S.kits||0)>0,horn:loadout.horn&&(S.horns||0)>0}; closeModal(); cb([...picked]); }},
