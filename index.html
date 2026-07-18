@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.60</title>
+<title>GRAVEBORNE — alpha v0.62</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -541,19 +541,95 @@ function rollObjective(type){
   if(type==='reclaim')return 'reclaim';
   return 'slay';
 }
-const REGION_DEFS=[
- {n:'Vessel’s March', p:25, s:'March',     town:'Vessel',      q:2,  r:5},
- {n:'The Fords of Karsk', p:15, s:'Fords', town:'Fordstead',   q:7,  r:4},
- {n:'Barrowfen', p:55, s:'Barrowfen',      town:'Barrow',      q:13, r:5},
- {n:'Karsk Gate', p:8,  s:'K. Gate',       town:'Karsk Gate',  q:7,  r:1},
- {n:'Old Wesh', p:62, s:'Old Wesh',        town:'Wesh',        q:3,  r:9},
- {n:'Thornwood Verge', p:35, s:'Verge',    town:'Thornhollow', q:11, r:9},
+/* ===== v0.62 — THE REALM. Seven provinces of Vhal on one continuous sheet.
+   The March keeps its Act-I shape, offset into the middle of the continent; the other six exist from
+   turn one but are FOGGED — you know them by rumour until you cross a chokepoint and see for yourself. */
+const PW=16, PH=11;                                    // one province block
+const PROV_DEFS=[
+ {id:0,k:'march',   n:'The March',        q0:PW,   r0:PH*2, blurb:'The realm’s contested middle. Your old ground.'},
+ {id:1,k:'karsk',   n:'Karsk Proper',     q0:PW,   r0:PH,   blurb:'Crown heartland: the capital, the court, the Collegium’s ruins.'},
+ {id:2,k:'cinder',  n:'The Cinderlands',  q0:PW,   r0:0,    blurb:'Cathedral-towns and pyre-fields. The Faith musters here.'},
+ {id:3,k:'underway',n:'The Underway',     q0:0,    r0:PH,   blurb:'The mountain spine. Three sealed gates and the towns they strangle.'},
+ {id:4,k:'wesh',    n:'The Wesh Reach',   q0:0,    r0:PH*2, blurb:'Fisher-leagues and smuggler routes. No lords worth the name.'},
+ {id:5,k:'barrow',  n:'The Barrowlands',  q0:PW*2, r0:PH,   blurb:'Half-swallowed east. The Conclave’s open front.'},
+ {id:6,k:'thorn',   n:'The Thornwood',    q0:PW*2, r0:PH*2, blurb:'Deep forest. No towns — treaty-gates only, and the Compact prunes what enters.'},
 ];
-const EDGES=[[0,1],[1,2],[1,3],[0,4],[4,5],[2,5]];
+const provOf=i=>PROV_DEFS[i]||PROV_DEFS[0];
+// region coords are LOCAL to their province block; realmQ/realmR resolve them onto the sheet
+const REGION_DEFS=[
+ // ---- 0 The March (Act I, unchanged shape) ----
+ {n:'Vessel’s March', p:25, s:'March',     town:'Vessel',      q:2,  r:5, prov:0},
+ {n:'The Fords of Karsk', p:15, s:'Fords', town:'Fordstead',   q:7,  r:4, prov:0},
+ {n:'Barrowfen', p:55, s:'Barrowfen',      town:'Barrow',      q:13, r:5, prov:0},
+ {n:'Karsk Gate', p:8,  s:'K. Gate',       town:'Karsk Gate',  q:7,  r:1, prov:0},
+ {n:'Old Wesh', p:62, s:'Old Wesh',        town:'Wesh',        q:3,  r:9, prov:0},
+ {n:'Thornwood Verge', p:35, s:'Verge',    town:'Thornhollow', q:11, r:9, prov:0},
+ // ---- 1 Karsk Proper ----
+ {n:'The Crownseat', p:5,  s:'Crownseat',  town:'Karsk-in-Vale',q:8, r:8, prov:1},
+ {n:'Hollow Marches',p:22, s:'Hollows',    town:'Ashby',       q:3,  r:7, prov:1},
+ {n:'The Collegium Ruin',p:48,s:'Collegium',town:'Vell’s Rest', q:12, r:6, prov:1},
+ {n:'Greyford', p:18, s:'Greyford',        town:'Greyford',    q:6,  r:3, prov:1},
+ {n:'The King’s Wood', p:12, s:'K. Wood',  town:'Harrowgate',  q:12, r:2, prov:1},
+ // ---- 2 The Cinderlands ----
+ {n:'Pyrefield', p:30, s:'Pyrefield',      town:'Emberhold',   q:7,  r:7, prov:2},
+ {n:'The Cinder See', p:10, s:'Cinder See',town:'Saint Vaur',  q:4,  r:3, prov:2},
+ {n:'Ashenmoor', p:44, s:'Ashenmoor',      town:'Moorwatch',   q:11, r:4, prov:2},
+ {n:'The Scoured Hills',p:26,s:'Scoured',  town:'Kell',        q:12, r:8, prov:2},
+ // ---- 3 The Underway ----
+ {n:'The Deep Gate', p:8,  s:'Deep Gate',  town:'Gate-of-Iron',q:5,  r:5, prov:3},
+ {n:'Sunken Halls', p:35, s:'Sunken',      town:'Undertown',   q:10, r:3, prov:3},
+ {n:'The Slag Road', p:20, s:'Slag Road',  town:'Cinderforge', q:11, r:8, prov:3},
+ {n:'Kholdspine', p:16, s:'Kholdspine',    town:'Kholdholm',   q:3,  r:9, prov:3},
+ // ---- 4 The Wesh Reach ----
+ {n:'Saltmarrow', p:40, s:'Saltmarrow',    town:'Marrowquay',  q:4,  r:4, prov:4},
+ {n:'The Drowned Coast',p:52,s:'Drowned',  town:'Gullhaven',   q:3,  r:8, prov:4},
+ {n:'Weshford', p:28, s:'Weshford',        town:'Weshford',    q:10, r:6, prov:4},
+ {n:'The Long Strand',p:34,s:'Strand',     town:'Tidereach',   q:11, r:2, prov:4},
+ // ---- 5 The Barrowlands ----
+ {n:'The Sunken Barrows',p:78,s:'Barrows', town:'Cairnwatch',  q:5,  r:5, prov:5},
+ {n:'Ossuary Fields',p:70,s:'Ossuary',     town:'Bonewell',    q:10, r:3, prov:5},
+ {n:'The Quiet Shore',p:60,s:'Q. Shore',   town:'Stillhaven',  q:11, r:8, prov:5},
+ {n:'Grave-Verge', p:84, s:'Grave-Verge',  town:'Lastlight',   q:3,  r:9, prov:5},
+ // ---- 6 The Thornwood ----
+ {n:'The Treaty Gate',p:20,s:'Treaty Gate',town:'Thornsgate',  q:4,  r:4, prov:6},
+ {n:'Deepthorn', p:32, s:'Deepthorn',      town:'The Bower',   q:9,  r:7, prov:6},
+ {n:'The Pruning Grounds',p:46,s:'Pruning',town:'Green Silence',q:12,r:3, prov:6},
+ {n:'Wolfsmeet', p:38, s:'Wolfsmeet',      town:'Wolfsmeet',   q:6,  r:9, prov:6},
+];
+const realmQ=i=>provOf(REGION_DEFS[i].prov).q0+REGION_DEFS[i].q;
+const realmR=i=>provOf(REGION_DEFS[i].prov).r0+REGION_DEFS[i].r;
+// road lattice: within-province spines, plus the chokepoints that stitch provinces together
+const EDGES=[[0,1],[1,2],[1,3],[0,4],[4,5],[2,5],
+ [6,7],[6,8],[6,9],[9,10],
+ [11,12],[11,13],[11,14],
+ [15,16],[15,17],[15,18],
+ [19,20],[19,21],[21,22],
+ [23,24],[23,25],[23,26],
+ [27,28],[28,29],[28,30]];
+/* Chokepoints — the only ways between provinces. Each is held by somebody, and each asks for something. */
+const CHOKES=[
+ {a:0,b:1, from:3,  to:6,  n:'The Gate Road',    gate:'papers', who:'Karsk',
+  line:'The road to the Crownseat runs under the Gate’s arch, and the Gate reads letters.'},
+ {a:0,b:5, from:2,  to:23, n:'The Barrow Causeway',gate:'fight', who:'the Blight',
+  line:'The causeway east is a bone-road across drowned ground. Something always holds the middle of it.'},
+ {a:0,b:4, from:4,  to:21, n:'The Wesh Track',   gate:'open',   who:'nobody',
+  line:'A cart-track west through the salt-wind. Nobody guards it. Nobody has needed to.'},
+ {a:0,b:6, from:5,  to:27, n:'The Treaty Gate',  gate:'toll',   who:'the Thornwood Compact',
+  line:'The Compact does not sell passage. It trades it — for something taken out of their wood.'},
+ {a:1,b:2, from:10, to:11, n:'The Pilgrim Stair',gate:'papers', who:'the Cindered Faith',
+  line:'The stair north is a pilgrim road. The Faith asks who you are, and writes the answer down.'},
+ {a:1,b:3, from:7,  to:15, n:'The Deep Gate',    gate:'toll',   who:'the Undercrown',
+  line:'The mountain has a door, and the door has a price-list.'},
+ {a:3,b:4, from:18, to:22, n:'The Slag Descent', gate:'open',   who:'nobody',
+  line:'A scree-slope down to the salt. Hard on wheels, free of tolls.'},
+ {a:5,b:6, from:25, to:29, n:'The Rotting Weir', gate:'fight',  who:'the Blight',
+  line:'Where the barrow-water meets the wood, the weir is thick with things that used to be people.'},
+];
+function chokeBetween(pa,pb){ return CHOKES.find(c=>(c.a===pa&&c.b===pb)||(c.a===pb&&c.b===pa))||null; }
 function neighbors(i){return EDGES.filter(e=>e.includes(i)).map(e=>e[0]===i?e[1]:e[0]);}
 
 /* ---- hex world (flat-top, odd-q offset) ---- */
-const COLS=16,ROWS=11,HXS=20;
+const COLS=PW*3,ROWS=PH*3,HXS=20;   // the realm sheet: three province blocks across, three down
 const hexKey=(q,r)=>q+','+r;
 function hex(q,r){return S.hexes[hexKey(q,r)];}
 function hexNbrs(q,r){
@@ -572,19 +648,23 @@ function moveCost(h){
   if(h.blighted)c+=1;
   return c;
 }
-function hexPath(a,b){
+// carve=true lets the router cut through mountain at a stiff price — used once, at world-gen, to
+// drive the chokepoint roads through the spine. Normal travel never sees it.
+function hexPath(a,b,carve){
   const start=hexKey(a.q,a.r),goal=hexKey(b.q,b.r);
-  if(moveCost(hex(b.q,b.r))===Infinity)return null;
+  const cost=h=>{ const c=moveCost(h); return (c===Infinity&&carve)?12:c; };
+  if(cost(hex(b.q,b.r))===Infinity)return null;
   const dist={};dist[start]=0;
   const prev={},open=[{k:start,d:0}],seen=new Set();
   while(open.length){
-    open.sort((x,y)=>x.d-y.d);
-    const cur=open.shift();
+    // linear min-extract: repeated full sorts got expensive once the sheet grew to the whole realm
+    let mi=0; for(let i=1;i<open.length;i++)if(open[i].d<open[mi].d)mi=i;
+    const cur=open[mi]; open[mi]=open[open.length-1]; open.pop();
     if(seen.has(cur.k))continue; seen.add(cur.k);
     if(cur.k===goal)break;
     const [q,r]=cur.k.split(',').map(Number);
     for(const nb of hexNbrs(q,r)){
-      const c=moveCost(nb); if(c===Infinity)continue;
+      const c=cost(nb); if(c===Infinity)continue;
       const k2=hexKey(nb.q,nb.r), nd=cur.d+c;
       if(dist[k2]===undefined||nd<dist[k2]){dist[k2]=nd;prev[k2]=cur.k;open.push({k:k2,d:nd});}
     }
@@ -598,32 +678,55 @@ function pathCost(p){let c=0;for(let i=1;i<p.length;i++)c+=moveCost(hex(p[i].q,p
 function travelDays(p){return Math.max(1,Math.ceil(pathCost(p)/3));}
 function genWorld(){
   S.hexes={};
-  for(let q=0;q<COLS;q++)for(let r=0;r<ROWS;r++)S.hexes[hexKey(q,r)]={q,r,t:'plains',region:0,road:false,blighted:false,feat:null,setl:null};
-  const blob=(t,size)=>{
-    const h=hex(ri(0,COLS-1),ri(0,ROWS-1)); if(!h)return;
+  for(let q=0;q<COLS;q++)for(let r=0;r<ROWS;r++)S.hexes[hexKey(q,r)]={q,r,t:'plains',region:-1,prov:-1,road:false,blighted:false,feat:null,setl:null};
+  // stamp province ownership; anything outside a block is the realm's impassable edge
+  for(const P of PROV_DEFS)
+    for(let q=P.q0;q<P.q0+PW;q++)for(let r=P.r0;r<P.r0+PH;r++){ const h=hex(q,r); if(h)h.prov=P.id; }
+  for(const k in S.hexes){ const h=S.hexes[k]; if(h.prov<0)h.t='mountain'; }
+  // terrain grown INSIDE each province, so each one keeps its own character
+  const blobIn=(P,t,size)=>{
+    const h=hex(P.q0+ri(0,PW-1),P.r0+ri(0,PH-1)); if(!h||h.prov!==P.id)return;
     const grown=[h]; h.t=t;
-    for(let i=0;i<size;i++){ const base=pick(grown); const nbs=hexNbrs(base.q,base.r); if(!nbs.length)continue;
-      const nb=pick(nbs); if(nb&&nb.setl===null){nb.t=t;grown.push(nb);} }
+    for(let i=0;i<size;i++){ const base=pick(grown); const nbs=hexNbrs(base.q,base.r).filter(n=>n.prov===P.id);
+      if(!nbs.length)continue; const nb=pick(nbs); if(nb&&nb.setl===null){nb.t=t;grown.push(nb);} }
   };
-  for(let i=0;i<4;i++)blob('forest',ri(4,7));
-  for(let i=0;i<3;i++)blob('hills',ri(3,6));
-  for(let i=0;i<2;i++)blob('marsh',ri(3,5));
-  for(let i=0;i<2;i++)blob('mountain',ri(2,4));
-  REGION_DEFS.forEach((d,i)=>{ const h=hex(d.q,d.r); h.t='plains'; h.setl=i; h.feat=null; });
-  for(const k in S.hexes){ const h=S.hexes[k];
-    let best=0,bd=1e9;
-    REGION_DEFS.forEach((d,i)=>{ const dd=hexDist(h,{q:d.q,r:d.r}); if(dd<bd){bd=dd;best=i;} });
-    h.region=best;
+  const CHAR={ march:{forest:4,hills:3,marsh:2,mountain:2},
+               karsk:{forest:3,hills:3,marsh:1,mountain:1},
+               cinder:{hills:5,forest:1,marsh:1,mountain:3},
+               underway:{mountain:7,hills:5,forest:1,marsh:0},
+               wesh:{marsh:6,forest:2,hills:1,mountain:0},
+               barrow:{marsh:5,forest:2,hills:2,mountain:1},
+               thorn:{forest:9,hills:2,marsh:2,mountain:1} };
+  for(const P of PROV_DEFS){ const c=CHAR[P.k]||CHAR.march;
+    for(const t in c) for(let i=0;i<c[t];i++) blobIn(P,t,ri(3,7)); }
+  REGION_DEFS.forEach((d,i)=>{ const h=hex(realmQ(i),realmR(i)); if(h){h.t='plains';h.setl=i;h.feat=null;h.prov=d.prov;} });
+  // regions are a Voronoi over settlements — but only ever within one province
+  for(const k in S.hexes){ const h=S.hexes[k]; if(h.prov<0){h.region=-1;continue;}
+    let best=-1,bd=1e9;
+    REGION_DEFS.forEach((d,i)=>{ if(d.prov!==h.prov)return;
+      const dd=hexDist(h,{q:realmQ(i),r:realmR(i)}); if(dd<bd){bd=dd;best=i;} });
+    h.region=best<0?0:best;
   }
   for(const [a,b] of EDGES){
-    const p=hexPath({q:REGION_DEFS[a].q,r:REGION_DEFS[a].r},{q:REGION_DEFS[b].q,r:REGION_DEFS[b].r});
+    const p=hexPath({q:realmQ(a),r:realmR(a)},{q:realmQ(b),r:realmR(b)});
     if(p)p.forEach(({q,r})=>{const h=hex(q,r); if(h.t==='mountain')h.t='hills'; h.road=true;});
   }
-  const featPool=['ruin','ruin','ruin','shrine','barrow','barrow','battlefield','watchtower'];
-  for(const f of featPool){
+  // chokepoints: carve a passable road between the two provinces and mark the crossing hex
+  for(const C of CHOKES){
+    const p=hexPath({q:realmQ(C.from),r:realmR(C.from)},{q:realmQ(C.to),r:realmR(C.to)},true);
+    if(!p)continue;
+    p.forEach(({q,r})=>{const h=hex(q,r); if(h.t==='mountain')h.t='hills'; h.road=true; if(h.prov<0){h.prov=-2;h.region=-1;} });
+    // the crossing hex is the step where the province changes
+    for(let i=1;i<p.length;i++){
+      const h0=hex(p[i-1].q,p[i-1].r), h1=hex(p[i].q,p[i].r);
+      if(h0&&h1&&h0.prov!==h1.prov&&h0.prov>=0&&h1.prov>=0){ h1.choke=C.n; h0.choke=C.n; break; }
+    }
+  }
+  const featPool=['ruin','shrine','barrow','battlefield','watchtower'];
+  for(const P of PROV_DEFS) for(const f of featPool){
     for(let tries=0;tries<40;tries++){
-      const h=hex(ri(0,COLS-1),ri(0,ROWS-1));
-      if(h&&h.setl===null&&!h.feat&&!h.road&&h.t!=='mountain'){h.feat=f;break;}
+      const h=hex(P.q0+ri(0,PW-1),P.r0+ri(0,PH-1));
+      if(h&&h.prov===P.id&&h.setl===null&&!h.feat&&!h.road&&h.t!=='mountain'){h.feat=f;break;}
     }
   }
   blightCreep();
@@ -868,10 +971,11 @@ function newGame(){
   S={week:1,day:0,coin:100,prov:15,renown:0,over:false,actOne:false,
      roster:[],hirePool:[],contracts:[],graves:[],regions:[],log:[],battle:null,chronicle:[],
      partyUp:0,scouted:false,kits:0,horns:0,unlocks:{reforge:false,armor:false,party:false},
-     bondCounts:{},usedBg:[],usedNames:[],agents:[],deserters:[],hexes:null,caravan:null};
+     bondCounts:{},usedBg:[],usedNames:[],agents:[],deserters:[],hexes:null,caravan:null,
+     realm:true,provKnown:{0:true},provIntel:{}};   // the realm exists from turn one; you just can't see most of it
   S.regions=REGION_DEFS.map((d,i)=>({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-8,8)),swallowed:false}));
   genWorld();
-  S.caravan={q:REGION_DEFS[1].q,r:REGION_DEFS[1].r};
+  S.caravan={q:realmQ(1),r:realmR(1)};
   ['fighter','ranger','cleric','acolyte'].forEach(c=>S.roster.push(makeSoldier(c))); // a founding spread — one of each archetype
   // The founding grave: the company already has one debt walking. Guarantees the
   // signature loop fires by week ~3 regardless of play style (inherited-revenant prologue).
@@ -980,6 +1084,22 @@ function save(){ if(S.battle) return; try{ localStorage.setItem('graveborne_v01'
 // pre-v0.60 backfill. Idempotent and null-safe, and called from BOTH load() AND tryResumeBattle() —
 // the resume path replaces S wholesale and never touches load(), so a version bump landing while a battle
 // is stashed (the mobile-rotate case the stash exists for) would otherwise resume into a save with no deeds.
+function migrateV062(){
+  if(S.realm)return false;
+  const oldHexes=S.hexes, oldCar=S.caravan, OQ=PW, OR=PH*2;   // the March's new origin on the realm sheet
+  while(S.regions.length<REGION_DEFS.length){ const i=S.regions.length,d=REGION_DEFS[i];
+    S.regions.push({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-6,6)),swallowed:false}); }
+  genWorld();
+  if(oldHexes) for(const k in oldHexes){ const o=oldHexes[k]; const h=hex(o.q+OQ,o.r+OR);
+    if(h&&h.prov===0){ h.t=o.t; h.road=o.road; h.blighted=o.blighted; h.feat=o.feat; h.setl=o.setl; h.region=o.region; } }
+  if(oldCar)S.caravan={q:oldCar.q+OQ,r:oldCar.r+OR};
+  for(const a of (S.agents||[])){ if(a.q!==undefined){a.q+=OQ;a.r+=OR;} }
+  for(const c of (S.contracts||[])){ if(c.q!==undefined){c.q+=OQ;c.r+=OR;} }
+  if(S.story&&S.story.meetHex){ S.story.meetHex.q+=OQ; S.story.meetHex.r+=OR; }
+  S.realm=true; S.provKnown={0:true}; S.provIntel={};
+  S.log.unshift({msg:'The maps got bigger. Karsk is one province of seven, and the March turns out to be the middle of nothing.',cls:'wk',week:S.week});
+  return true;
+}
 function migrateV060(){
   let touched=false;
   for(const arr of [S.roster,S.hirePool,S.deserters]) for(const p of (arr||[])){
@@ -1021,7 +1141,7 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
     S.agents=S.agents||[];
     genWorld();
     const at=(S.at!==undefined?S.at:1);
-    S.caravan={q:REGION_DEFS[at].q,r:REGION_DEFS[at].r};
+    S.caravan={q:realmQ(at),r:realmR(at)};
     S.contracts=[]; genContracts(); seedAgents();
     for(const g of S.graves){ if(g.state==='risen'){ const h=randomHexInRegion(g.regionId); if(h)spawnAgent('revenant',h,{graveId:g.id,str:10}); } }
     S.log.unshift({msg:'The March resolves into hills, roads, and things that move on them. The maps got better.',cls:'wk',week:S.week});
@@ -1058,6 +1178,7 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
     const bh=bs.length?pick(bs):randomWildHex();
     if(bh){ if(!bh.feat)bh.feat='barrow'; S.story.meetWeek=S.week+3; S.story.meetHex={q:bh.q,r:bh.r}; touched=true; }
   }
+  if(migrateV062())touched=true;
   if(migrateV060())touched=true;
   if(touched)save();
   return true;} }catch(e){} return false; }
@@ -1079,13 +1200,113 @@ function tryResumeBattle(){ try{
   if(d&&d.S&&d.S.battle&&!d.S.battle.over&&(Date.now()-(d.t||0)<30*60000)){   // fresh (<30 min) so a long-abandoned fight doesn't resurrect
     S=d.S; uid=d.uid; const B=S.battle;
     if(typeof d.GW==='number')GW=d.GW; if(typeof d.GH==='number')GH=d.GH;     // restore the map dimensions tileAt() relies on
-    migrateV060();                                                            // the resume path skips load() — backfill here too, or a mid-battle version bump resumes into a save with no deeds
+    migrateV062(); migrateV060();                                             // the resume path skips load() — backfill here too, or a mid-battle version bump resumes into a save with no deeds
     delete B._vis; delete B._conn; B._lastPos=null; B._camTouched=false;      // re-fit the camera to the current (possibly rotated) viewport
     return true;
   }
 }catch(e){} return false; }
 
 /* ============================== STRATEGY LAYER ============================== */
+/* ===== v0.62 THE REALM: fog, rumour, crossings, stationing ===== */
+function provKnown(i){ return !!(S.provKnown&&S.provKnown[i]); }
+function caravanProv(){ const h=caravanHex(); return h&&h.prov>=0?h.prov:0; }
+function regionsInProv(i){ return S.regions.filter(r=>REGION_DEFS[r.id]&&REGION_DEFS[r.id].prov===i); }
+function provPressure(i){ const rs=regionsInProv(i); return rs.length?Math.round(rs.reduce((a,r)=>a+r.pressure,0)/rs.length):0; }
+function stationedIn(i){ return S.roster.filter(s=>s.stationedProv===i); }
+function isStationed(s){ return s.stationedProv!==undefined&&s.stationedProv!==null; }
+function learnProv(i,how){
+  if(provKnown(i))return false;
+  S.provKnown=S.provKnown||{}; S.provKnown[i]=true;
+  S.provIntel=S.provIntel||{}; S.provIntel[i]={week:S.week,pressure:provPressure(i),seen:true};
+  const P=provOf(i);
+  log(`⚑ ${P.n} opens to the company. ${P.blurb}`,'wk');
+  S.chronicle.push(`Week ${S.week}: the company crossed into ${P.n}${how?' — '+how:''}.`);
+  return true;
+}
+// what you THINK you know about a province you haven't walked: a number, and how old it is
+function provIntelOf(i){
+  const it=(S.provIntel||{})[i];
+  if(provKnown(i)||stationedIn(i).length)return {pressure:provPressure(i),week:S.week,fresh:true};
+  if(!it)return null;
+  return {pressure:it.pressure,week:it.week,fresh:false,age:S.week-it.week};
+}
+const RUMOR_LINES=[
+ 'A carter out of {p} says the roads there have stopped being roads.',
+ 'A pedlar swears the bells in {p} rang all night and nobody will say for whom.',
+ 'Two deserters drinking hard: they came from {p}, and they will not go back.',
+ 'A Karsk courier, half-drunk: “{p}? Write it off. The maps are wrong already.”',
+ 'Word from {p} arrives three weeks stale and worse than when it was sent.',
+];
+function realmRumors(){
+  // you hear about the places you cannot see — late, partial, and sometimes wrong
+  const unknown=PROV_DEFS.filter(P=>!provKnown(P.id));
+  if(!unknown.length||!chance(45))return;
+  const P=pick(unknown);
+  S.provIntel=S.provIntel||{};
+  const drift=ri(-8,8);                                  // the number that reaches you is not quite the number
+  S.provIntel[P.id]={week:S.week,pressure:clamp(provPressure(P.id)+drift,0,100),seen:false};
+  log(pick(RUMOR_LINES).replace('{p}',P.n),'blight');
+}
+function stationWeekly(){
+  for(const s of S.roster){
+    if(!isStationed(s))continue;
+    const i=s.stationedProv;
+    S.provIntel=S.provIntel||{};
+    S.provIntel[i]={week:S.week,pressure:provPressure(i),seen:true};   // a sword on the ground reports true
+    const rs=regionsInProv(i);
+    if(rs.length){ const r=pick(rs); r.pressure=Math.max(0,r.pressure-1); }
+    s.lastFieldedWeek=S.week;                             // holding ground counts as service to a patron
+  }
+}
+window.STATION=function(id,prov){
+  const s=soldierById(id); if(!s)return;
+  if(prov===null||prov===undefined||s.stationedProv===prov){
+    log(`${s.name} rejoins the column.`); s.stationedProv=null;
+  } else if(provKnown(prov)){
+    s.stationedProv=prov; log(`${s.name} stays behind to hold ${provOf(prov).n}. She will send word.`,'wk');
+  }
+  save(); render();
+};
+function crossingModal(C,toProv,dst,contractId){
+  const P=provOf(toProv);
+  const body=`<p>${esc(C.line)}</p><p class="hint">Beyond the crossing: <b>${esc(P.n)}</b>. ${esc(P.blurb)}</p>`;
+  const cross=how=>{ learnProv(toProv,how); closeModal(); travelTo(dst.q,dst.r,contractId); };
+  const outs=[];
+  if(C.gate==='open')
+    outs.push({label:'Take the track — nobody is watching it',cls:'pick',fn:()=>cross('the road was simply open')});
+  if(C.gate==='toll')
+    outs.push({label:`Pay the toll (60c) — ${C.who} counts it twice`,cls:'pick',disabled:S.coin<60,
+      fn:()=>{ S.coin-=60; cross(`bought passage from ${C.who}`); }});
+  if(C.gate==='papers'){
+    const key=C.who==='Karsk'?'karsk':null, rep=(key&&S.rep)?S.rep[key]:0;
+    if(rep>=15)outs.push({label:`Show your standing — ${C.who} knows the banner`,cls:'pick',
+      fn:()=>cross('your name was good at the gate')});
+    outs.push({label:'Buy the letters (80c) — almost genuine',cls:'pick',disabled:S.coin<80,
+      fn:()=>{ S.coin-=80; cross('the letters were almost genuine'); }});
+  }
+  if(C.gate==='fight')
+    outs.push({label:'Force the crossing — put the squad through it',cls:'danger',fn:()=>{
+      closeModal();
+      let rid=REGION_DEFS.findIndex(d=>d.prov===toProv); if(rid<0)rid=0;
+      pickSquad(sq=>startBattle({id:nid(),type:'purge',regionId:rid,pay:0,danger:3,obj:'slay',
+        cname:C.n,q:dst.q,r:dst.r,expires:S.week+99,crossTo:toProv,crossQ:dst.q,crossR:dst.r},sq));
+    }});
+  outs.push({label:'Turn back',fn:()=>closeModal()});
+  showModal(C.n,body,outs);
+}
+function realmStrip(){
+  const cp=caravanProv();
+  const chips=PROV_DEFS.map(P=>{
+    const known=provKnown(P.id), here=P.id===cp, it=provIntelOf(P.id), st=stationedIn(P.id);
+    const col=here?'#c9a227':known?'#9ab86f':it?'#8a7f6a':'#4a443a';
+    const press=it?`${it.pressure}%${it.fresh?'':` <span style="opacity:.7">(wk ${it.week})</span>`}`:'—';
+    const tip=known?`${P.blurb}\nBlight pressure ${provPressure(P.id)}%${st.length?'\nHolding: '+st.map(x=>x.name).join(', '):''}`
+      :it?`${P.blurb}\nHearsay from week ${it.week}. It may already be wrong.`
+         :`${P.blurb}\nYou have heard nothing you would repeat.`;
+    return `<span class="tag tt" style="border-color:${col};color:${col}" data-tip="${esc(tip)}">${here?'⛺ ':''}${esc(P.n)} ${press}${st.length?' ⚔'+st.length:''}</span>`;
+  }).join(' ');
+  return `<div class="featline" style="margin-bottom:6px">🗺 ${chips}</div>`;
+}
 function dangerOf(region){ return region.swallowed?3:(region.pressure>=70?3:region.pressure>=40?2:1); }
 function worldTier(){ return Math.floor((S.week||1)/3); } // difficulty heartbeat: tier 0 (wk1-2), 1 (wk3-5), 2 (wk6-8), 3 (wk9-11)…
 // Ash grafts are only found where the Blight actually is — a clean, low-pressure region yields no relics
@@ -1095,6 +1316,7 @@ function genContracts(){
   S.contracts=S.contracts.filter(c=>(c.expires||99)>S.week&&!(S.regions[c.regionId].swallowed&&c.type!=='delve'));
   for(const r of S.regions){
     if(S.contracts.some(c=>c.regionId===r.id))continue;
+    if(!provKnown((REGION_DEFS[r.id]||{}).prov||0))continue;   // you cannot take work in a province you have never walked
     let type;
     const shrineInRegion=Object.values(S.hexes).some(h=>h.region===r.id&&h.feat==='shrine');
     if(r.swallowed){ if((r.salvage||0)<=0)continue; type='delve'; }
@@ -1152,7 +1374,7 @@ function spawnAgent(kind,h,extra){ if(!h)return; S.agents.push(Object.assign({id
 function randomHexInRegion(i){ const m=Object.values(S.hexes).filter(h=>h.region===i&&moveCost(h)!==Infinity&&h.setl===null); return m.length?pick(m):null; }
 function randomWildHex(){ const m=Object.values(S.hexes).filter(h=>moveCost(h)!==Infinity&&h.setl===null&&!h.road); return m.length?pick(m):null; }
 function seedAgents(){
-  spawnAgent('army',{q:REGION_DEFS[3].q,r:REGION_DEFS[3].r},{str:14});
+  spawnAgent('army',{q:realmQ(3),r:realmR(3)},{str:14});
   for(let i=0;i<2;i++)spawnAgent('brigands',randomWildHex(),{str:6+ri(0,4)});
   const hot=S.regions.find(r=>r.pressure>=60);
   if(hot)spawnAgent('horde',randomHexInRegion(hot.id),{str:9});
@@ -1169,7 +1391,7 @@ function agentsDaily(){
     if(a.kind==='army'){
       a.leg=a.leg||0;
       const stops=a.stops||[3,1,0,1];
-      const tgt=REGION_DEFS[stops[a.leg%stops.length]];
+      const _ti=stops[a.leg%stops.length], tgt={q:realmQ(_ti),r:realmR(_ti)};
       if(a.q===tgt.q&&a.r===tgt.r)a.leg++; else stepToward(a,{q:tgt.q,r:tgt.r});
     } else if(a.kind==='horde'){
       const tgt=nearestSettlementHex(a);
@@ -1241,6 +1463,12 @@ function travelTo(q,r,contractId){
   if(S.battle||S.over)return;
   const dest=hex(q,r);
   if(!dest||moveCost(dest)===Infinity){ log('No road leads there.'); render(); return; }
+  // v0.62 — leaving a province means answering for it at a chokepoint
+  if(dest.prov>=0&&dest.prov!==caravanProv()){
+    const C=chokeBetween(caravanProv(),dest.prov);
+    if(!C){ log('There is no crossing between here and there. The realm does not fold that way.','bad'); render(); return; }
+    if(!provKnown(dest.prov)){ crossingModal(C,dest.prov,{q,r},contractId); return; }
+  }
   const path=hexPath(S.caravan,{q,r});
   if(!path||path.length<2){
     if(contractId){ const c=S.contracts.find(x=>x.id===contractId); if(c)pickSquad(sq=>startBattle(c,sq)); }
@@ -1295,7 +1523,7 @@ function weeklyTick(){
   let starved=false;
   if(S.prov<0){ S.prov=0; starved=true; }
   log(`Week ${S.week} — wages ${wages}c${swordCount?` (incl. ${swordCount} sworn sword${swordCount>1?'s':''})`:''}${starved?'; the larder is empty':''}.`,'wk');
-  oathWeekly();
+  oathWeekly(); realmRumors(); stationWeekly();
   if(S.coin<0){ S.coin=0; S.roster.forEach(s=>s.res=Math.max(10,s.res-3)); log('The company goes unpaid. Resolve suffers.','bad'); }
   // desertion check when unpaid/starving
   if(starved){ S.roster.forEach(s=>{ s.hp=Math.max(1,s.hp-2); }); log('Hunger gnaws the line. Everyone weakens.','bad');
@@ -1331,7 +1559,7 @@ function weeklyTick(){
   }
   const armyCap=(S.story&&S.story.heir==='aldric')?2:1;
   if(S.agents.filter(a=>a.kind==='army').length<armyCap&&chance(50))
-    spawnAgent('army',{q:REGION_DEFS[3].q,r:REGION_DEFS[3].r},{str:S.story&&S.story.heir==='aldric'?16:14,stops:S.agents.some(a=>a.kind==='army')?[5,2,1]:null});
+    spawnAgent('army',{q:realmQ(3),r:realmR(3)},{str:S.story&&S.story.heir==='aldric'?16:14,stops:S.agents.some(a=>a.kind==='army')?[5,2,1]:null});
   if(S.story&&S.story.heir==='maren'&&S.story.stage>=7){ S.coin+=10; }
   if(S.story&&S.story.stage>=5&&S.agents.filter(a=>a.kind==='hunters').length<(S.story.stage>=6?2:1)&&chance(25)){
     spawnAgent('hunters',randomWildHex(),{str:S.story.stage>=6?14:12});
@@ -1340,7 +1568,7 @@ function weeklyTick(){
   // rare: a hunted underkingdom smoke-runner surfaces — rescue them (win with them alive) and they join
   if(S.week>=4&&S.roster.length<ROSTER_CAP&&!S.contracts.some(c=>c.cinderling)&&chance(7)){
     const r=S.regions.filter(x=>!x.swallowed).sort((a,b)=>a.pressure-b.pressure)[0];
-    if(r){ const anchor=contractAnchor(r.id,'hunt')||{q:REGION_DEFS[r.id].q,r:REGION_DEFS[r.id].r};
+    if(r){ const anchor=contractAnchor(r.id,'hunt')||{q:realmQ(r.id),r:realmR(r.id)};
       S.contracts.push({id:nid(),type:'hunt',regionId:r.id,pay:35,danger:Math.max(1,dangerOf(r)),q:anchor.q,r:anchor.r,expires:S.week+3,obj:'slay',cinderling:true,cname:'The Hunted Stranger'});
       log(`Rumor: a stranger who moves by ashfall and smoke is cornered in ${r.name}. Reach them before the grey riders do — such a one, in your debt, is worth ten swords.`,'wk');
     }
@@ -2009,6 +2237,8 @@ function startBattle(contract,squadIds){
         moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false,bMarks:[]});
     }
   });
+  B.crossTo=(contract.crossTo!==undefined&&contract.crossTo!==null)?contract.crossTo:null;
+  B.crossQ=contract.crossQ; B.crossR=contract.crossR;
   B.chargesTotal=B.units.filter(u=>u.kind==='ally').length;   // for Shield of the Folk: every charge home breathing
   if(squadIds.some(id=>{const s=soldierById(id);return s&&s.oath&&s.oath.to==='banner'&&s.oath.state!=='broken';}))
     B.units.forEach(u=>{ if(u.kind==='pc')u.res+=5; });        // the Oathbanner — steadier for standing near her
@@ -3337,6 +3567,10 @@ function endBattle(outcome){
   }
   // v0.60 — the retinue's fate resolves BEFORE the honours: bodies answered first, then what gets told.
   // Both are synchronous state writes; only the presentation queues, and only one Name-system modal per battle.
+  if(outcome==='victory'&&B.crossTo!==null&&B.crossTo!==undefined){
+    learnProv(B.crossTo,'you took the crossing by force');
+    if(B.crossQ!==undefined)S.caravan={q:B.crossQ,r:B.crossR};
+  }
   const swordTales=resolveSwordFates(B);
   detectDeeds(B,outcome);
   if(swordTales.length){
@@ -3885,7 +4119,7 @@ function chooseHeir(h){
   if(h==='casmir'){repAdd('conclave',15);repAdd('folk',-5);}
   if(h==='aldric'){
     S.agents.filter(a=>a.kind==='army').forEach(a=>a.str=16);
-    spawnAgent('army',{q:REGION_DEFS[1].q,r:REGION_DEFS[1].r},{str:16,stops:[5,2,1]});
+    spawnAgent('army',{q:realmQ(1),r:realmR(1)},{str:16,stops:[5,2,1]});
     log('Aldric’s second column takes the southern roads.','good');
   }
   postHeirQuest(h);
@@ -4190,7 +4424,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.60</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.62</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -4240,10 +4474,14 @@ function hexArt(h,x,y){
 function hexSvg(){
   const TC={plains:'#2e2a20',forest:'#26301f',hills:'#37322a',marsh:'#28302c',mountain:'#453f35'};
   let out='<defs><radialGradient id="vig" cx="50%" cy="42%" r="78%"><stop offset="60%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,.45)"/></radialGradient></defs>',glyphs='';
+  const CP=caravanProv();
+  const vis=h=>h.prov===CP||(h.choke&&hexNbrs(h.q,h.r).some(n=>n.prov===CP));
   for(const k in S.hexes){
-    const h=S.hexes[k];const{x,y}=hexCenter(h.q,h.r);
+    const h=S.hexes[k]; if(!vis(h))continue;            // the map shows the province you are IN; the rest is rumour
+    const{x,y}=hexCenter(h.q,h.r);
     let fill=h.blighted?'#2c2138':TC[h.t];
     if(h.setl!==null&&!h.blighted)fill='#3d352a';
+    if(h.prov!==CP)fill='#1a1712';                      // the far side of a crossing: seen, not entered
     const seld=sel===k;
     out+=`<g onclick="HEX(${h.q},${h.r})" style="cursor:pointer"><title>${esc(hexTitle(h))}</title>
       <polygon points="${hexPts(x,y,HXS-0.8)}" fill="${fill}" stroke="${seld?'#c9a227':'#191612'}" stroke-width="${seld?2.2:1}"/></g>`;
@@ -4253,9 +4491,9 @@ function hexSvg(){
   // roads drawn as visible tracks between adjacent road hexes
   const segs=new Set();
   for(const k in S.hexes){
-    const h=S.hexes[k]; if(!h.road)continue;
+    const h=S.hexes[k]; if(!h.road||!vis(h))continue;
     for(const nb of hexNbrs(h.q,h.r)){
-      if(!nb.road)continue;
+      if(!nb.road||!vis(nb))continue;
       const key=[k,hexKey(nb.q,nb.r)].sort().join('|');
       if(segs.has(key))continue; segs.add(key);
       const a=hexCenter(h.q,h.r),b2=hexCenter(nb.q,nb.r);
@@ -4263,10 +4501,15 @@ function hexSvg(){
             <line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b2.x.toFixed(1)}" y2="${b2.y.toFixed(1)}" stroke="#8a6f45" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="7 4" pointer-events="none" opacity=".9"/>`;
     }
   }
+  // chokepoint pips — the only ways out of a province, and each one wants something
+  for(const k in S.hexes){ const h=S.hexes[k]; if(!h.choke||!vis(h)||h.prov!==CP)continue;
+    const{x,y}=hexCenter(h.q,h.r);
+    out+=`<g pointer-events="none"><circle cx="${x}" cy="${y-HXS*0.55}" r="7" fill="#17130e" stroke="#c9a227" stroke-width="1.6"/>`
+        +`<text x="${x}" y="${y-HXS*0.55+3.5}" style="font-size:9px;fill:#c9a227;text-anchor:middle;font-weight:bold">⇄</text></g>`; }
   out+=glyphs;
   for(const c of S.contracts){const{x,y}=hexCenter(c.q,c.r);
     out+=`<g onclick="HEX(${c.q},${c.r})" style="cursor:pointer"><circle cx="${x+HXS*0.5}" cy="${y-HXS*0.5}" r="${c.story?7:6}" fill="${c.story?'#b08bc9':'#c9a227'}" ${c.story?'stroke="#e8d9f5" stroke-width="1.2"':''}/><text x="${x+HXS*0.5}" y="${y-HXS*0.5+3.5}" class="hxC">!</text></g>`;}
-  for(const d of (S.deserters||[])){const t=REGION_DEFS[d.town];const c0=hexCenter(t.q,t.r);
+  for(const d of (S.deserters||[])){const c0=hexCenter(realmQ(d.town),realmR(d.town));
     out+=`<g pointer-events="none"><circle cx="${(c0.x-HXS*0.5).toFixed(1)}" cy="${(c0.y-HXS*0.5).toFixed(1)}" r="6" fill="#17130e" stroke="#7d93a3" stroke-width="1.6"/><text x="${(c0.x-HXS*0.5).toFixed(1)}" y="${(c0.y-HXS*0.5+3).toFixed(1)}" style="font-size:9px;fill:#a8b7c4;text-anchor:middle;font-weight:bold">⚐</text></g>`;}
   const byHex={};
   for(const a of S.agents){ (byHex[a.q+','+a.r]=byHex[a.q+','+a.r]||[]).push(a); }
@@ -4291,8 +4534,10 @@ function hexSvg(){
   if(sel){const [q,r]=sel.split(',').map(Number);const p=hexPath(S.caravan,{q,r});
     if(p&&p.length>1){let d='';p.forEach((st,i)=>{const c=hexCenter(st.q,st.r);d+=(i?'L':'M')+c.x.toFixed(1)+' '+c.y.toFixed(1)+' ';});
       out+=`<path d="${d}" fill="none" stroke="#c9a227" stroke-width="1.5" stroke-dasharray="4 3" pointer-events="none"/>`;}}
-  const W=HXS*1.5*COLS+HXS, Hh=HXS*Math.sqrt(3)*(ROWS+0.5)+HXS;
-  return `<svg viewBox="0 0 ${W.toFixed(0)} ${Hh.toFixed(0)}" style="width:100%;background:#131009;border:1px solid var(--line);border-radius:4px;box-shadow:inset 0 0 30px rgba(0,0,0,.5)">${out}<rect width="100%" height="100%" fill="url(#vig)" pointer-events="none"/></svg>`;
+  const PB=provOf(CP), pa=hexCenter(PB.q0,PB.r0), pb2=hexCenter(PB.q0+PW-1,PB.r0+PH-1);
+  const vx=(pa.x-HXS*2.2).toFixed(0), vy=(pa.y-HXS*2.2).toFixed(0);
+  const W=(pb2.x-pa.x+HXS*4.4).toFixed(0), Hh=(pb2.y-pa.y+HXS*4.4).toFixed(0);
+  return `<svg viewBox="${vx} ${vy} ${W} ${Hh}" style="width:100%;background:#131009;border:1px solid var(--line);border-radius:4px;box-shadow:inset 0 0 30px rgba(0,0,0,.5)">${out}<rect width="100%" height="100%" fill="url(#vig)" pointer-events="none"/></svg>`;
 }
 window.NEWGAME=function(){ if(confirm('Raise a new banner? The current company is abandoned to the record.')) newGame(); };
 function soldierCard(s,inHire,idx){
@@ -4303,7 +4548,7 @@ function soldierCard(s,inHire,idx){
     <div class="face">${faceSvg(s.face,{size:46})}</div>
     <div class="sbody">
       <span class="nm">${esc(s.name)}</span>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag tt" data-tip="${esc((CLASSES[s.cls]||CLASSES.fighter).d)}">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">${esc(bg.tag)}</span> <span class="tag">Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}</span>
-      ${oathChip(s)}
+      ${oathChip(s)}${isStationed(s)?`<span class="tag tt" style="border-color:#7d93a3;color:#a8b7c4" data-tip="Holding ground. She sends true word from ${esc(provOf(s.stationedProv).n)} and cannot be mustered.">⚑ Holding ${esc(provOf(s.stationedProv).n)}</span>`:''}
       ${s.gravetempered?'<span class="tag revtag tt" data-tip="Watched one of their own laid to rest: +10 resolve, permanently.">gravetempered</span>':''}
       <div class="bg">${esc(bg.line)}</div>
       <div class="hpbar"><div style="width:${Math.round(100*s.hp/s.maxhp)}%"></div></div>
@@ -4316,7 +4561,7 @@ function soldierCard(s,inHire,idx){
       ${deedChips(s)}
       ${retinueLine(s)}
       ${inHire?`<button ${S.coin<hireCost(s)?'disabled':''} onclick="HIRE(${idx})">Hire — ${hireCost(s)}c</button>`
-              :`${nameButtons(s)}${nextArm?((S.unlocks&&S.unlocks.armor)?`<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${nextArm.n} (${armorCost(s.armor+1)}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Armorsmith's Tools on a Quartermaster commission to fit heavier armor.">🔒 Armorsmith's Tools</span>`):''}${(WEAPONS[s.weapon]&&WEAPONS[s.weapon].up&&atSettlement()!==null)?((S.unlocks&&S.unlocks.reforge)?`<button ${S.coin<reforgeCost()?'disabled':''} onclick="REFORGE(${s.id})" title="Reforge to a finer weapon at the smithy">Reforge → ${WEAPONS[WEAPONS[s.weapon].up].n} (${reforgeCost()}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Blacksmith's Anvil on a Quartermaster commission to reforge weapons.">🔒 Blacksmith's Anvil</span>`):''}`}
+              :`${nameButtons(s)}${stationButton(s)}${nextArm?((S.unlocks&&S.unlocks.armor)?`<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${nextArm.n} (${armorCost(s.armor+1)}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Armorsmith's Tools on a Quartermaster commission to fit heavier armor.">🔒 Armorsmith's Tools</span>`):''}${(WEAPONS[s.weapon]&&WEAPONS[s.weapon].up&&atSettlement()!==null)?((S.unlocks&&S.unlocks.reforge)?`<button ${S.coin<reforgeCost()?'disabled':''} onclick="REFORGE(${s.id})" title="Reforge to a finer weapon at the smithy">Reforge → ${WEAPONS[WEAPONS[s.weapon].up].n} (${reforgeCost()}c)</button>`:`<span class="hint tt" data-tip="Locked. Recover the Blacksmith's Anvil on a Quartermaster commission to reforge weapons.">🔒 Blacksmith's Anvil</span>`):''}`}
     </div>
   </div>`;
 }
@@ -4348,6 +4593,13 @@ function retinueLine(s){
   return `<div class="bond">⚔ ${ws.map(w=>{ const hk=SWORD_HOOKS[w.hookId||0];
     return `<span class="tt" data-tip="${esc((hk?hk.h:'')+' — '+w.battlesWith+' fields at her shoulder')}">${esc(w.name)} (${esc(swordTier(w).n)})</span>`;
   }).join(', ')} — sworn to her, not to you</div>`;
+}
+function stationButton(s){
+  const cp=caravanProv();
+  if(isStationed(s))
+    return `<button onclick="STATION(${s.id},null)" title="Bring her back to the column.">⚔ Recall from ${esc(provOf(s.stationedProv).n)}</button>`;
+  if(atSettlement()===null||S.roster.length<3)return '';
+  return `<button onclick="STATION(${s.id},${cp})" title="She holds this province: fresh word every week, and the Blight comes on slower. She cannot march while she does.">⚑ Leave her holding ${esc(provOf(cp).n)}</button>`;
 }
 function nameButtons(s){
   if(atSettlement()===null)return '';
@@ -4424,7 +4676,7 @@ window.QMQUEST=function(kind){
   const meta=QM_QUESTS[kind]; if(!meta)return;
   if(S.contracts.some(c=>c.qm===kind))return; // already posted
   const r=S.regions.filter(x=>!x.swallowed).sort((a,b)=>a.pressure-b.pressure)[0]; if(!r)return;
-  const anchor=contractAnchor(r.id,meta.type)||{q:REGION_DEFS[r.id].q,r:REGION_DEFS[r.id].r};
+  const anchor=contractAnchor(r.id,meta.type)||{q:realmQ(r.id),r:realmR(r.id)};
   S.contracts.push({id:nid(),type:meta.type,regionId:r.id,pay:45,danger:Math.max(1,dangerOf(r)),q:anchor.q,r:anchor.r,expires:S.week+5,obj:meta.obj,qm:kind,cname:meta.cname});
   log(`Commission posted — ${meta.cname}. Look for the ⚑ in ${r.name}.`,'wk');
   save(); render();
@@ -4442,6 +4694,7 @@ function renderCompany(){
       ${setl!==null?(S.hirePool.map((h,i)=>soldierCard(h,true,i)).join('')||'<p class="hint">No one this week.</p>'):'<p class="hint">Sellswords wait in towns, not on the road. Reach a ⌂ settlement.</p>'}
     </div>
     <div class="col" id="mapCol"><h2>The March</h2>
+      ${realmStrip()}
       ${hexSvg()}
       <div class="hint" style="margin-top:4px">Tap any hex to inspect it. <span style="color:var(--gold)">!</span> contract · ⚑ brigands · ☠ Blight horde · ♞ Karsk column · ⚰ your dead · ⛺ the caravan. Purple ground is His.</div>
       ${sel?`<div class="mobileonly">${selectedPanel()}</div>`:''}
@@ -4549,16 +4802,16 @@ function pickSquad(cb){
   const build=()=>{
     const cap=partyCap();
     const list=S.roster.map(s=>{
-      const benched=(s.benchedUntil||0)>=S.week;
+      const benched=(s.benchedUntil||0)>=S.week||isStationed(s);
       const sw=livingSwords(s);
-      return `<button class="pick" ${benched?'disabled':''} onclick="TOG(${s.id})">${benched?'⊘':(picked.has(s.id)?'☑':'☐')} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(WEAPONS[s.weapon].n)}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}${deedsOf(s).length?' ⚑'+deedsOf(s).length:''}${sw.length?` <span class="hint">+ brings ${esc(sw.map(w=>w.name).join(', '))}</span>`:''}${benched?` <span class="hint">— sworn elsewhere this week</span>`:''}</button>`;
+      return `<button class="pick" ${benched?'disabled':''} onclick="TOG(${s.id})">${benched?'⊘':(picked.has(s.id)?'☑':'☐')} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(WEAPONS[s.weapon].n)}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}${deedsOf(s).length?' ⚑'+deedsOf(s).length:''}${sw.length?` <span class="hint">+ brings ${esc(sw.map(w=>w.name).join(', '))}</span>`:''}${isStationed(s)?` <span class="hint">— holding ${esc(provOf(s.stationedProv).n)}</span>`:benched?` <span class="hint">— sworn elsewhere this week</span>`:''}</button>`;
     }).join('');
     let items='';
     if((S.kits||0)>0) items+=`<button class="pick" onclick="LOAD('kit')">${loadout.kit?'☑':'☐'} 🩹 Chirurgeon’s Kit — deploy at full HP (×${S.kits})</button>`;
     if((S.horns||0)>0) items+=`<button class="pick" onclick="LOAD('horn')">${loadout.horn?'☑':'☐'} 📯 War Horn — enemies open the fight shaken (×${S.horns})</button>`;
     return `<p class="hint">Pick up to ${cap} (${picked.size}/${cap}). The wounded die faster — and what dies unrecovered comes back.</p>${list}${items?`<div class="hint" style="margin-top:8px">Bring consumables (spent only if you march):</div>${items}`:''}`;
   };
-  window.TOG=function(id){ const sd=soldierById(id); if(sd&&(sd.benchedUntil||0)>=S.week)return;
+  window.TOG=function(id){ const sd=soldierById(id); if(sd&&((sd.benchedUntil||0)>=S.week||isStationed(sd)))return;
     if(picked.has(id))picked.delete(id); else if(picked.size<partyCap())picked.add(id); activeModal.html=build(); render(); };
   window.LOAD=function(k){ loadout[k]=!loadout[k]; activeModal.html=build(); render(); };
   showModal('Muster the squad',build(),[
