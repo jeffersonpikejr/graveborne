@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.62</title>
+<title>GRAVEBORNE — alpha v0.63</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -165,6 +165,9 @@
     #zoombtns{bottom:6px} #zoombtns button{width:38px;height:38px}
   }
   /* elevation shading is drawn per-tile in elevArt() (an SVG overlay under the unit token) */
+  #mapwrap{transform-origin:50% 100%}
+  .mapflip{animation:framewiden 1500ms cubic-bezier(.22,.61,.36,1) both}
+  @keyframes framewiden{ from{transform:scale(2.6);opacity:.35} to{transform:scale(1);opacity:1} }
   .tile.fogseen{box-shadow:inset 0 0 0 200px rgba(6,5,3,.62)}
   .tile.fogseen .decor{opacity:.5}
   .tile.fogdark{background:#0c0a07 !important;cursor:default}
@@ -610,8 +613,8 @@ const EDGES=[[0,1],[1,2],[1,3],[0,4],[4,5],[2,5],
 const CHOKES=[
  {a:0,b:1, from:3,  to:6,  n:'The Gate Road',    gate:'papers', who:'Karsk',
   line:'The road to the Crownseat runs under the Gate’s arch, and the Gate reads letters.'},
- {a:0,b:5, from:2,  to:23, n:'The Barrow Causeway',gate:'fight', who:'the Blight',
-  line:'The causeway east is a bone-road across drowned ground. Something always holds the middle of it.'},
+ {a:1,b:5, from:8,  to:23, n:'The Barrow Causeway',gate:'fight', who:'the Blight',
+  line:'East of the Collegium the road becomes a bone-road across drowned ground. Something always holds the middle of it.'},
  {a:0,b:4, from:4,  to:21, n:'The Wesh Track',   gate:'open',   who:'nobody',
   line:'A cart-track west through the salt-wind. Nobody guards it. Nobody has needed to.'},
  {a:0,b:6, from:5,  to:27, n:'The Treaty Gate',  gate:'toll',   who:'the Thornwood Compact',
@@ -630,6 +633,17 @@ function neighbors(i){return EDGES.filter(e=>e.includes(i)).map(e=>e[0]===i?e[1]
 
 /* ---- hex world (flat-top, odd-q offset) ---- */
 const COLS=PW*3,ROWS=PH*3,HXS=20;   // the realm sheet: three province blocks across, three down
+const BACKUP_KEY='graveborne_pre_realm';
+function recoveryModal(){
+  const bak=localStorage.getItem(BACKUP_KEY);
+  showModal('The Map Would Not Rebuild',
+    `<p>The company is intact. The cartography is not — something failed while the realm was being drawn, and the campaign was not loaded.</p>
+     <p class="hint">Your last good record was kept before any of this began. Nothing has been overwritten.</p>`,
+    [ bak?{label:'Restore the company and reload',cls:'primary',fn:()=>{ localStorage.setItem('graveborne_v01',bak); location.reload(); }}
+          :{label:'Reload',cls:'primary',fn:()=>location.reload()},
+      {label:'Raise a new banner instead (abandons the record)',cls:'danger',fn:()=>{ closeModal(); newGame(); }} ]);
+  render();
+}
 const hexKey=(q,r)=>q+','+r;
 function hex(q,r){return S.hexes[hexKey(q,r)];}
 function hexNbrs(q,r){
@@ -719,7 +733,9 @@ function genWorld(){
     // the crossing hex is the step where the province changes
     for(let i=1;i<p.length;i++){
       const h0=hex(p[i-1].q,p[i-1].r), h1=hex(p[i].q,p[i].r);
-      if(h0&&h1&&h0.prov!==h1.prov&&h0.prov>=0&&h1.prov>=0){ h1.choke=C.n; h0.choke=C.n; break; }
+      if(!h0||!h1||h0.prov===h1.prov)continue;
+      const pair=(h0.prov===C.a&&h1.prov===C.b)||(h0.prov===C.b&&h1.prov===C.a);
+      if(pair){ h1.choke=C.n; h0.choke=C.n; }        // mark EVERY true a<->b crossing, not just the first
     }
   }
   const featPool=['ruin','shrine','barrow','battlefield','watchtower'];
@@ -754,8 +770,10 @@ const FEAT_INFO={
 };
 function hexDesc(h){
   if(h.setl!==null)return REGION_DEFS[h.setl].town+' (settlement)';
-  if(h.feat)return h.feat+' in '+S.regions[h.region].name;
-  return h.t+' in '+S.regions[h.region].name;
+  const reg=S.regions[h.region];
+  if(!reg)return h.prov===-1?'the edge of the world':h.t;   // realm-edge hexes belong to no region
+  if(h.feat)return h.feat+' in '+reg.name;
+  return h.t+' in '+reg.name;
 }
 const BOND_TYPES={ 'shield-kin':'stood back to back once too often', rival:'can’t decide which of them is better', debt:'one owes the other a life' };
 
@@ -972,7 +990,7 @@ function newGame(){
      roster:[],hirePool:[],contracts:[],graves:[],regions:[],log:[],battle:null,chronicle:[],
      partyUp:0,scouted:false,kits:0,horns:0,unlocks:{reforge:false,armor:false,party:false},
      bondCounts:{},usedBg:[],usedNames:[],agents:[],deserters:[],hexes:null,caravan:null,
-     realm:true,provKnown:{0:true},provIntel:{}};   // the realm exists from turn one; you just can't see most of it
+     realm:true,provKnown:{0:true},provIntel:{},mapWide:false,crossTried:{},actOneClosed:false};   // the realm exists from turn one; you just can't see most of it
   S.regions=REGION_DEFS.map((d,i)=>({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-8,8)),swallowed:false}));
   genWorld();
   S.caravan={q:realmQ(1),r:realmR(1)};
@@ -1084,20 +1102,59 @@ function save(){ if(S.battle) return; try{ localStorage.setItem('graveborne_v01'
 // pre-v0.60 backfill. Idempotent and null-safe, and called from BOTH load() AND tryResumeBattle() —
 // the resume path replaces S wholesale and never touches load(), so a version bump landing while a battle
 // is stashed (the mobile-rotate case the stash exists for) would otherwise resume into a save with no deeds.
+// A save is "realm shaped" only if the sheet is the right size AND the corners exist. S.realm alone
+// says "migration was attempted", not "it finished" — a mid-flight throw used to leave an unflagged
+// half-migrated save that re-shifted on the next boot.
+function realmShaped(){
+  return !!(S.hexes && Object.keys(S.hexes).length===COLS*ROWS
+            && S.hexes[hexKey(COLS-1,ROWS-1)] && S.hexes[hexKey(PW,PH*2)]);
+}
 function migrateV062(){
-  if(S.realm)return false;
-  const oldHexes=S.hexes, oldCar=S.caravan, OQ=PW, OR=PH*2;   // the March's new origin on the realm sheet
+  // SHAPE is the source of truth, not the flag. A realm-shaped sheet must never be shifted again, no
+  // matter what S.realm says — that is what turned the March into a 176-hex mountain slab.
+  if(realmShaped()){
+    if(S.realm)return false;
+    S.realm=true; S.provKnown=S.provKnown||{0:true}; S.provIntel=S.provIntel||{};
+    while(S.regions.length<REGION_DEFS.length){ const i=S.regions.length,d=REGION_DEFS[i];
+      S.regions.push({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-6,6)),swallowed:false}); }
+    return true;
+  }
+  const oldHexes=S.hexes;
+  const oldCar=oldHexes?S.caravan:null, OQ=PW, OR=PH*2;
+  S.realm=true;                                            // claim it FIRST so a throw can't produce a half-state
   while(S.regions.length<REGION_DEFS.length){ const i=S.regions.length,d=REGION_DEFS[i];
     S.regions.push({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-6,6)),swallowed:false}); }
   genWorld();
   if(oldHexes) for(const k in oldHexes){ const o=oldHexes[k]; const h=hex(o.q+OQ,o.r+OR);
-    if(h&&h.prov===0){ h.t=o.t; h.road=o.road; h.blighted=o.blighted; h.feat=o.feat; h.setl=o.setl; h.region=o.region; } }
+    if(!h||h.prov!==0)continue;
+    // Never let the overlay undo a carved chokepoint road, and never reintroduce impassable mountain
+    // where genWorld cut a way through. Normalise fields ancient saves may not carry at all.
+    const carved=!!h.choke||(h.road&&o.t==='mountain');
+    if(!carved)h.t=o.t||'plains';
+    h.road=!!o.road||!!h.road;
+    h.blighted=!!o.blighted;
+    h.feat=(o.feat===undefined?null:o.feat);
+    h.setl=(o.setl===undefined?null:o.setl);
+    if(typeof o.region==='number'&&o.region>=0)h.region=o.region;
+  }
   if(oldCar)S.caravan={q:oldCar.q+OQ,r:oldCar.r+OR};
-  for(const a of (S.agents||[])){ if(a.q!==undefined){a.q+=OQ;a.r+=OR;} }
-  for(const c of (S.contracts||[])){ if(c.q!==undefined){c.q+=OQ;c.r+=OR;} }
-  if(S.story&&S.story.meetHex){ S.story.meetHex.q+=OQ; S.story.meetHex.r+=OR; }
-  S.realm=true; S.provKnown={0:true}; S.provIntel={};
+  if(oldHexes){
+    for(const a of (S.agents||[])){ if(a.q!==undefined){a.q+=OQ;a.r+=OR;} }
+    for(const c of (S.contracts||[])){ if(c.q!==undefined){c.q+=OQ;c.r+=OR;} }
+    if(S.story&&S.story.meetHex){ S.story.meetHex.q+=OQ; S.story.meetHex.r+=OR; }
+  }
+  S.provKnown=S.provKnown||{0:true}; S.provIntel=S.provIntel||{};
+  S.log=S.log||[];
   S.log.unshift({msg:'The maps got bigger. Karsk is one province of seven, and the March turns out to be the middle of nothing.',cls:'wk',week:S.week});
+  return true;
+}
+// v0.62 saves already have the realm; they only lack the frame flag. A campaign that already finished
+// Act I gets the wide map immediately — it earned it.
+function migrateV063(){
+  if(S.mapWide!==undefined)return false;
+  S.mapWide=!!(S.story&&S.story.stage>=10);
+  if(S.crossTried===undefined)S.crossTried={};
+  if(S.actOneClosed===undefined)S.actOneClosed=!!(S.story&&S.story.stage>=10);
   return true;
 }
 function migrateV060(){
@@ -1128,7 +1185,9 @@ function deedAddQuiet(s,id,note){   // seeding writes the record without the fir
   if(!s||!DEEDS[id])return; s.deeds=s.deeds||[];
   if(!s.deeds.some(d=>d.id===id))s.deeds.push({id,week:S.week,note});
 }
-function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01')); if(d&&d.S&&!d.S.battle){S=d.S;uid=d.uid;
+function load(){ const _raw=localStorage.getItem('graveborne_v01');
+  try{ if(_raw&&!localStorage.getItem(BACKUP_KEY))localStorage.setItem(BACKUP_KEY,_raw); }catch(e){}   // one-shot pre-realm snapshot
+  try{ const d=JSON.parse(_raw); if(d&&d.S&&!d.S.battle){S=d.S;uid=d.uid;
   S.regions.forEach(r=>{ if(r.swallowed&&r.salvage===undefined) r.salvage=6; }); // pre-salvage saves
   // pre-world-map saves: add the day clock and the wider March
   if(S.day===undefined) S.day=(S.week-1)*7;
@@ -1140,6 +1199,9 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
   if(!S.hexes){
     S.agents=S.agents||[];
     genWorld();
+    // this branch already builds a REALM-shaped sheet — claim it, or migrateV062 shifts it a second
+    // time and paints the March with the empty corner cell (176 mountain hexes, caravan off-map).
+    S.realm=true; S.provKnown={0:true}; S.provIntel={};
     const at=(S.at!==undefined?S.at:1);
     S.caravan={q:realmQ(at),r:realmR(at)};
     S.contracts=[]; genContracts(); seedAgents();
@@ -1174,11 +1236,12 @@ function load(){ try{ const d=JSON.parse(localStorage.getItem('graveborne_v01'))
   if(S.story&&S.roster.length&&!S.roster.some(x=>x.commander)){ ensureCommander(); touched=true; }
   // pre-v0.9 saves already at stage 5: schedule the barrow meeting
   if(S.story&&S.story.stage===5&&!S.story.meetWeek){
-    const bs=Object.values(S.hexes).filter(h=>h.feat==='barrow');
+    const bs=Object.values(S.hexes).filter(h=>h.feat==='barrow'&&h.prov===caravanProv());
     const bh=bs.length?pick(bs):randomWildHex();
     if(bh){ if(!bh.feat)bh.feat='barrow'; S.story.meetWeek=S.week+3; S.story.meetHex={q:bh.q,r:bh.r}; touched=true; }
   }
-  if(migrateV062())touched=true;
+  if(migrateV062())touched=true;   // may throw; the caller's catch restores from BACKUP_KEY rather than starting a new company
+  if(migrateV063())touched=true;
   if(migrateV060())touched=true;
   if(touched)save();
   return true;} }catch(e){} return false; }
@@ -1200,7 +1263,7 @@ function tryResumeBattle(){ try{
   if(d&&d.S&&d.S.battle&&!d.S.battle.over&&(Date.now()-(d.t||0)<30*60000)){   // fresh (<30 min) so a long-abandoned fight doesn't resurrect
     S=d.S; uid=d.uid; const B=S.battle;
     if(typeof d.GW==='number')GW=d.GW; if(typeof d.GH==='number')GH=d.GH;     // restore the map dimensions tileAt() relies on
-    migrateV062(); migrateV060();                                             // the resume path skips load() — backfill here too, or a mid-battle version bump resumes into a save with no deeds
+    migrateV062(); migrateV063(); migrateV060();                                             // the resume path skips load() — backfill here too, or a mid-battle version bump resumes into a save with no deeds
     delete B._vis; delete B._conn; B._lastPos=null; B._camTouched=false;      // re-fit the camera to the current (possibly rotated) viewport
     return true;
   }
@@ -1209,6 +1272,10 @@ function tryResumeBattle(){ try{
 /* ============================== STRATEGY LAYER ============================== */
 /* ===== v0.62 THE REALM: fog, rumour, crossings, stationing ===== */
 function provKnown(i){ return !!(S.provKnown&&S.provKnown[i]); }
+// The ladder: 0 unknown · 1 rumoured (it borders somewhere you have walked) · 2 entered.
+// Adjacency is free — it falls straight out of the chokepoint graph.
+function provAdjacent(i){ return CHOKES.some(c=>(c.a===i&&provKnown(c.b))||(c.b===i&&provKnown(c.a))); }
+function provTier(i){ return provKnown(i)?2:(provAdjacent(i)?1:0); }
 function caravanProv(){ const h=caravanHex(); return h&&h.prov>=0?h.prov:0; }
 function regionsInProv(i){ return S.regions.filter(r=>REGION_DEFS[r.id]&&REGION_DEFS[r.id].prov===i); }
 function provPressure(i){ const rs=regionsInProv(i); return rs.length?Math.round(rs.reduce((a,r)=>a+r.pressure,0)/rs.length):0; }
@@ -1226,22 +1293,27 @@ function learnProv(i,how){
 // what you THINK you know about a province you haven't walked: a number, and how old it is
 function provIntelOf(i){
   const it=(S.provIntel||{})[i];
-  if(provKnown(i)||stationedIn(i).length)return {pressure:provPressure(i),week:S.week,fresh:true};
+  if(provKnown(i)||stationedIn(i).length)return {pressure:provPressure(i),week:S.week,fresh:true,seen:true};
   if(!it)return null;
-  return {pressure:it.pressure,week:it.week,fresh:false,age:S.week-it.week};
+  // seen:true means somebody actually looked (border work, a garrison's report) — the number is TRUE as of
+  // that week. Otherwise it is hearsay and carries drift. Both age; only one was ever accurate.
+  return {pressure:it.pressure,week:it.week,fresh:false,seen:!!it.seen,age:S.week-it.week};
 }
 const RUMOR_LINES=[
  'A carter out of {p} says the roads there have stopped being roads.',
- 'A pedlar swears the bells in {p} rang all night and nobody will say for whom.',
+ 'A grain factor will not send wagons into {p} at any price, and he has priced worse.',
  'Two deserters drinking hard: they came from {p}, and they will not go back.',
  'A Karsk courier, half-drunk: “{p}? Write it off. The maps are wrong already.”',
  'Word from {p} arrives three weeks stale and worse than when it was sent.',
 ];
 function realmRumors(){
-  // you hear about the places you cannot see — late, partial, and sometimes wrong
+  // you hear about the places you cannot see — late, partial, and sometimes wrong.
+  // Word travels along roads: a neighbouring province is far likelier to reach you than a far one.
   const unknown=PROV_DEFS.filter(P=>!provKnown(P.id));
   if(!unknown.length||!chance(45))return;
-  const P=pick(unknown);
+  const weighted=[];
+  for(const P of unknown){ const n=provAdjacent(P.id)?4:1; for(let i=0;i<n;i++)weighted.push(P); }
+  const P=pick(weighted);
   S.provIntel=S.provIntel||{};
   const drift=ri(-8,8);                                  // the number that reaches you is not quite the number
   S.provIntel[P.id]={week:S.week,pressure:clamp(provPressure(P.id)+drift,0,100),seen:false};
@@ -1255,7 +1327,10 @@ function stationWeekly(){
     S.provIntel[i]={week:S.week,pressure:provPressure(i),seen:true};   // a sword on the ground reports true
     const rs=regionsInProv(i);
     if(rs.length){ const r=pick(rs); r.pressure=Math.max(0,r.pressure-1); }
-    s.lastFieldedWeek=S.week;                             // holding ground counts as service to a patron
+    // NOTE: holding ground is NOT service to a patron. Writing lastFieldedWeek here made a garrisoned
+    // oath-holder immune to strain forever, which made stationing strictly dominant. A patron wants her
+    // seen in the field, not parked in a province.
+
   }
 }
 window.STATION=function(id,prov){
@@ -1269,6 +1344,15 @@ window.STATION=function(id,prov){
 };
 function crossingModal(C,toProv,dst,contractId){
   const P=provOf(toProv);
+  // Until the King is dead, the company has no business past the March's borders — and no standing to
+  // get past them. This is what keeps the reveal from being walked into by a curious week-2 player.
+  if(!S.mapWide){
+    showModal(C.n,`<p>${esc(C.line)}</p>
+      <p>The watch wants to know whose banner this is, and on whose business. You have no answer that ends with you on the far side.</p>
+      <p class="hint">There is nothing out there for a company with no name yet. Finish what the March is asking first.</p>`,
+      [{label:'Turn back',cls:'primary',fn:()=>closeModal()}]);
+    return;
+  }
   const body=`<p>${esc(C.line)}</p><p class="hint">Beyond the crossing: <b>${esc(P.n)}</b>. ${esc(P.blurb)}</p>`;
   const cross=how=>{ learnProv(toProv,how); closeModal(); travelTo(dst.q,dst.r,contractId); };
   const outs=[];
@@ -1284,9 +1368,12 @@ function crossingModal(C,toProv,dst,contractId){
     outs.push({label:'Buy the letters (80c) — almost genuine',cls:'pick',disabled:S.coin<80,
       fn:()=>{ S.coin-=80; cross('the letters were almost genuine'); }});
   }
-  if(C.gate==='fight')
+  if(C.gate==='fight'&&(S.crossTried||{})[C.n]===S.week)
+    outs.push({label:'The way is still held — you tried it this week',cls:'pick',disabled:true,fn:()=>{}});
+  if(C.gate==='fight'&&(S.crossTried||{})[C.n]!==S.week)
     outs.push({label:'Force the crossing — put the squad through it',cls:'danger',fn:()=>{
       closeModal();
+      S.crossTried=S.crossTried||{}; S.crossTried[C.n]=S.week;   // one attempt a week: no round-2-retreat farm
       let rid=REGION_DEFS.findIndex(d=>d.prov===toProv); if(rid<0)rid=0;
       pickSquad(sq=>startBattle({id:nid(),type:'purge',regionId:rid,pay:0,danger:3,obj:'slay',
         cname:C.n,q:dst.q,r:dst.r,expires:S.week+99,crossTo:toProv,crossQ:dst.q,crossR:dst.r},sq));
@@ -1296,12 +1383,13 @@ function crossingModal(C,toProv,dst,contractId){
 }
 function realmStrip(){
   const cp=caravanProv();
-  const chips=PROV_DEFS.map(P=>{
+  const chips=PROV_DEFS.filter(P=>provTier(P.id)>0||P.id===cp).map(P=>{
     const known=provKnown(P.id), here=P.id===cp, it=provIntelOf(P.id), st=stationedIn(P.id);
     const col=here?'#c9a227':known?'#9ab86f':it?'#8a7f6a':'#4a443a';
-    const press=it?`${it.pressure}%${it.fresh?'':` <span style="opacity:.7">(wk ${it.week})</span>`}`:'—';
+    const press=it?`${it.pressure}%${it.fresh?'':` <span style="opacity:.7">(${it.seen?'seen':'said'} wk ${it.week})</span>`}`:'—';
     const tip=known?`${P.blurb}\nBlight pressure ${provPressure(P.id)}%${st.length?'\nHolding: '+st.map(x=>x.name).join(', '):''}`
-      :it?`${P.blurb}\nHearsay from week ${it.week}. It may already be wrong.`
+      :it?(it.seen?`${P.blurb}\nSomeone of yours saw this in week ${it.week}. The number was true then.`
+                 :`${P.blurb}\nHearsay from week ${it.week}. It may already be wrong.`)
          :`${P.blurb}\nYou have heard nothing you would repeat.`;
     return `<span class="tag tt" style="border-color:${col};color:${col}" data-tip="${esc(tip)}">${here?'⛺ ':''}${esc(P.n)} ${press}${st.length?' ⚔'+st.length:''}</span>`;
   }).join(' ');
@@ -1336,6 +1424,7 @@ function genContracts(){
     if(rk==='karsk'&&oathPaying('karsk'))pay=Math.round(pay*1.10);   // a sworn sword at court is worth coin
     S.contracts.push({id:nid(),type,regionId:r.id,pay,danger,q:anchor.q,r:anchor.r,expires:S.week+2,obj:rollObjective(type)});
   }
+  genFarWork();
   // frontier floor — ONLY in the first three weeks: keep one danger-1 contract open so a green company has
   // somewhere to blood itself. From week 4 the easy work dries up (danger clamps to 2+ above), so no XP farming.
   if(S.week<4&&!S.contracts.some(c=>c.danger===1)){
@@ -1345,6 +1434,50 @@ function genContracts(){
       if(fc&&fc.danger>1){ fc.danger=1; fc.pay=Math.round((CONTRACT_TYPES[fc.type].base+15)*(1+front.pressure/150)); fc.frontier=true; break; }
     }
   }
+}
+/* ---- v0.63 FAR WORK — the reason to look past your own border.
+   Before the reveal it is border work: posted on YOUR side of a crossing, aimed at a province you have
+   only heard about, and winning it buys you TRUE word of what is over there. After the reveal the same
+   forge posts real work inside provinces you have walked. One at a time, always. ---- */
+function farWorkChoke(){
+  const cp=caravanProv();
+  const cands=CHOKES.filter(c=>{
+    const other=c.a===cp?c.b:(c.b===cp?c.a:null);
+    return other!==null&&!provKnown(other);
+  });
+  return cands.length?pick(cands):null;
+}
+function genFarWork(){
+  if(S.contracts.some(c=>c.farWork))return;
+  if(!S.mapWide){
+    // Act I: border work against a rumoured neighbour
+    if(S.week<3)return;
+    const C=farWorkChoke(); if(!C)return;
+    const cp=caravanProv(), other=C.a===cp?C.b:C.a;
+    const hexes=Object.values(S.hexes).filter(h=>h.choke===C.n&&h.prov===cp);
+    const anchor=hexes.length?pick(hexes):null; if(!anchor)return;
+    const reg=hex(anchor.q,anchor.r).region; if(reg<0)return;
+    const ct=CONTRACT_TYPES.purge;
+    S.contracts.push({id:nid(),type:'purge',regionId:reg,
+      pay:Math.round((ct.base+45)*1.4),danger:3,q:anchor.q,r:anchor.r,expires:S.week+3,
+      obj:'slay',farWork:true,farProv:other,
+      cname:'Work Out of '+provOf(other).n});
+    log(`⚑ Work has come down the road out of ${provOf(other).n}. Whoever posted it paid well to have it done on this side of the line.`,'wk');
+    return;
+  }
+  // Post-reveal: real work in a province you have walked, priced for the march
+  const far=PROV_DEFS.filter(P=>provKnown(P.id)&&P.id!==caravanProv());
+  if(!far.length)return;
+  const P=pick(far);
+  const rs=regionsInProv(P.id).filter(r=>!r.swallowed);
+  if(!rs.length)return;
+  const r=pick(rs), type=pick(['purge','hold','hunt','patrol']), ct=CONTRACT_TYPES[type];
+  const anchor=contractAnchor(r.id,type)||{q:realmQ(r.id),r:realmR(r.id)};
+  const path=hexPath(S.caravan,anchor), days=path?travelDays(path):8;
+  S.contracts.push({id:nid(),type,regionId:r.id,
+    pay:Math.round((ct.base+dangerOf(r)*15)*1.4+days*8),danger:Math.max(2,dangerOf(r)),
+    q:anchor.q,r:anchor.r,expires:S.week+4,obj:rollObjective(type),farWork:true,farProv:P.id,
+    cname:'Far Work — '+P.n});
 }
 function contractAnchor(regionId,type){
   const mine=Object.values(S.hexes).filter(h=>h.region===regionId&&h.t!=='mountain'&&h.setl===null);
@@ -1384,7 +1517,10 @@ function stepToward(a,target){
   if(p&&p.length>1){a.q=p[1].q;a.r=p[1].r;}
 }
 function regionNameAt(a){const h=hex(a.q,a.r);return h?S.regions[h.region].name:'the March';}
-function nearestSettlementHex(a){ let best=null,bd=1e9; REGION_DEFS.forEach(d=>{const dd=hexDist(a,{q:d.q,r:d.r}); if(dd<bd){bd=dd;best={q:d.q,r:d.r};}}); return best; }
+function nearestSettlementHex(a){ let best=null,bd=1e9; const ah=hex(a.q,a.r), ap=ah?ah.prov:0;
+  REGION_DEFS.forEach((d,i)=>{ if(d.prov!==ap)return;                      // a horde walks on the settlements of its OWN province
+    const t={q:realmQ(i),r:realmR(i)}, dd=hexDist(a,t); if(dd<bd){bd=dd;best=t;} });
+  return best; }
 function agentsDaily(){
   let intercept=null;
   for(const a of S.agents.slice()){
@@ -1532,12 +1668,16 @@ function weeklyTick(){
   // blight pressure spreads along the roads — the front advances by corridor
   for(const r of S.regions){
     if(r.swallowed) continue;
-    r.pressure+=ri(1,4);
-    for(const nb of neighbors(r.id)){
+    // Ground you have never walked rots slowly and never falls: revealing a continent of corpses is
+    // strictly worse than hiding a live one. Seen ground keeps the Act-I clock exactly as tuned.
+    const seen=provKnown((REGION_DEFS[r.id]||{}).prov||0);
+    r.pressure+=seen?ri(1,4):(chance(35)?1:0);
+    if(seen)for(const nb of neighbors(r.id)){
       const n2=S.regions[nb];
       if(n2.swallowed) r.pressure+=ri(2,5);
       else if(n2.pressure>=70) r.pressure+=1;
     }
+    if(!seen)r.pressure=Math.min(r.pressure,97);
     if(r.pressure>=100){ swallowRegion(r); }
   }
   // graves: lost bodies rise
@@ -1644,7 +1784,8 @@ function hire(idx){
   save(); render();
 }
 function checkGameOver(){
-  if(S.regions.every(r=>r.swallowed)){
+  const lived=S.regions.filter(r=>provKnown((REGION_DEFS[r.id]||{}).prov||0));
+  if(lived.length&&lived.every(r=>r.swallowed)){
     S.over=true;
     log('There is nowhere left to stand. The March belongs to the Blight.','bad');
     return;
@@ -1666,8 +1807,10 @@ function ensureCommander(){
 }
 function pickDeserterTown(){
   const cur=(caravanHex()||{}).region;
-  const opts=REGION_DEFS.map((d,i)=>i).filter(i=>!S.regions[i].swallowed&&i!==cur);
-  return opts.length?pick(opts):ri(0,REGION_DEFS.length-1);
+  const opts=REGION_DEFS.map((d,i)=>i).filter(i=>!S.regions[i].swallowed&&i!==cur&&provKnown(REGION_DEFS[i].prov));
+  if(opts.length)return pick(opts);
+  const home=REGION_DEFS.map((d,i)=>i).filter(i=>REGION_DEFS[i].prov===caravanProv());
+  return home.length?pick(home):0;
 }
 function desert(s){
   removeFromRoster(s);
@@ -2238,6 +2381,7 @@ function startBattle(contract,squadIds){
     }
   });
   B.crossTo=(contract.crossTo!==undefined&&contract.crossTo!==null)?contract.crossTo:null;
+  B.farProv=(contract.farProv!==undefined&&contract.farProv!==null)?contract.farProv:null;
   B.crossQ=contract.crossQ; B.crossR=contract.crossR;
   B.chargesTotal=B.units.filter(u=>u.kind==='ally').length;   // for Shield of the Folk: every charge home breathing
   if(squadIds.some(id=>{const s=soldierById(id);return s&&s.oath&&s.oath.to==='banner'&&s.oath.state!=='broken';}))
@@ -3567,6 +3711,11 @@ function endBattle(outcome){
   }
   // v0.60 — the retinue's fate resolves BEFORE the honours: bodies answered first, then what gets told.
   // Both are synchronous state writes; only the presentation queues, and only one Name-system modal per battle.
+  if(outcome==='victory'&&B.farProv!==null&&B.farProv!==undefined&&!provKnown(B.farProv)){
+    S.provIntel=S.provIntel||{};
+    S.provIntel[B.farProv]={week:S.week,pressure:provPressure(B.farProv),seen:true};
+    log(`The dead were carrying word as well as steel. You know what ${provOf(B.farProv).n} looks like now — this week, not last season.`,'good');
+  }
   if(outcome==='victory'&&B.crossTo!==null&&B.crossTo!==undefined){
     learnProv(B.crossTo,'you took the crossing by force');
     if(B.crossQ!==undefined)S.caravan={q:B.crossQ,r:B.crossR};
@@ -4086,7 +4235,7 @@ function satchelScene(){
   S.coin+=80; S.renown+=2;
   spawnAgent('hunters',randomWildHex(),{str:12});
   // the meeting under the barrow — three weeks hence, and it will not wait for you
-  let barrows=Object.values(S.hexes).filter(h=>h.feat==='barrow');
+  let barrows=Object.values(S.hexes).filter(h=>h.feat==='barrow'&&h.prov===caravanProv());
   if(!barrows.length){ const h=randomWildHex(); if(h){h.feat='barrow'; barrows=[h];} }
   const bh=pick(barrows);
   S.story.meetWeek=S.week+3;
@@ -4174,9 +4323,33 @@ function startFinale(){
      {label:'Not yet — steel the company',fn:()=>closeModal()}]);
 }
 function finaleVictory(){
-  S.story.stage=10; S.victory=true; S.over=true;
+  // Act I closes; the run does NOT end. The king's death is the roadmap's opening of Act II, so this
+  // is where the frame comes off the map. The player who wants v0.62's ending keeps it as a choice.
+  S.story.stage=10; S.victory=true; S.actOneClosed=true;
   log('Magister Vell is dead. The hand that fed the Blight is off the board. The March will remember your banner.','wk');
+  queueModal(()=>revealModal());
   save();
+}
+function revealModal(){
+  showModal('One March Among Seven',
+    `<p>Vell is dead in the throne room, and the King has been dead since Tuesday. The difference between those two facts is three days and a great deal of paper.</p>
+     <p>By the week's end there are riders on the Gate Road who have never heard of you, going somewhere that is not here, and they go <b>through</b> the March because the March is on the way.</p>
+     <p>In the yard a carter is asked what the fighting was about. He spits into the straw. “Six villages and a fen. That’s what the war was.”</p>
+     <p class="hint">The crossings are open. Whatever standing your banner has, it has it out there too — and so does everything you did to earn it.</p>`,
+    [{label:'Look at the map',cls:'primary',fn:()=>{ openRealm(); closeModal(); }},
+     {label:'Close the chronicle here',fn:()=>{ S.over=true; closeModal(); save(); render(); }}]);
+}
+function openRealm(){
+  if(S.mapWide)return;
+  S.mapWide=true;
+  for(const P of PROV_DEFS) if(provAdjacent(P.id)&&!provKnown(P.id)){
+    S.provIntel=S.provIntel||{};
+    if(!S.provIntel[P.id])S.provIntel[P.id]={week:S.week,pressure:provPressure(P.id),seen:false};
+  }
+  S._mapFlip=true;                       // one-shot: render() plays the frame transition, then clears it
+  log('The maps get bigger. Karsk is one province of seven, and the March turns out to be the middle of nothing.','wk');
+  S.chronicle.push(`Week ${S.week}: the company looked at a map of Vhal and found the March in the middle of it.`);
+  save(); render();
 }
 function checkBarrow(){
   if(!S.story||S.story.stage!==5||!S.story.meetHex||S.battle)return false;
@@ -4254,6 +4427,7 @@ function closeModal(){ activeModal=null; save(); render(); pumpModals(); if(S.ba
 /* ============================== RENDER ============================== */
 function render(){
   const app=document.getElementById('app');
+  if(S&&S._mapFlip)setTimeout(()=>{ if(S){S._mapFlip=false;} },40);   // one-shot frame transition
   if(!S){app.innerHTML='';return;}
   let html='';
   if(S.over) html=renderGameOver();
@@ -4424,7 +4598,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.62</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.63</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -4432,9 +4606,22 @@ function header(){
     <span style="flex:1"></span><button onclick="NEWGAME()">New Company</button></div>`;
 }
 function hexPts(cx,cy,s){let p=[];for(let i=0;i<6;i++){const a=Math.PI/180*(60*i);p.push((cx+s*Math.cos(a)).toFixed(1)+','+(cy+s*Math.sin(a)).toFixed(1));}return p.join(' ');}
+// hex geometry is fixed for the life of the sheet — compute the outlines once, reuse every render
+const HEXGEO={pts:null,d:null};
+function hexGeo(){
+  if(HEXGEO.pts)return HEXGEO;
+  HEXGEO.pts={}; HEXGEO.d={};
+  for(let q=0;q<COLS;q++)for(let r=0;r<ROWS;r++){
+    const c=hexCenter(q,r), k=q+','+r;
+    HEXGEO.pts[k]=hexPts(c.x,c.y,HXS-0.8);
+    HEXGEO.d[k]='M'+HEXGEO.pts[k].replace(/ /g,'L')+'Z';
+  }
+  return HEXGEO;
+}
 function hexCenter(q,r){const s=HXS;return{x:s*1.5*q+s+2,y:s*Math.sqrt(3)*(r+0.5*(q%2))+s+2};}
 function hexTitle(h){
   const reg=S.regions[h.region];
+  if(!reg)return hexDesc(h);
   let t=hexDesc(h)+' — '+(reg.swallowed?'SWALLOWED':'pressure '+reg.pressure);
   if(h.road)t+=' · road';
   if(h.blighted)t+=' · blighted';
@@ -4473,27 +4660,66 @@ function hexArt(h,x,y){
 }
 function hexSvg(){
   const TC={plains:'#2e2a20',forest:'#26301f',hills:'#37322a',marsh:'#28302c',mountain:'#453f35'};
+  // fogged provinces are drawn, but drained of colour — you can see the SHAPE of the world you haven't walked
+  const FOG={plains:'#262218',forest:'#232b1d',hills:'#2c2822',marsh:'#232926',mountain:'#332f28'};
+  const G=hexGeo();
   let out='<defs><radialGradient id="vig" cx="50%" cy="42%" r="78%"><stop offset="60%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,.45)"/></radialGradient></defs>',glyphs='';
   const CP=caravanProv();
-  const vis=h=>h.prov===CP||(h.choke&&hexNbrs(h.q,h.r).some(n=>n.prov===CP));
+  const focus=h=>h.prov===CP||(h.choke&&hexNbrs(h.q,h.r).some(n=>n.prov===CP));
+  // ---- batched tier: every province you are NOT standing in, as one path per terrain bucket ----
+  const buckets={};
   for(const k in S.hexes){
-    const h=S.hexes[k]; if(!vis(h))continue;            // the map shows the province you are IN; the rest is rumour
+    const h=S.hexes[k];
+    if(h.prov<0||focus(h))continue;
+    const known=provKnown(h.prov);
+    const fill=h.blighted?(known?'#2c2138':'#231b2c'):(known?TC[h.t]:FOG[h.t]);
+    (buckets[fill]=buckets[fill]||[]).push(G.d[k]);
+  }
+  for(const fill in buckets)
+    out+=`<path d="${buckets[fill].join('')}" fill="${fill}" stroke="#191612" stroke-width="0.6" pointer-events="none"/>`;
+  // province names + settlement dots carry the far world without per-hex cost
+  for(const P of PROV_DEFS){
+    if(P.id===CP)continue;
+    const t=provTier(P.id), a0=hexCenter(P.q0,P.r0), b0=hexCenter(P.q0+PW-1,P.r0+PH-1);
+    const cx=(a0.x+b0.x)/2, cy=(a0.y+b0.y)/2;
+    const col=t>=2?'#c9b48a':t===1?'#9d907a':'#6b6353';
+    const fs=S.mapWide?34:16;                      // the label must read at realm zoom, not just up close
+    out+=`<text x="${cx.toFixed(0)}" y="${cy.toFixed(0)}" text-anchor="middle" pointer-events="none" `
+       +`style="fill:${col};font-size:${fs}px;letter-spacing:${S.mapWide?6:2}px;font-weight:bold;`
+       +`opacity:${t>=2?0.8:t===1?0.62:0.42}">`
+       +`${esc(t===0?'? ? ?':P.n.toUpperCase())}</text>`;
+    if(S.mapWide&&t>0)out+=`<text x="${cx.toFixed(0)}" y="${(cy+26).toFixed(0)}" text-anchor="middle" pointer-events="none" `
+       +`style="fill:${col};font-size:15px;opacity:.55">${esc(P.blurb.split('.')[0])}</text>`;
+  }
+  for(const k in S.hexes){ const h=S.hexes[k];
+    if(h.prov<0||focus(h)||h.setl===null)continue;
+    const c=hexCenter(h.q,h.r), known=provKnown(h.prov);
+    out+=`<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${S.mapWide?4.5:2.6}" fill="${known?'#c9b48a':'#6b6353'}" pointer-events="none"/>`;
+    if(known)out+=`<text x="${c.x.toFixed(1)}" y="${(c.y+HXS-3).toFixed(1)}" class="hx" style="fill:#8a7f6a;font-size:7px">${esc(REGION_DEFS[h.setl].s)}</text>`;
+  }
+  if(S.mapWide){ const FB=provOf(CP), fa=hexCenter(FB.q0,FB.r0), fb=hexCenter(FB.q0+PW-1,FB.r0+PH-1);
+    out+=`<rect x="${(fa.x-HXS).toFixed(0)}" y="${(fa.y-HXS).toFixed(0)}" width="${(fb.x-fa.x+HXS*2).toFixed(0)}" `
+       +`height="${(fb.y-fa.y+HXS*2).toFixed(0)}" fill="none" stroke="#c9a227" stroke-width="2.5" `
+       +`stroke-dasharray="10 7" opacity=".55" pointer-events="none"/>`; }
+  // ---- focus tier: the province you are standing in, at full fidelity ----
+  for(const k in S.hexes){
+    const h=S.hexes[k]; if(!focus(h))continue;
     const{x,y}=hexCenter(h.q,h.r);
     let fill=h.blighted?'#2c2138':TC[h.t];
     if(h.setl!==null&&!h.blighted)fill='#3d352a';
     if(h.prov!==CP)fill='#1a1712';                      // the far side of a crossing: seen, not entered
     const seld=sel===k;
     out+=`<g onclick="HEX(${h.q},${h.r})" style="cursor:pointer"><title>${esc(hexTitle(h))}</title>
-      <polygon points="${hexPts(x,y,HXS-0.8)}" fill="${fill}" stroke="${seld?'#c9a227':'#191612'}" stroke-width="${seld?2.2:1}"/></g>`;
+      <polygon points="${G.pts[k]}" fill="${fill}" stroke="${seld?'#c9a227':'#191612'}" stroke-width="${seld?2.2:1}"/></g>`;
     glyphs+=hexArt(h,x,y);
     if(h.setl!==null)glyphs+=`<text x="${x}" y="${y+HXS-3}" class="hx" style="fill:#c9b48a;font-size:8.5px">${esc(REGION_DEFS[h.setl].s)}</text>`;
   }
   // roads drawn as visible tracks between adjacent road hexes
   const segs=new Set();
   for(const k in S.hexes){
-    const h=S.hexes[k]; if(!h.road||!vis(h))continue;
+    const h=S.hexes[k]; if(!h.road||!focus(h))continue;
     for(const nb of hexNbrs(h.q,h.r)){
-      if(!nb.road||!vis(nb))continue;
+      if(!nb.road||!focus(nb))continue;
       const key=[k,hexKey(nb.q,nb.r)].sort().join('|');
       if(segs.has(key))continue; segs.add(key);
       const a=hexCenter(h.q,h.r),b2=hexCenter(nb.q,nb.r);
@@ -4502,7 +4728,7 @@ function hexSvg(){
     }
   }
   // chokepoint pips — the only ways out of a province, and each one wants something
-  for(const k in S.hexes){ const h=S.hexes[k]; if(!h.choke||!vis(h)||h.prov!==CP)continue;
+  for(const k in S.hexes){ const h=S.hexes[k]; if(!h.choke||!focus(h)||h.prov!==CP)continue;
     const{x,y}=hexCenter(h.q,h.r);
     out+=`<g pointer-events="none"><circle cx="${x}" cy="${y-HXS*0.55}" r="7" fill="#17130e" stroke="#c9a227" stroke-width="1.6"/>`
         +`<text x="${x}" y="${y-HXS*0.55+3.5}" style="font-size:9px;fill:#c9a227;text-anchor:middle;font-weight:bold">⇄</text></g>`; }
@@ -4534,9 +4760,18 @@ function hexSvg(){
   if(sel){const [q,r]=sel.split(',').map(Number);const p=hexPath(S.caravan,{q,r});
     if(p&&p.length>1){let d='';p.forEach((st,i)=>{const c=hexCenter(st.q,st.r);d+=(i?'L':'M')+c.x.toFixed(1)+' '+c.y.toFixed(1)+' ';});
       out+=`<path d="${d}" fill="none" stroke="#c9a227" stroke-width="1.5" stroke-dasharray="4 3" pointer-events="none"/>`;}}
-  const PB=provOf(CP), pa=hexCenter(PB.q0,PB.r0), pb2=hexCenter(PB.q0+PW-1,PB.r0+PH-1);
-  const vx=(pa.x-HXS*2.2).toFixed(0), vy=(pa.y-HXS*2.2).toFixed(0);
-  const W=(pb2.x-pa.x+HXS*4.4).toFixed(0), Hh=(pb2.y-pa.y+HXS*4.4).toFixed(0);
+  // Act I frames ONE province, inflated so the neighbours' coastlines bleed off every edge and cannot
+  // be followed. The reveal does not draw more world — it stops cropping the world already drawn.
+  let vx,vy,W,Hh;
+  if(S.mapWide){
+    const c1=hexCenter(COLS-1,ROWS-1);
+    vx=0; vy=0; W=(c1.x+HXS*2).toFixed(0); Hh=(c1.y+HXS*2).toFixed(0);
+  } else {
+    const PB=provOf(CP), pa=hexCenter(PB.q0,PB.r0), pb2=hexCenter(PB.q0+PW-1,PB.r0+PH-1);
+    const bw=pb2.x-pa.x, bh=pb2.y-pa.y, pad=0.35;
+    vx=(pa.x-bw*pad/2-HXS).toFixed(0); vy=(pa.y-bh*pad/2-HXS).toFixed(0);
+    W=(bw*(1+pad)+HXS*2).toFixed(0); Hh=(bh*(1+pad)+HXS*2).toFixed(0);
+  }
   return `<svg viewBox="${vx} ${vy} ${W} ${Hh}" style="width:100%;background:#131009;border:1px solid var(--line);border-radius:4px;box-shadow:inset 0 0 30px rgba(0,0,0,.5)">${out}<rect width="100%" height="100%" fill="url(#vig)" pointer-events="none"/></svg>`;
 }
 window.NEWGAME=function(){ if(confirm('Raise a new banner? The current company is abandoned to the record.')) newGame(); };
@@ -4695,7 +4930,7 @@ function renderCompany(){
     </div>
     <div class="col" id="mapCol"><h2>The March</h2>
       ${realmStrip()}
-      ${hexSvg()}
+      <div id="mapwrap"${S._mapFlip?' class="mapflip"':''}>${hexSvg()}</div>
       <div class="hint" style="margin-top:4px">Tap any hex to inspect it. <span style="color:var(--gold)">!</span> contract · ⚑ brigands · ☠ Blight horde · ♞ Karsk column · ⚰ your dead · ⛺ the caravan. Purple ground is His.</div>
       ${sel?`<div class="mobileonly">${selectedPanel()}</div>`:''}
     </div>
@@ -5243,7 +5478,12 @@ if(tryResumeBattle()){                       // a fight was interrupted (reload 
   if(S.battle&&S.battle.phase==='enemy'&&!S.battle.over){ try{ maybeAI(); }catch(e){} }   // re-kick the enemy AI (its timers died with the old page)
   for(const s of S.roster){ (s.pendingFeats||[]).forEach(p=>queueModal(()=>featModal(s,p.opts.filter(f=>!s.feats.includes(f)),p.stat))); }   // a level-up earned mid-fight is still owed — the modalQ died with the old page
   pumpModals();
-} else if(!load()) newGame();
+} else if(!load()){
+  // load() swallows exceptions. If a save EXISTS and we got here, something failed mid-migration —
+  // never start a fresh company over a live campaign; offer the untouched backup instead.
+  if(localStorage.getItem('graveborne_v01')||localStorage.getItem(BACKUP_KEY))recoveryModal();
+  else newGame();
+}
 else {
   log('The record resumes.','wk');
   // self-heal interrupted choices: rites and feat picks owed from before a reload
