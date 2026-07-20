@@ -11,6 +11,13 @@ Single-file game — no build, no backend, saves to your device's localStorage. 
 - **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.64 (2026-07-19) — No Work Rides In From a Border You Haven't Opened
+v0.62 drew the line at the province: you start knowing only The March, and work is meant to keep to ground you've actually walked. The ordinary contract loop honored that — `genContracts` skips any region whose province you haven't opened. Two *special* postings did not.
+
+The Quartermaster commissions and the hunted-stranger rescue both chose their region the same lazy way — the calmest region in the whole realm — with no check on whether you could reach it. And the realm's calmest ground is almost always the Crownseat, deep in Karsk Proper, so a green company's very first Quartermaster commission would plant its ⚑ across a border it had no road to cross. Over 200 fresh starts the mission spawned outside The March in **69% of them** — the frontier equivalent of being handed a job in a country you're not allowed to enter.
+
+Both postings now carry the same gate the ordinary loop uses: they draw only from provinces you've opened. Before the reveal that means The March and nowhere else; cross a chokepoint and the newly-walked province becomes fair game like any other. The border holds both ways — it closes what you can't reach and opens what you can.
+
 ## v0.63 (2026-07-16) — The Whole Map, and the Moment You're Allowed to See It
 v0.62 built a continent and then hid it: the map only ever drew the province you stood in, so the realm existed as seven chips in a strip and nothing else. This is the rebuild — **the entire world is drawn now**, all seven provinces on one sheet, and the reveal is a change of *frame* rather than a change of content.
 

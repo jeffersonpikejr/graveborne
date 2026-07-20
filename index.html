@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.63</title>
+<title>GRAVEBORNE — alpha v0.64</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -1707,7 +1707,7 @@ function weeklyTick(){
   }
   // rare: a hunted underkingdom smoke-runner surfaces — rescue them (win with them alive) and they join
   if(S.week>=4&&S.roster.length<ROSTER_CAP&&!S.contracts.some(c=>c.cinderling)&&chance(7)){
-    const r=S.regions.filter(x=>!x.swallowed).sort((a,b)=>a.pressure-b.pressure)[0];
+    const r=S.regions.filter(x=>!x.swallowed&&provKnown((REGION_DEFS[x.id]||{}).prov||0)).sort((a,b)=>a.pressure-b.pressure)[0]; // only surfaces in a province you've walked to
     if(r){ const anchor=contractAnchor(r.id,'hunt')||{q:realmQ(r.id),r:realmR(r.id)};
       S.contracts.push({id:nid(),type:'hunt',regionId:r.id,pay:35,danger:Math.max(1,dangerOf(r)),q:anchor.q,r:anchor.r,expires:S.week+3,obj:'slay',cinderling:true,cname:'The Hunted Stranger'});
       log(`Rumor: a stranger who moves by ashfall and smoke is cornered in ${r.name}. Reach them before the grey riders do — such a one, in your debt, is worth ten swords.`,'wk');
@@ -4598,7 +4598,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.63</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.64</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -4910,7 +4910,7 @@ window.QMQUEST=function(kind){
   if(atSettlement()===null)return;
   const meta=QM_QUESTS[kind]; if(!meta)return;
   if(S.contracts.some(c=>c.qm===kind))return; // already posted
-  const r=S.regions.filter(x=>!x.swallowed).sort((a,b)=>a.pressure-b.pressure)[0]; if(!r)return;
+  const r=S.regions.filter(x=>!x.swallowed&&provKnown((REGION_DEFS[x.id]||{}).prov||0)).sort((a,b)=>a.pressure-b.pressure)[0]; if(!r)return; // only in a province you've actually walked to — no commissions across an unopened border
   const anchor=contractAnchor(r.id,meta.type)||{q:realmQ(r.id),r:realmR(r.id)};
   S.contracts.push({id:nid(),type:meta.type,regionId:r.id,pay:45,danger:Math.max(1,dangerOf(r)),q:anchor.q,r:anchor.r,expires:S.week+5,obj:meta.obj,qm:kind,cname:meta.cname});
   log(`Commission posted — ${meta.cname}. Look for the ⚑ in ${r.name}.`,'wk');
