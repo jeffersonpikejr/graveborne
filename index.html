@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GRAVEBORNE — alpha v0.64</title>
+<title>GRAVEBORNE — alpha v0.65</title>
 <style>
   :root{
     --bg:#100e0c; --panel:#1b1712; --panel2:#242019; --ink:#d8cdb8; --dim:#8a7f6b;
@@ -482,6 +482,64 @@ const WEAPONS={
  warbow:{n:'War Bow',lo:3,hi:5,rng:5,hitB:0,tier:2},
 };
 const ARMORS=[{n:'None',v:0,cost:0},{n:'Gambeson',v:1,cost:25},{n:'Mail Shirt',v:2,cost:60}];
+/* ---- v0.65 forged affixes: a prefix tempers the numbers, a suffix carries an ability. Rolled on battle
+   salvage (scaling with danger), the armorer's good batches, and the smith's best reforges — and priced
+   into the power budget (pw) so a named blade buys a harder war, never a free one. ---- */
+const W_PREFIX={
+  keen:    {n:'Keen',     d:'+10 to hit',                 hit:10,          pw:2},
+  heavy:   {n:'Heavy',    d:'+1 damage, −5 to hit',       dmg:1,hit:-5,    pw:1},
+  tempered:{n:'Tempered', d:'+1 damage',                  dmg:1,           pw:2},
+  cruel:   {n:'Cruel',    d:'+2 damage on the high roll', hi:2,            pw:1.5},
+  brutal:  {n:'Brutal',   d:'+2 damage, −10 to hit',      dmg:2,hit:-10,   pw:1.5},
+  blessed: {n:'Blessed',  d:'+2 damage to the dead',      vsdead:2,        pw:1},
+};
+const W_SUFFIX={
+  biting: {n:'of Biting Steel', d:'ignores 2 points of armor',       pierce:2, pw:2},
+  wolf:   {n:'of the Wolf',     d:'+2 damage to wounded foes',       wolf:2,   pw:1.5},
+  pyre:   {n:'of the Pyre',     d:'+3 damage to the dead',           vsdead:3, pw:1.5},
+  warding:{n:'of Warding',      d:'+1 armor while wielded',          arm:1,    pw:2},
+  vigil:  {n:'of the Vigil',    d:'+5 resolve while wielded',        res:5,    pw:1},
+  flights:{n:'of Long Flights', d:'+1 range',                        rng:1,    pw:2, ranged:true},
+  swift:  {n:'of the Swift Hand',d:'+1 speed while wielded',         spd:1,    pw:1.5},
+};
+const A_TEMPER={ // armor tempers — worked into a fitted piece; a new fitting strips the old work
+  warded: {n:'Warded',  d:'+1 armor',                                     arm:1,     pw:3},
+  fleet:  {n:'Fleet',   d:'+1 speed',                                     spd:1,     pw:2},
+  grim:   {n:'Grim',    d:'+5 resolve',                                   res:5,     pw:1},
+  padded: {n:'Padded',  d:'−10 to be hit by ranged attacks',              missile:10,pw:1.5},
+  thorned:{n:'Thorned', d:'melee attackers bleed 1 (it never kills them)',thorns:1,  pw:1.5},
+};
+// pooled numeric mods of whatever affixes ride on a unit's (or soldier's) weapon
+function wAffMods(u){
+  const out={dmg:0,hi:0,hit:0,rng:0,arm:0,res:0,spd:0,pierce:0,wolf:0,vsdead:0};
+  const a=u&&u.wAff; if(!a)return out;
+  for(const t of [W_PREFIX[a.pre],W_SUFFIX[a.suf]]){ if(!t)continue; for(const k in out)if(t[k])out[k]+=t[k]; }
+  return out;
+}
+function wpnName(key,aff){
+  const w=WEAPONS[key]||{n:'?'}, p=aff&&W_PREFIX[aff.pre], sfx=aff&&W_SUFFIX[aff.suf];
+  return `${p?p.n+' ':''}${w.n}${sfx?' '+sfx.n:''}`;
+}
+function wpnAffLines(aff){
+  const out=[]; if(!aff)return out;
+  const p=W_PREFIX[aff.pre]; if(p)out.push(`${p.n}: ${p.d}`);
+  const sfx=W_SUFFIX[aff.suf]; if(sfx)out.push(`${sfx.n}: ${sfx.d}`);
+  return out;
+}
+// what an affix set is worth to the enemy budget — a named blade is real power and prices like it
+function affPwOf(wAff,aAff){
+  let p=0;
+  if(wAff){ const a=W_PREFIX[wAff.pre]; if(a)p+=a.pw; const b=W_SUFFIX[wAff.suf]; if(b)p+=b.pw; }
+  const t=A_TEMPER[aAff]; if(t)p+=t.pw;
+  return p;
+}
+// salvage roll — deeper danger, better steel. `ranged` gates the ranged-only suffixes off melee finds.
+function rollWAff(danger,ranged){
+  const d=clamp(danger||1,1,3),aff={};
+  if(chance(20+d*15))aff.pre=pick(Object.keys(W_PREFIX));
+  if(chance(5+d*10))aff.suf=pick(Object.keys(W_SUFFIX).filter(k=>ranged||!W_SUFFIX[k].ranged));
+  return (aff.pre||aff.suf)?aff:null;
+}
 const ENEMIES={
  brigand:{n:'Brigand',hp:8,skl:3,spd:4,w:'shortsword',arm:0,undead:false,xp:3},
  archer:{n:'Brigand Archer',hp:6,skl:3,spd:4,w:'bow',arm:0,undead:false,xp:3},
@@ -664,8 +722,14 @@ function moveCost(h){
 }
 // carve=true lets the router cut through mountain at a stiff price — used once, at world-gen, to
 // drive the chokepoint roads through the spine. Normal travel never sees it.
-function hexPath(a,b,carve){
+// knownOnly=true (v0.65) routes the CARAVAN: only through provinces the company has opened, plus the
+// destination's own (so a first crossing into an adjacent unknown province still previews and triggers
+// its chokepoint). Without it the wagons could be routed straight through ground you've never answered
+// for at a border — or refused a two-crossing march between provinces you've both walked.
+function hexPath(a,b,carve,knownOnly){
   const start=hexKey(a.q,a.r),goal=hexKey(b.q,b.r);
+  const dh=hex(b.q,b.r), dp=dh?dh.prov:-1;
+  const allowed=h=>!knownOnly||h.prov<0||h.prov===dp||provKnown(h.prov);
   const cost=h=>{ const c=moveCost(h); return (c===Infinity&&carve)?12:c; };
   if(cost(hex(b.q,b.r))===Infinity)return null;
   const dist={};dist[start]=0;
@@ -678,7 +742,7 @@ function hexPath(a,b,carve){
     if(cur.k===goal)break;
     const [q,r]=cur.k.split(',').map(Number);
     for(const nb of hexNbrs(q,r)){
-      const c=cost(nb); if(c===Infinity)continue;
+      const c=cost(nb); if(c===Infinity||!allowed(nb))continue;
       const k2=hexKey(nb.q,nb.r), nd=cur.d+c;
       if(dist[k2]===undefined||nd<dist[k2]){dist[k2]=nd;prev[k2]=cur.k;open.push({k:k2,d:nd});}
     }
@@ -690,6 +754,42 @@ function hexPath(a,b,carve){
 }
 function pathCost(p){let c=0;for(let i=1;i<p.length;i++)c+=moveCost(hex(p[i].q,p[i].r));return c;}
 function travelDays(p){return Math.max(1,Math.ceil(pathCost(p)/3));}
+// v0.65 — the caravan's travel component: every hex a wagon can physically reach. Terrain generation
+// grows mountain blobs, and a blob can wall a pocket of open ground off from every road — a ⚑ anchored
+// there is a job you can see and never take. Passability never changes after world-gen (blight adds
+// cost, not walls), so the component is flood-filled once per hex sheet and cached; the caravan only
+// ever moves inside it, so any position it has ever held is a valid seed.
+function _floodFrom(startKey,allow){
+  const set=new Set([startKey]),stack=[startKey];
+  while(stack.length){
+    const [q,r]=stack.pop().split(',').map(Number);
+    for(const nb of hexNbrs(q,r)){
+      if(moveCost(nb)===Infinity||!allow(nb))continue;
+      const k=hexKey(nb.q,nb.r);
+      if(!set.has(k)){set.add(k);stack.push(k);}
+    }
+  }
+  return set;
+}
+let _tcSheet=null,_tcSet=null;
+function travelComponent(){
+  if(_tcSheet===S.hexes&&_tcSet)return _tcSet;
+  _tcSheet=S.hexes; _tcSet=_floodFrom(hexKey(S.caravan.q,S.caravan.r),()=>true);
+  return _tcSet;
+}
+// physical reachability — where anything on wheels or feet could in principle get to (agent spawns)
+function hexTravelable(h){ return !!h&&moveCost(h)!==Infinity&&travelComponent().has(hexKey(h.q,h.r)); }
+// the same component cut down to opened ground — where the CARAVAN can be routed today. Recomputed when a
+// new province opens (provKnown only ever grows, so anything anchored inside it stays reachable for good).
+let _kcSheet=null,_kcSig='',_kcSet=null;
+function knownComponent(){
+  const sig=Object.keys(S.provKnown||{}).filter(k=>S.provKnown[k]).sort().join(',');
+  if(_kcSheet===S.hexes&&_kcSig===sig&&_kcSet)return _kcSet;
+  _kcSheet=S.hexes; _kcSig=sig;
+  _kcSet=_floodFrom(hexKey(S.caravan.q,S.caravan.r),h=>h.prov<0||provKnown(h.prov));
+  return _kcSet;
+}
+function hexWorkable(h){ return !!h&&moveCost(h)!==Infinity&&knownComponent().has(hexKey(h.q,h.r)); }
 function genWorld(){
   S.hexes={};
   for(let q=0;q<COLS;q++)for(let r=0;r<ROWS;r++)S.hexes[hexKey(q,r)]={q,r,t:'plains',region:-1,prov:-1,road:false,blighted:false,feat:null,setl:null};
@@ -964,11 +1064,13 @@ function enemyFace(key,size){
 function nestSvg(size){return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><path d="M50 92 Q28 72 35 42 Q40 16 50 8 Q60 16 65 42 Q72 72 50 92 Z" fill="#3a2a4a" stroke="#17130e" stroke-width="3"/><path d="M42 62 Q50 52 58 62 M40 42 Q50 34 60 42" stroke="#7a4fa3" stroke-width="2.5" fill="none"/><circle cx="50" cy="72" r="5.5" fill="#9a6fc9"><animate attributeName="opacity" values="1;.35;1" dur="2.2s" repeatCount="indefinite"/></circle><path d="M28 90 L38 80 M72 90 L62 80" stroke="#cfc4ac" stroke-width="2.5"/></svg>`;}
 function wagonSvg(size){return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><rect x="16" y="36" width="68" height="26" rx="5" fill="#6b4f33" stroke="#17130e" stroke-width="3"/><path d="M16 36 Q50 16 84 36" fill="#8a7157" stroke="#17130e" stroke-width="3"/><circle cx="32" cy="70" r="11" fill="#4a3b28" stroke="#17130e" stroke-width="3"/><circle cx="68" cy="70" r="11" fill="#4a3b28" stroke="#17130e" stroke-width="3"/><path d="M32 70 l0 -7 M32 70 l6 4 M32 70 l-6 4 M68 70 l0 -7 M68 70 l6 4 M68 70 l-6 4" stroke="#2b2118" stroke-width="2"/></svg>`;}
 const WPN_ICON={shortsword:'🗡',spear:'⸙',axe:'🪓',halberd:'⚔',bow:'🏹',warbow:'🏹'};
-function wpnTip(key,mod){
-  const w=WEAPONS[key];
-  return `${w.n}${mod?' +'+mod:''}: ${w.lo+(mod||0)}–${w.hi+(mod||0)} damage · range ${w.rng}${w.hitB?` · ${w.hitB>0?'+':''}${w.hitB} hit`:''}${w.rng>1?' · fires over any distance in range':' · strikes adjacent'}`;
+function wpnTip(key,mod,aff){
+  const w=WEAPONS[key], m=wAffMods({wAff:aff}), extra=wpnAffLines(aff);
+  const lo=w.lo+(mod||0)+m.dmg, hi=w.hi+(mod||0)+m.dmg+m.hi, rng=w.rng+(w.rng>1?m.rng:0), hitB=w.hitB+m.hit;
+  return `${wpnName(key,aff)}${mod?' +'+mod:''}: ${lo}–${hi} damage · range ${rng}${hitB?` · ${hitB>0?'+':''}${hitB} hit`:''}${w.rng>1?' · fires over any distance in range':' · strikes adjacent'}${extra.length?' · '+extra.join(' · '):''}`;
 }
-function armorTip(a){ return `${ARMORS[a].n}: absorbs ${ARMORS[a].v} damage from every hit${a<2?'':' — heavy and proud'}`; }
+function armorTip(a,aff){ const t=A_TEMPER[aff];
+  return `${t?t.n+' ':''}${ARMORS[a].n}: absorbs ${ARMORS[a].v+((t&&t.arm)||0)} damage from every hit${t?` · ${t.n}: ${t.d}`:''}${a<2?'':' — heavy and proud'}`; }
 const STAT_TIPS={
   skl:'Skill: +3% to hit per point.',
   spd:'Speed: turn order, movement (4 tiles at SPD 5+), and +2% harder to hit per point.',
@@ -1025,7 +1127,7 @@ function makeSoldier(clsKey){
   const bgIdx=pick(choices); S.usedBg.push(bgIdx);
   const maxhp=ri(C.hp[0],C.hp[1]);
   return {id:nid(),name,cls,bg:bgIdx,hp:maxhp,maxhp,skl:ri(C.skl[0],C.skl[1]),spd:ri(C.spd[0],C.spd[1]),res:ri(C.res[0],C.res[1]),
-          weapon:pick(C.wpns),wMod:0,wName:null,armor:ri(C.arm[0],C.arm[1]),feats:(C.start?[C.start]:[]),xp:0,level:1,bonds:[],battles:0,
+          weapon:pick(C.wpns),wMod:0,wName:null,wAff:null,aAff:null,armor:ri(C.arm[0],C.arm[1]),feats:(C.start?[C.start]:[]),xp:0,level:1,bonds:[],battles:0,
           rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0,
           deeds:[],retinue:[],oath:null,bannerWeek:0};
 }
@@ -1082,7 +1184,7 @@ function makeSword(){
   const name=pick(NAMES.filter(n=>!S.usedNames.includes(n)))||pick(NAMES)+' II';
   S.usedNames.push(name);
   const hookId=ri(0,SWORD_HOOKS.length-1), maxhp=12+ri(0,2);
-  return {id:nid(),name,face:makeFace(),cls,weapon:pick(C.wpns),wMod:0,armor:1,
+  return {id:nid(),name,face:makeFace(),cls,weapon:pick(C.wpns),wMod:0,wAff:null,aAff:null,armor:1,
     hp:maxhp,maxhp,skl:C.skl[0]+1,spd:C.spd[0],res:20,
     tier:0,battlesWith:0,alive:true,joined:S.week,hookId};
 }
@@ -1417,7 +1519,7 @@ function genContracts(){
     if(type==='delve') pay=Math.round(pay*(0.35+0.11*(r.salvage||0))); // ruins deplete
     const anchor=contractAnchor(r.id,type);
     if(!anchor)continue;
-    const p=hexPath(S.caravan,anchor);
+    const p=hexPath(S.caravan,anchor,false,true);
     pay+=(p?travelDays(p):1)*6;                                        // distance pays
     const rk=ct.employer==='Karsk'?'karsk':ct.employer==='Village elders'?'folk':null;
     if(rk&&S.rep){ if(S.rep[rk]>=25)pay=Math.round(pay*1.15); else if(S.rep[rk]<=-25)pay=Math.round(pay*0.75); }
@@ -1473,14 +1575,16 @@ function genFarWork(){
   if(!rs.length)return;
   const r=pick(rs), type=pick(['purge','hold','hunt','patrol']), ct=CONTRACT_TYPES[type];
   const anchor=contractAnchor(r.id,type)||{q:realmQ(r.id),r:realmR(r.id)};
-  const path=hexPath(S.caravan,anchor), days=path?travelDays(path):8;
+  const path=hexPath(S.caravan,anchor,false,true), days=path?travelDays(path):8;
   S.contracts.push({id:nid(),type,regionId:r.id,
     pay:Math.round((ct.base+dangerOf(r)*15)*1.4+days*8),danger:Math.max(2,dangerOf(r)),
     q:anchor.q,r:anchor.r,expires:S.week+4,obj:rollObjective(type),farWork:true,farProv:P.id,
     cname:'Far Work — '+P.n});
 }
 function contractAnchor(regionId,type){
-  const mine=Object.values(S.hexes).filter(h=>h.region===regionId&&h.t!=='mountain'&&h.setl===null);
+  // v0.65 — anchors draw only from ground the caravan can be routed to TODAY: a commission in a
+  // mountain-locked pocket (or across a crossing you haven't opened) answered "No road leads there" forever
+  const mine=Object.values(S.hexes).filter(h=>h.region===regionId&&h.t!=='mountain'&&h.setl===null&&hexWorkable(h));
   if(type==='delve'){const ruins=mine.filter(h=>h.feat==='ruin'); if(ruins.length)return pick(ruins);}
   if(type==='reclaim'){const sh=mine.filter(h=>h.feat==='shrine'); if(sh.length)return pick(sh);}
   if(type==='patrol'){const roads=mine.filter(h=>h.road); if(roads.length)return pick(roads);}
@@ -1504,8 +1608,8 @@ function advanceDays(n){
 }
 /* ---- roving agents ---- */
 function spawnAgent(kind,h,extra){ if(!h)return; S.agents.push(Object.assign({id:nid(),kind,q:h.q,r:h.r,str:8},extra||{})); }
-function randomHexInRegion(i){ const m=Object.values(S.hexes).filter(h=>h.region===i&&moveCost(h)!==Infinity&&h.setl===null); return m.length?pick(m):null; }
-function randomWildHex(){ const m=Object.values(S.hexes).filter(h=>moveCost(h)!==Infinity&&h.setl===null&&!h.road); return m.length?pick(m):null; }
+function randomHexInRegion(i){ const m=Object.values(S.hexes).filter(h=>h.region===i&&h.setl===null&&hexTravelable(h)); return m.length?pick(m):null; }
+function randomWildHex(){ const m=Object.values(S.hexes).filter(h=>h.setl===null&&!h.road&&hexTravelable(h)); return m.length?pick(m):null; }
 function seedAgents(){
   spawnAgent('army',{q:realmQ(3),r:realmR(3)},{str:14});
   for(let i=0;i<2;i++)spawnAgent('brigands',randomWildHex(),{str:6+ri(0,4)});
@@ -1599,14 +1703,23 @@ function travelTo(q,r,contractId){
   if(S.battle||S.over)return;
   const dest=hex(q,r);
   if(!dest||moveCost(dest)===Infinity){ log('No road leads there.'); render(); return; }
-  // v0.62 — leaving a province means answering for it at a chokepoint
-  if(dest.prov>=0&&dest.prov!==caravanProv()){
-    const C=chokeBetween(caravanProv(),dest.prov);
+  // v0.62 — leaving a province means answering for it at a chokepoint. v0.65 — the gate is only for
+  // ground you have never opened; between two walked provinces the road is the road, however many
+  // crossings it takes (the old check refused any destination not choke-adjacent to where you stood).
+  if(dest.prov>=0&&dest.prov!==caravanProv()&&!provKnown(dest.prov)){
+    // the crossing to answer at is wherever the ROUTE enters the unknown province — which may be a
+    // border two walked provinces away, not the one the caravan happens to stand in
+    const probe=hexPath(S.caravan,{q,r},false,true);
+    let C=null;
+    if(probe)for(let i=probe.length-1;i>=0&&!C;i--){ const ph=hex(probe[i].q,probe[i].r);
+      if(ph&&ph.prov>=0&&ph.prov!==dest.prov&&provKnown(ph.prov))C=chokeBetween(ph.prov,dest.prov); }
+    C=C||chokeBetween(caravanProv(),dest.prov);
     if(!C){ log('There is no crossing between here and there. The realm does not fold that way.','bad'); render(); return; }
-    if(!provKnown(dest.prov)){ crossingModal(C,dest.prov,{q,r},contractId); return; }
+    crossingModal(C,dest.prov,{q,r},contractId); return;
   }
-  const path=hexPath(S.caravan,{q,r});
-  if(!path||path.length<2){
+  const path=hexPath(S.caravan,{q,r},false,true);
+  if(!path){ log('No road leads there — not over ground you have opened.','bad'); render(); return; }
+  if(path.length<2){
     if(contractId){ const c=S.contracts.find(x=>x.id===contractId); if(c)pickSquad(sq=>startBattle(c,sq)); }
     return;
   }
@@ -1771,7 +1884,11 @@ function buyProv(){ if(atSettlement()===null)return; const c=provCost(); if(S.co
 function armorCost(a){ const c=ARMORS[a].cost; return (S.story&&S.story.heir==='aldric')?Math.round(c*0.8):c; }
 function buyArmor(id){ if(!(S.unlocks&&S.unlocks.armor))return; const s=soldierById(id); if(!s)return; const next=ARMORS[s.armor+1]; if(!next)return;
   const c=armorCost(s.armor+1);
-  if(S.coin>=c){ S.coin-=c; s.armor++; log(`${s.name} fitted with ${next.n}${S.story&&S.story.heir==='aldric'?' — quartermaster’s rates':''}.`); save(); render(); } }
+  if(S.coin>=c){ S.coin-=c; s.armor++;
+    s.aAff=null;                                   // a new fitting strips the old temper —
+    if(chance(20))s.aAff=pick(Object.keys(A_TEMPER));   // — unless this piece came off the armorer's good batch
+    log(`${s.name} fitted with ${next.n}${S.story&&S.story.heir==='aldric'?' — quartermaster’s rates':''}.${s.aAff?` The good batch — ${A_TEMPER[s.aAff].n}: ${A_TEMPER[s.aAff].d}.`:''}`);
+    save(); render(); } }
 function hire(idx){
   const h=S.hirePool[idx]; if(!h)return;
   if(atSettlement()===null){ log('Hiring happens in settlements. Reach a town first.','bad'); render(); return; }
@@ -1883,7 +2000,7 @@ function featModal(s,opts,stat){
         <span class="${up('spd')}"><span class="tt" data-tip="${esc(STAT_TIPS.spd)}">SPD</span> ${s.spd}${stat==='spd'?' (+1)':''}</span>
         <span class="${up('res')}"><span class="tt" data-tip="${esc(STAT_TIPS.res)}">RES</span> ${s.res}${stat==='res'?' (+5)':''}</span>
       </div>
-      <div class="wline">${WPN_ICON[s.weapon]||'⚔'} <span class="tt" data-tip="${esc(wpnTip(s.weapon,s.wMod))}">${esc(s.wName||WEAPONS[s.weapon].n)}${s.wMod?' +'+s.wMod:''}</span> · 🛡 <span class="tt" data-tip="${esc(armorTip(s.armor))}">${ARMORS[s.armor].n}</span></div>
+      <div class="wline">${WPN_ICON[s.weapon]||'⚔'} <span class="tt" data-tip="${esc(wpnTip(s.weapon,s.wMod,s.wAff))}">${esc(s.wName||wpnName(s.weapon,s.wAff))}${s.wMod?' +'+s.wMod:''}</span> · 🛡 <span class="tt" data-tip="${esc(armorTip(s.armor,s.aAff))}">${s.aAff&&A_TEMPER[s.aAff]?esc(A_TEMPER[s.aAff].n)+' ':''}${ARMORS[s.armor].n}</span></div>
       <div class="featline">✦ ${featChips(s.feats)}</div>
       ${s.level>=5?`<p style="margin:6px 0 0;color:var(--gold)">★ Veterancy capstone — ${(CLASSES[s.cls]&&CLASSES[s.cls].martial)?'<b>Double Strike</b>: they may strike twice if they hold their ground.':s.cls==='cleric'?(s.feats.includes('zealot')?'<b>Battle Hymn</b>: bless the whole line — +10 hit & +2 dmg.':'<b>Healing Aura</b>: a new spell that heals all allies within 2.'):s.cls==='acolyte'?(s.feats.includes('serrated')?'<b>Marrow Reap</b>: a whirl of bone that crits every adjacent foe.':'<b>Blight Storm</b>: a 3×3 blight-nova hurled at range.'):'a hardened veteran.'}</p>`:''}
     </div></div>
@@ -2225,7 +2342,7 @@ function makeWaypoints(B,home,r){
 const PB_RATIO={1:0.50,2:0.85,3:1.25}, PB_FLOOR={1:10,2:16,3:24}, PB_CEIL={1:5,2:9,3:12};
 function soldierPowerOf(s){ const w=WEAPONS[s.weapon]||{};
   return 3+(s.level||1)*2+(w.tier||1)+(s.wMod||0)*2+(s.armor||0)*1.5+((s.feats&&s.feats.length)||0)*0.8
-        +(s.dmgBonus||0)+((s.level>=5&&CLASSES[s.cls]&&CLASSES[s.cls].martial)?2:0); }
+        +(s.dmgBonus||0)+affPwOf(s.wAff,s.aAff)+((s.level>=5&&CLASSES[s.cls]&&CLASSES[s.cls].martial)?2:0); }
 function squadPowerOf(ids){ return ids.map(soldierById).filter(Boolean).reduce((a,s)=>a+soldierPowerOf(s),0); }
 // The budget is calibrated to the strongest squad the player COULD field — the top partyCap() soldiers by
 // power — not to whoever they actually marched. Benching the A-team or fielding the wounded is a strategic
@@ -2239,7 +2356,7 @@ function battleBudget(P,danger){ const d=clamp(danger||1,1,3); return Math.max(P
 function foeCost(key,danger){ const e=ENEMIES[key]; return e?e.xp+((danger||1)>=3?2:0):0; }
 function foePowerOf(u){ const e=ENEMIES[u.ekey]; if(!e||u.prop)return 0;
   const wt=(((WEAPONS[u.weapon]||{}).tier||1))-(((WEAPONS[e.w]||{}).tier||1));   // upgraded steel is real power
-  return e.xp+(u.wMod||0)*2+(u.arm-e.arm)*2+Math.max(0,(u.maxhp-e.hp-3))/3+(u.skl-e.skl)*2+Math.max(0,wt)*3; }
+  return e.xp+(u.wMod||0)*2+(u.arm-e.arm)*2+Math.max(0,(u.maxhp-e.hp-3))/3+(u.skl-e.skl)*2+Math.max(0,wt)*3+affPwOf(u.wAff,u.aAff); }
 // budget pool: live combat foes only — props (nests/menhirs) aren't power, and revenants + their
 // retinues ride ON TOP of the budget (the premium threat already self-scales per v0.56)
 function pbFoes(B){ return B.units.filter(u=>u.kind==='foe'&&!u.prop&&u.hp>0&&!u.graveId&&!u.revguard); }
@@ -2254,6 +2371,7 @@ function topUpFoes(B,budget){
     const u=pick(cands), w=WEAPONS[u.weapon];
     const ups=[{c:1,f:()=>{u.hp+=3;u.maxhp+=3;}},{c:2,f:()=>u.skl+=1},{c:2,f:()=>u.wMod=(u.wMod||0)+1},{c:2,f:()=>u.arm+=1}];
     if(w&&w.up)ups.push({c:3,f:()=>u.weapon=w.up});
+    if(!u.wAff&&(B.danger||1)>=2)ups.push({c:2,f:()=>u.wAff={pre:pick(Object.keys(W_PREFIX))}});   // named steel in enemy hands — and loot-table foreshadowing
     const up=pick(ups); up.f(); u._pb=(u._pb||0)+up.c; total+=up.c;
     const base=ENEMIES[u.ekey].n;                        // earned prefixes, only on untagged names
     if(u._pb>=6&&u.name==='Veteran '+base)u.name='Elite '+base;
@@ -2360,8 +2478,9 @@ function startBattle(contract,squadIds){
   }
   squadIds.forEach((id,i)=>{
     const s=soldierById(id); const px=spots[i].x, py=spots[i].y;
-    B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd,res:s.res,cmdr:!!s.commander,
-      weapon:s.weapon,wMod:s.wMod,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
+    const am=wAffMods(s), at=A_TEMPER[s.aAff]||{};   // affix speed/resolve are worn stats — applied here, never written back
+    B.units.push({uid:nid(),kind:'pc',ref:id,name:s.name,hp:s.hp,maxhp:s.maxhp,skl:s.skl,spd:s.spd+am.spd+(at.spd||0),res:s.res+am.res+(at.res||0),cmdr:!!s.commander,
+      weapon:s.weapon,wMod:s.wMod,wAff:s.wAff||null,aAff:s.aAff||null,dmgBonus:s.dmgBonus||0,arm:s.armor,feats:s.feats.slice(),traits:(s.traits||[]).slice(),undead:false,x:px,y:py,
       dbl:!!(CLASSES[s.cls]&&CLASSES[s.cls].martial&&s.level>=5),
       moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,medicUsed:false,mendUsed:false,smokeUsed:false,fled:false,graveId:null,bkills:0,nearDeath:false,blightBit:false,bMarks:[]});
   });
@@ -2530,7 +2649,7 @@ function spawnRevenant(B,g){
   for(const f of [...CL.branches.A.feats,...CL.branches.B.feats,...(CL.branches.misc||[])]){ if(feats.length>=cap)break; if(!feats.includes(f))feats.push(f); }
   const dbl=!!(CL.martial&&revLvl>=5);                 // a martial revenant at veterancy strikes twice, like your own
   const u={uid:nid(),kind:'foe',ekey:'revenant',name:g.name+', Returned',hp,maxhp:hp,
-    skl,spd,res:99,weapon:g.snap.weapon,wMod,arm,dmgBonus,traits:[],dbl,revLvl,ai:null,regen:0,podId:null,
+    skl,spd,res:99,weapon:g.snap.weapon,wMod,wAff:g.snap.wAff||null,aAff:g.snap.aAff||null,arm,dmgBonus,traits:[],dbl,revLvl,ai:null,regen:0,podId:null,
     feats,undead:true,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:10+it*3+graft,graveId:g.id};
   placeRight(B,u); B.units.push(u); B.revGraveIds.push(g.id);
   spawnRevenantRetinue(B,u,revLvl,it);
@@ -2847,7 +2966,11 @@ function objTick(B){
       if(B.capProgress>=2){ blog(B,'The ground is yours. Contract fulfilled.'); endBattle('victory'); return; } }
   }
 }
-function wOf(u){const w=WEAPONS[u.weapon]||WEAPONS.shortsword;return {n:w.n,lo:w.lo+(u.wMod||0),hi:w.hi+(u.wMod||0),rng:w.rng+((u.feats.includes('deadeye')&&w.rng>1)?1:0),hitB:w.hitB,reach:!!w.reach,cleave:!!w.cleave,bash:!!w.bash,armor:w.armor||0};}
+function wOf(u){const w=WEAPONS[u.weapon]||WEAPONS.shortsword;const m=wAffMods(u);
+  return {n:wpnName(u.weapon,u.wAff),lo:w.lo+(u.wMod||0)+m.dmg,hi:w.hi+(u.wMod||0)+m.dmg+m.hi,
+    rng:w.rng+((u.feats.includes('deadeye')&&w.rng>1)?1:0)+(w.rng>1?m.rng:0),
+    hitB:w.hitB+m.hit,reach:!!w.reach,cleave:!!w.cleave,bash:!!w.bash,armor:(w.armor||0)+m.arm,
+    pierce:m.pierce,wolf:m.wolf,vsdead:m.vsdead};}
 // effective ranged range after weather: fog/ash-haze cap it to 3, rain shaves 1 off (a lighter penalty). Min 2 so ranged still works.
 function wxCap(B,base){ let r=B.weather?Math.min(base,3):base; if(B.rain)r=Math.max(2,r-1); return r; }
 function rangeNote(B,base,x,y){ const eff=wxCap(B,base)+(elevAt(B,x,y)>=2?1:0); if(eff===base)return '';
@@ -2900,6 +3023,7 @@ function hitChance(B,att,def){
   const eh=elevAt(B,att.x,att.y)-elevAt(B,def.x,def.y);
   if(eh>0)h+=6; else if(eh<0)h-=4;                     // high ground vs uphill
   if(def.defending)h-=10;
+  { const at=A_TEMPER[def.aAff]; if(at&&at.missile&&w.rng>1)h-=at.missile; }   // padded harness shrugs arrows
   if(def.feats.includes('harrier')&&def.moved)h-=10;    // ranger: harder to hit on a turn they moved
   if(def.feats.includes('elusive')&&def.moved)h-=10;    // shade: same
   if(att.shakenBy)h-=10;
@@ -2938,12 +3062,16 @@ function dmgOf(B,att,def){
   if(att.feats.includes('berserker')&&att.hp<att.maxhp/2)d+=2;
   if(att.feats.includes('garrote')&&isIsolated(B,def))d+=2;
   if(att.feats.includes('bonecarver')&&def.undead)d+=3;
+  if(w.vsdead&&def.undead)d+=w.vsdead;                  // Blessed steel / of the Pyre
+  if(w.wolf&&def.hp<def.maxhp)d+=w.wolf;                // of the Wolf: finish what's bleeding
   if((att.traits||[]).includes('blightmarked')&&def.undead)d+=2;
   if(def.graveId&&att.kind==='pc'&&att.feats.includes('vengeful')&&isBondedToGrave(att,def.graveId))d+=2;
   if(att.disarmed)d-=2;                                 // disarmed foe: weak next blow
   if(att.bless)d+=att.bless.dmg||0;                     // cleric bless
   let arm=def.arm;
   arm+=(WEAPONS[def.weapon]&&WEAPONS[def.weapon].armor)||0; // mace & shield
+  arm+=wAffMods(def).arm;                               // a blade of Warding guards its bearer
+  { const at=A_TEMPER[def.aAff]; if(at&&at.arm)arm+=at.arm; }  // Warded harness
   arm+=def.warded||0;
   if(def.defending)arm+=2;
   if(def.feats.includes('bulwark'))arm+=1;
@@ -2951,6 +3079,7 @@ function dmgOf(B,att,def){
     const ally=B.units.find(x=>x!==def&&x.kind===def.kind&&x.hp>0&&!x.fled&&adjacent(x,def));
     if(ally)arm+=1;
   }
+  if(w.pierce)arm=Math.max(0,arm-w.pierce);             // Biting Steel finds the seams
   return Math.max(1,d-arm);
 }
 // Battlemaster Riposte: an adjacent PC with the feat counters a melee whiff, once per round. Uses dmgOf (NOT critHit) — no recursion.
@@ -2982,6 +3111,13 @@ function doAttack(B,att,def){
       def.hp-=d;
       fx.push({type:'flash',uid:def.uid},{type:'float',x:def.x,y:def.y,txt:(cb>0?'✦ ':'')+'-'+d,color:cb>0?'#e8c65a':'#e0593f'});
       blog(B,`${att.name} ${cb>0?'crits':'hits'} ${def.name} for ${d} (${h}%).`);
+      { const dt=A_TEMPER[def.aAff];                    // thorned harness: the blow costs the wielder — bleeds, never kills
+        if(dt&&dt.thorns&&w.rng===1&&att.hp>1){
+          att.hp=Math.max(1,att.hp-dt.thorns);
+          fx.push({type:'float',x:att.x,y:att.y,txt:'-'+dt.thorns,color:'#a86a3a'});
+          blog(B,`${att.name} bleeds ${dt.thorns} on the thorned harness.`);
+          if(att.kind==='pc'){const ps=soldierById(att.ref); if(ps)ps.hp=att.hp;}
+        } }
       if(w.rng===1&&att.feats.includes('veindrink')&&att.hp>0){
         const heal=2+((cb>0&&att.feats.includes('bloodhigh')&&att.hp<att.maxhp/2)?2:0);   // Blood-High: crits drink deeper
         att.hp=Math.min(att.maxhp,att.hp+heal);
@@ -3063,7 +3199,7 @@ function killSoldier(s){
   s.alive=false;
   removeFromRoster(s);
   if(s.guest){ S.chronicle.push(`Week ${S.week}: the underkingdom shade fell before it could be sworn in.`); return; } // a guest who never joined leaves no grave
-  const snap={maxhp:s.maxhp,skl:s.skl,spd:s.spd,weapon:s.weapon,wMod:s.wMod,armor:s.armor,feats:s.feats.slice(),level:s.level,
+  const snap={maxhp:s.maxhp,skl:s.skl,spd:s.spd,weapon:s.weapon,wMod:s.wMod,wAff:s.wAff||null,aAff:s.aAff||null,armor:s.armor,feats:s.feats.slice(),level:s.level,
               cls:s.cls,commander:!!s.commander,dmgBonus:s.dmgBonus||0,ashPromised:!!s.ashPromised,corr:s.corr||0,
               deeds:deedsOf(s).map(d=>d.id), oath:s.oath?{to:s.oath.to,state:s.oath.state}:null,
               // her whole retinue is captured here because the soldier object leaves the roster with her;
@@ -3100,9 +3236,10 @@ function gearEchoModal(g){
   const alive=S.roster.filter(s=>s.alive);
   if(!alive.length){closeModal();return;}
   const w=WEAPONS[g.snap.weapon];
-  const body=`<p>You pry <b>${esc(g.name)}’s ${w.n}</b> from her hands. It is cold in a way steel shouldn’t be — and better than it was.</p><p class="hint">Grave-cold: +1 damage. Give it to:</p>`;
-  showModal('Gear Echo',body,alive.map(s=>({label:`${s.name} (${WEAPONS[s.weapon].n}${s.wMod?'+'+s.wMod:''})`,cls:'pick',fn:()=>{
-    s.weapon=g.snap.weapon; s.wMod=Math.min((g.snap.wMod||0)+1,2); s.wName=`${g.name}’s ${w.n}`;
+  const affLines=wpnAffLines(g.snap.wAff);
+  const body=`<p>You pry <b>${esc(g.name)}’s ${esc(wpnName(g.snap.weapon,g.snap.wAff))}</b> from her hands. It is cold in a way steel shouldn’t be — and better than it was.</p><p class="hint">Grave-cold: +1 damage.${affLines.length?' It keeps its temper — '+esc(affLines.join(' · '))+'.':''} Give it to:</p>`;
+  showModal('Gear Echo',body,alive.map(s=>({label:`${s.name} (${wpnName(s.weapon,s.wAff)}${s.wMod?'+'+s.wMod:''})`,cls:'pick',fn:()=>{
+    s.weapon=g.snap.weapon; s.wMod=Math.min((g.snap.wMod||0)+1,2); s.wName=`${g.name}’s ${w.n}`; s.wAff=g.snap.wAff||null;
     log(`${s.name} now carries ${g.name}’s ${w.n} (grave-cold, +${s.wMod} dmg).`,'blight'); closeModal(); }})).concat([{label:'Leave it with her',fn:()=>{closeModal();}}]));
 }
 function calloutModal(B,g){
@@ -3801,7 +3938,8 @@ function endBattle(outcome){
     if(B.type==='delve'){ region.salvage=Math.max(0,(region.salvage||0)-1);
       if(!region.salvage) log(`${region.name} is picked clean. Nothing is left there worth dying for.`,'bad'); }
     if(!region.swallowed&&region.pressure>0&&(B.type==='purge'||B.type==='hold')){ region.pressure=Math.max(5,region.pressure-6); log(`Your work slows the Blight in ${region.name} (−6 pressure).`,'good'); }
-    if(chance(30)){ const w=pick(['spear','axe','warbow','halberd','mace','armingsword','pike','greataxe']); queueModal(()=>lootModal(w)); }
+    if(chance(30)){ const w=pick(['spear','axe','warbow','halberd','mace','armingsword','pike','greataxe']); const aff=rollWAff(B.danger,(WEAPONS[w].rng||1)>1); queueModal(()=>lootModal(w,aff)); }
+    else if(B.danger>=2&&chance(15)){ queueModal(()=>armorTemperModal(pick(Object.keys(A_TEMPER)))); }   // harder fields yield armorer's work worth stripping
   } else {
     for(const b of B.bodies){
       const g=graveOfSoldier(b.soldierId); if(!g||g.state!=='field')continue;
@@ -3845,13 +3983,24 @@ function relicModal(kind){
       closeModal(); }}))
     .concat([{label:`Sell to a broker (+${sellP}c)`,fn:()=>{S.coin+=sellP;repAdd('conclave',2);closeModal();}}]));
 }
-function lootModal(wkey){
+function lootModal(wkey,aff){
   const w=WEAPONS[wkey];
   const alive=S.roster;
   if(!alive.length){closeModal();return;}
-  showModal('Salvage',`<p>Among the dead: a serviceable <b>${w.n}</b> (${w.lo}–${w.hi}${w.rng>1?', range '+w.rng:''}).</p>`,
-    alive.map(s=>({label:`Give to ${s.name} (${WEAPONS[s.weapon].n}${s.wMod?'+'+s.wMod:''})`,cls:'pick',fn:()=>{s.weapon=wkey;s.wMod=0;s.wName=null;closeModal();render();}}))
-    .concat([{label:'Sell (+12c)',fn:()=>{S.coin+=12;closeModal();render();}}]));
+  const m=wAffMods({wAff:aff}), effs=wpnAffLines(aff);
+  const sell=12+(aff?((aff.pre?8:0)+(aff.suf?10:0)):0);   // named steel fetches named prices
+  showModal('Salvage',`<p>Among the dead: a serviceable <b>${esc(wpnName(wkey,aff))}</b> (${w.lo+m.dmg}–${w.hi+m.dmg+m.hi}${w.rng>1?', range '+(w.rng+m.rng):''}).</p>${effs.length?`<p class="hint">${esc(effs.join(' · '))}</p>`:''}`,
+    alive.map(s=>({label:`Give to ${s.name} (${wpnName(s.weapon,s.wAff)}${s.wMod?'+'+s.wMod:''})`,cls:'pick',fn:()=>{s.weapon=wkey;s.wMod=0;s.wName=null;s.wAff=aff||null;closeModal();render();}}))
+    .concat([{label:`Sell (+${sell}c)`,fn:()=>{S.coin+=sell;closeModal();render();}}]));
+}
+function armorTemperModal(k){
+  const t=A_TEMPER[k];
+  const wearers=S.roster.filter(s=>s.armor>0);
+  showModal('Salvage — Armorer’s Work',
+    `<p>Among the dead: a piece of harness worth stripping — <b>${esc(t.n)}</b> work (${esc(t.d)}).</p>${wearers.length?'<p class="hint">Fit it onto:</p>':'<p class="hint">No one wears armor it could be worked into.</p>'}`,
+    wearers.map(s=>({label:`${s.name}’s ${ARMORS[s.armor].n}${s.aAff?' (replaces '+A_TEMPER[s.aAff].n+')':''}`,cls:'pick',fn:()=>{
+      s.aAff=k; log(`${s.name}’s ${ARMORS[s.armor].n} is re-worked — ${t.n}: ${t.d}.`,'good'); closeModal(); render(); }}))
+    .concat([{label:'Sell (+15c)',fn:()=>{S.coin+=15;closeModal();render();}}]));
 }
 function ritesModal(g){
   const bonded=g.bonds.map(id=>soldierById(id)).filter(Boolean);
@@ -4598,7 +4747,7 @@ function mobileTabBar(){
 })();
 function header(){
   const h=caravanHex();
-  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.64</span>
+  return `<div id="header"><h1><svg width="17" height="22" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:2px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>GRAVEBORNE</h1><span class="hint">alpha v0.65</span>
     <span class="stat">Week <b>${S.week}</b>, day <b>${(S.day%7)+1}</b></span>
     <span class="stat">⛺ <b>${esc(h?S.regions[h.region].name:'—')}</b></span>
     <span class="stat">Coin <b>${S.coin}</b></span>
@@ -4757,7 +4906,7 @@ function hexSvg(){
   {const{x,y}=hexCenter(S.caravan.q,S.caravan.r);
     out+=`<g pointer-events="none"><circle cx="${x}" cy="${y}" r="10" fill="#17130e" stroke="#c9a227" stroke-width="2"/>
       <text x="${x}" y="${y+5}" style="font-size:13px;text-anchor:middle">⛺</text></g>`;}
-  if(sel){const [q,r]=sel.split(',').map(Number);const p=hexPath(S.caravan,{q,r});
+  if(sel){const [q,r]=sel.split(',').map(Number);const p=hexPath(S.caravan,{q,r},false,true);
     if(p&&p.length>1){let d='';p.forEach((st,i)=>{const c=hexCenter(st.q,st.r);d+=(i?'L':'M')+c.x.toFixed(1)+' '+c.y.toFixed(1)+' ';});
       out+=`<path d="${d}" fill="none" stroke="#c9a227" stroke-width="1.5" stroke-dasharray="4 3" pointer-events="none"/>`;}}
   // Act I frames ONE province, inflated so the neighbours' coastlines bleed off every edge and cannot
@@ -4787,7 +4936,7 @@ function soldierCard(s,inHire,idx){
       ${s.gravetempered?'<span class="tag revtag tt" data-tip="Watched one of their own laid to rest: +10 resolve, permanently.">gravetempered</span>':''}
       <div class="bg">${esc(bg.line)}</div>
       <div class="hpbar"><div style="width:${Math.round(100*s.hp/s.maxhp)}%"></div></div>
-      <div class="wline">${WPN_ICON[s.weapon]||'⚔'} <span class="tt" data-tip="${esc(wpnTip(s.weapon,s.wMod))}">${esc(s.wName||WEAPONS[s.weapon].n)}${s.wMod?' +'+s.wMod:''}</span> · 🛡 <span class="tt" data-tip="${esc(armorTip(s.armor))}">${ARMORS[s.armor].n}</span></div>
+      <div class="wline">${WPN_ICON[s.weapon]||'⚔'} <span class="tt" data-tip="${esc(wpnTip(s.weapon,s.wMod,s.wAff))}">${esc(s.wName||wpnName(s.weapon,s.wAff))}${s.wMod?' +'+s.wMod:''}</span> · 🛡 <span class="tt" data-tip="${esc(armorTip(s.armor,s.aAff))}">${s.aAff&&A_TEMPER[s.aAff]?esc(A_TEMPER[s.aAff].n)+' ':''}${ARMORS[s.armor].n}</span></div>
       <div class="statline"><span class="tt" data-tip="${esc(STAT_TIPS.hp)}">HP ${s.hp}/${s.maxhp}</span> · <span class="tt" data-tip="${esc(STAT_TIPS.skl)}">SKL ${s.skl}</span> · <span class="tt" data-tip="${esc(STAT_TIPS.spd)}">SPD ${s.spd}</span> · <span class="tt" data-tip="${esc(STAT_TIPS.res)}">RES ${s.res}</span></div>
       ${s.feats.length?`<div class="featline">✦ ${featChips(s.feats)}</div>`:''}
       ${bondTxt?`<div class="bond">Bound: ${esc(bondTxt)}</div>`:''}
@@ -4879,7 +5028,10 @@ function offerBanner(s){
 }
 window.BANNER=function(id){ const s=soldierById(id); if(s)offerBanner(s); };
 window.OATHUP=function(id){ const s=soldierById(id); if(s&&nameEligible(s)===7)oathModal(s); };
-window.REFORGE=function(id){ if(!(S.unlocks&&S.unlocks.reforge))return; const s=soldierById(id); if(!s)return; const w=WEAPONS[s.weapon]; if(!w||!w.up||atSettlement()===null)return; const c=reforgeCost(); if(S.coin<c)return; S.coin-=c; s.weapon=w.up; s.wName=null; log(`${s.name}’s ${w.n} is reforged into a ${WEAPONS[w.up].n}.`,'good'); save(); render(); };
+window.REFORGE=function(id){ if(!(S.unlocks&&S.unlocks.reforge))return; const s=soldierById(id); if(!s)return; const w=WEAPONS[s.weapon]; if(!w||!w.up||atSettlement()===null)return; const c=reforgeCost(); if(S.coin<c)return; S.coin-=c; s.weapon=w.up; s.wName=null;
+  let extra='';   // the temper survives the forge — and on the smith's best day the new steel takes a name of its own
+  if(!(s.wAff&&s.wAff.pre)&&chance(25)){ s.wAff=Object.assign({},s.wAff||{},{pre:pick(Object.keys(W_PREFIX))}); extra=` The smith’s best work — it comes back ${W_PREFIX[s.wAff.pre].n}.`; }
+  log(`${s.name}’s ${w.n} is reforged into a ${WEAPONS[w.up].n}.${extra}`,'good'); save(); render(); };
 window.SHRINE=function(){ const h=caravanHex(); if(!h||h.feat!=='shrine'||S.coin<30)return; S.coin-=30; const r=S.regions[h.region]; r.pressure=Math.max(3,r.pressure-12); repAdd('folk',3); blightCreep(); log(`You kneel at the shrine and give coin to the rite. The Blight loosens its grip on ${r.name} (−12 pressure).`,'good'); save(); render(); };
 function partyUpCost(){ return (S.partyUp||0)>=2?null:((S.partyUp||0)===0?100:200); } // 4→5 costs 100, 5→6 costs 200
 function contractScout(c){ // scout-report preview of what waits on a contract (deterministic; exact pods roll at battle start)
@@ -5001,7 +5153,7 @@ function selectedPanel(){
   const c=S.contracts.find(c=>c.q===q&&c.r===r);
   const ags=S.agents.filter(a=>a.q===q&&a.r===r);
   const here=S.caravan.q===q&&S.caravan.r===r;
-  const p=here?null:hexPath(S.caravan,{q,r});
+  const p=here?null:hexPath(S.caravan,{q,r},false,true);
   const dys=p&&p.length>1?travelDays(p):0;
   let html=`<div class="card"><span class="nm">${esc(hexDesc(h))}</span>
     <div class="statline">${esc(reg.name)} — ${reg.swallowed?'<span class="swallowed">SWALLOWED</span>':'pressure '+reg.pressure}${h.blighted?' · <span class="swallowed">blighted ground</span>':''}${h.road?' · road':''}</div>`;
@@ -5039,7 +5191,7 @@ function pickSquad(cb){
     const list=S.roster.map(s=>{
       const benched=(s.benchedUntil||0)>=S.week||isStationed(s);
       const sw=livingSwords(s);
-      return `<button class="pick" ${benched?'disabled':''} onclick="TOG(${s.id})">${benched?'⊘':(picked.has(s.id)?'☑':'☐')} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(WEAPONS[s.weapon].n)}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}${deedsOf(s).length?' ⚑'+deedsOf(s).length:''}${sw.length?` <span class="hint">+ brings ${esc(sw.map(w=>w.name).join(', '))}</span>`:''}${isStationed(s)?` <span class="hint">— holding ${esc(provOf(s.stationedProv).n)}</span>`:benched?` <span class="hint">— sworn elsewhere this week</span>`:''}</button>`;
+      return `<button class="pick" ${benched?'disabled':''} onclick="TOG(${s.id})">${benched?'⊘':(picked.has(s.id)?'☑':'☐')} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(wpnName(s.weapon,s.wAff))}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}${deedsOf(s).length?' ⚑'+deedsOf(s).length:''}${sw.length?` <span class="hint">+ brings ${esc(sw.map(w=>w.name).join(', '))}</span>`:''}${isStationed(s)?` <span class="hint">— holding ${esc(provOf(s.stationedProv).n)}</span>`:benched?` <span class="hint">— sworn elsewhere this week</span>`:''}</button>`;
     }).join('');
     let items='';
     if((S.kits||0)>0) items+=`<button class="pick" onclick="LOAD('kit')">${loadout.kit?'☑':'☐'} 🩹 Chirurgeon’s Kit — deploy at full HP (×${S.kits})</button>`;
