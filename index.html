@@ -126,6 +126,7 @@
   .actmenu button{flex:0 0 auto;margin:0;white-space:nowrap}
   #zoombtns{position:absolute;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:22;display:flex;flex-direction:column;gap:5px}
   #zoombtns button{width:36px;height:36px;font-size:19px;line-height:1;padding:0;background:rgba(18,15,11,.86);border:1px solid var(--line);color:var(--ink);border-radius:5px;cursor:pointer;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .errtoast{position:fixed;top:8px;left:50%;transform:translateX(-50%);max-width:min(92vw,560px);z-index:300;background:#3a1510;border:1px solid #8c3b2e;color:#e8c9c2;padding:8px 12px;border-radius:5px;font-size:12.5px;line-height:1.4;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.5);word-break:break-word}
   /* ---- MOBILE / PORTRAIT: stacked HUD instead of desktop corners ---- */
   @media (max-width:760px){
     /* top: slim title bar (leaves room for the Log button), roster as a horizontal scroll strip below it */
@@ -2746,7 +2747,7 @@ function startEnemyPhase(B){
   if(!B.over){ render();
     // if a foe leads the queue and is stunned/dead, nextTurn's guards handle it; kick the phase off
     const u=curUnit(B);
-    if(u&&u.stunned){ u.stunned=false; blog(B,`${u.name} is staggered and loses the turn.`); render(); setTimeout(()=>{ if(S.battle&&!S.battle.over)nextTurn(); },400); }
+    if(u&&u.stunned){ u.stunned=false; blog(B,`${u.name} is staggered and loses the turn.`); render(); pauseNextTurn(400); }
     else if(!u){ nextTurn(); } else { maybeAI(); }
   }
 }
@@ -2814,7 +2815,7 @@ function nextTurn(){ // enemy-phase advancer (player phase is driven by selectio
   if(B.podsActive)podSenseAll(B);
   const u=curUnit(B);
   if(!u){ nextTurn(); return; }
-  if(u.stunned){ u.stunned=false; blog(B,`${u.name} is staggered and loses the turn.`); render(); setTimeout(()=>{ if(S.battle&&!S.battle.over)nextTurn(); },400); return; }
+  if(u.stunned){ u.stunned=false; blog(B,`${u.name} is staggered and loses the turn.`); render(); pauseNextTurn(400); return; }
   render(); maybeAI();
 }
 // selection + turn-flow helpers for the player phase
@@ -4112,19 +4113,41 @@ function guardTurn(B,u,pod,pcs){
   return true;
 }
 const ENEMY_STEP_PAUSE=1300;   // hold on the acting enemy for a beat AFTER its move/attack lands, before focus jumps onward
-// let the just-finished enemy action (walk glide + hit fx) breathe on screen, THEN advance to the next unit
-function pauseNextTurn(){ setTimeout(()=>{ if(S.battle&&!S.battle.over)nextTurn(); }, ENEMY_STEP_PAUSE); }
+// Battle speed: 1=1×, 2=2×, 3=instant. Scales the PACING beats only (step pause, pre-act beat, walk glides).
+// Absent on old saves and reads as 1× — no migration needed.
+function battleSpeed(){ return (S&&S.battleSpeed)||1; }
+function battleMs(ms){ const sp=battleSpeed(); return sp>=3?0:Math.round(ms/sp); }
+// let the just-finished enemy action (walk glide + hit fx) breathe on screen, THEN advance to the next unit.
+// One timer slot (B._ntT): re-scheduling replaces any pending advance, so two chains reaching this point
+// (a modal-close resume racing an in-flight poll) collapse into ONE nextTurn instead of skipping a foe.
+// At instant speed the pause is 0 — EXCEPT when the action just queued visible fx (fx is consumed by a
+// microtask after this sync block, so its length here reflects exactly this action): damage numbers and
+// hit flashes live on the outgoing grid and the next render wipes them, so a short beat holds whenever
+// there is something to see. Instant skips the waiting, never the information.
+function pauseNextTurn(ms){
+  const B=S.battle; if(!B)return;
+  let wait=battleMs(ms||ENEMY_STEP_PAUSE);
+  if(battleSpeed()>=3&&fx.length)wait=550;
+  clearTimeout(B._ntT);
+  B._ntT=setTimeout(()=>{ if(S.battle&&!S.battle.over)nextTurn(); }, wait);
+}
 function maybeAI(){
   const B=S.battle; if(!B||B.over||B.phase!=='enemy')return;
-  if(activeModal){ setTimeout(maybeAI,300); return; }
+  if(activeModal){ setTimeout(maybeAI,300); return; }   // modal-close polling, not pacing — never scaled
   const u=curUnit(B);
   if(!u){ nextTurn(); return; }
   if(u.kind!=='foe')return;
-  setTimeout(()=>{ aiAct(u); },380);   // brief beat once focus has settled on this unit, then it acts
+  setTimeout(()=>{ aiAct(u); },battleMs(380));   // brief beat once focus has settled on this unit, then it acts
 }
 function aiAct(u){
   const B=S.battle; if(!B||B.over||curUnit(B)!==u){ if(B&&!B.over)render(); return; }
   if(activeModal){ setTimeout(()=>aiAct(u),300); return; }
+  // One act per queue slot. Two resume paths can converge on the same unit before nextTurn advances qi
+  // (closeModal's maybeAI vs a still-pending 300ms modal poll; BOOT's re-kick vs an owed feat modal) —
+  // the stamp turns the second arrival into a plain advance instead of a double move/attack.
+  const aiStamp=B.round+':'+B.qi;
+  if(u._aiStamp===aiStamp){ pauseNextTurn(); return; }
+  u._aiStamp=aiStamp;
   const w=wOf(u);
   const pcs=B.units.filter(t=>t.kind==='pc'&&t.hp>0&&!t.fled);
   const charges=B.units.filter(t=>t.kind==='ally'&&t.hp>0);
@@ -4608,10 +4631,10 @@ function animateWalks(B){
     if(!el){ if(prev[u.uid])now[u.uid]=prev[u.uid]; continue; }   // fogged this render — keep last-known so it doesn't slide in when spotted
     now[u.uid]={x:u.x,y:u.y};
     const p=prev[u.uid];
-    if(p&&(p.x!==u.x||p.y!==u.y)&&el.animate){
+    if(p&&(p.x!==u.x||p.y!==u.y)&&el.animate&&battleSpeed()<3){   // instant speed: tokens just appear where they stand
       const dx=(p.x-u.x)*TS, dy=(p.y-u.y)*TS;
       const steps=Math.max(Math.abs(p.x-u.x),Math.abs(p.y-u.y));
-      const dur=Math.min(140+steps*80,480);      // longer walks take a little longer, but finish inside the enemy-turn pacing
+      const dur=battleMs(Math.min(140+steps*80,480));      // longer walks take a little longer, but finish inside the enemy-turn pacing
       const tile=el.parentElement;               // lift the whole cell so the walker rides ABOVE ground/elevation tiles for the glide
       if(tile)tile.style.zIndex='40';
       el.style.zIndex='6';
@@ -5476,7 +5499,7 @@ function renderBattle(){
         <div class="hud-roster hudcard" style="padding:5px 7px" title="Your squad — tap a soldier to command them in any order">${q}</div></div>
       ${insp?`<div class="hud hud-unit">${insp}</div>`:''}
       <div class="hud hud-act"><div class="hudcard" style="padding:3px 10px">${pips}</div>${actMenu}${actbar}</div>
-      <div id="zoombtns"><button onclick="ZOOM(1)" title="Zoom in">＋</button><button onclick="ZOOM(-1)" title="Zoom out">－</button></div>
+      <div id="zoombtns"><button onclick="ZOOM(1)" title="Zoom in">＋</button><button onclick="ZOOM(-1)" title="Zoom out">－</button><button onclick="SPEED()" title="Battle speed — how long the enemy phase lingers between actions. Tap to cycle: 1× / 2× / instant. Hits and damage always show.">${battleSpeed()>=3?'⚡':battleSpeed()===2?'▶▶':'▶'}</button></div>
       ${logPanel}
     </div>`;
 }
@@ -5549,6 +5572,9 @@ window.ZOOM=function(dir){ const B=S.battle; if(!B||!B._cam)return; const vp=doc
   const r=vp.getBoundingClientRect(), ins=B._ins||{top:0,bot:0}, cyBand=(ins.top+(vp.clientHeight-ins.bot))/2;   // zoom about the CLEAR band's centre, not the raw viewport centre — otherwise zooming shoves the map top up under the HUD
   zoomAt(B,vp,r.left+vp.clientWidth/2,r.top+cyBand,clampZoom(B._cam.z*(dir>0?1.25:0.8))); applyCam(B,pz,vp); B._camTouched=true; };
 window.LOGTOGGLE=function(){ const B=S.battle; if(!B)return; B._logOpen=!B._logOpen; render(); };
+// Cycle 1× → 2× → instant. Lives on S so it rides the battle stash and the post-battle save alike.
+// (save() is a deliberate no-op mid-battle — the stash and the next clean save carry the setting.)
+window.SPEED=function(){ S.battleSpeed=battleSpeed()>=3?1:battleSpeed()+1; save(); render(); };
 window.NEXTUNIT=function(){ const B=S.battle; if(!B||B.phase!=='player')return;                 // jump to the next soldier who can still act
   const order=B.units.filter(z=>z.kind==='pc'&&z.hp>0&&!z.fled); if(!order.length)return;
   const ci=order.findIndex(z=>z.uid===B.sel);
@@ -5622,6 +5648,16 @@ function renderVictory(){
 }
 
 /* ============================== BOOT ============================== */
+// No backend, no telemetry — by design. This banner is the only way a swallowed exception (an onclick that
+// throws, an AI timer that dies and stalls the enemy phase) ever becomes a report instead of "the game froze."
+function errToast(msg){ try{
+  const old=document.querySelectorAll('.errtoast'); if(old.length>=2)old[0].remove();   // never stack a wall of them
+  const d=document.createElement('div'); d.className='errtoast';
+  d.textContent='⚠ '+msg; d.onclick=()=>d.remove();
+  document.body.appendChild(d); setTimeout(()=>d.remove(),15000);
+}catch(e){} }
+window.onerror=function(msg,src,line){ errToast((msg||'Unknown error')+(line?' — line '+line:'')); };
+window.addEventListener('unhandledrejection',e=>{ errToast(String((e.reason&&e.reason.message)||e.reason||'Unhandled rejection')); });
 window.G={ get state(){return S;}, newGame, advanceDays, weeklyTick, startBattle, save, load,
   soldierById, rise, graves:()=>S.graves, dbgKill:(id)=>{const s=soldierById(id); if(s){S.battle=null; killSoldier(s); S.graves[S.graves.length-1].state='lost'; render();}} };
 if(tryResumeBattle()){                       // a fight was interrupted (reload / orientation change) — pick it back up
