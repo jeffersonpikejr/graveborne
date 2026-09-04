@@ -692,15 +692,22 @@ function neighbors(i){return EDGES.filter(e=>e.includes(i)).map(e=>e[0]===i?e[1]
 
 /* ---- hex world (flat-top, odd-q offset) ---- */
 const COLS=PW*3,ROWS=PH*3,HXS=20;   // the realm sheet: three province blocks across, three down
-const BACKUP_KEY='graveborne_pre_realm';
+const BACKUP_KEY='graveborne_pre_realm';                 // the legacy one-shot snapshot from before v0.62 — last-resort fallback only
+const backupKeyFor=v=>'graveborne_pre_v'+v;             // v0.67+: one snapshot per migration target, taken before that migration first runs
+// The NEWEST pre-migration record is the one to offer: restoring the pre-realm snapshot to someone whose campaign
+// survived v0.62 and ran for months would hand them back a save from before all of it.
+function latestBackup(){
+  for(let v=SAVE_VER;v>=67;v--){ const b=localStorage.getItem(backupKeyFor(v)); if(b)return b; }
+  return localStorage.getItem(BACKUP_KEY);
+}
 function recoveryModal(){
-  const bak=localStorage.getItem(BACKUP_KEY);
+  const bak=latestBackup();
   showModal('The Map Would Not Rebuild',
     `<p>The company is intact. The cartography is not — something failed while the realm was being drawn, and the campaign was not loaded.</p>
      <p class="hint">Your last good record was kept before any of this began. Nothing has been overwritten.</p>`,
     [ bak?{label:'Restore the company and reload',cls:'primary',fn:()=>{ localStorage.setItem('graveborne_v01',bak); location.reload(); }}
           :{label:'Reload',cls:'primary',fn:()=>location.reload()},
-      {label:'Raise a new banner instead (abandons the record)',cls:'danger',fn:()=>{ closeModal(); newGame(); }} ]);
+      {label:'Raise a new banner instead (abandons the record)',cls:'danger',fn:()=>{ activeModal=null; newGame(); }} ]);   // not closeModal(): there may be no S to save yet
   render();
 }
 const hexKey=(q,r)=>q+','+r;
@@ -1093,7 +1100,8 @@ function newGame(){
      roster:[],hirePool:[],contracts:[],graves:[],regions:[],log:[],battle:null,chronicle:[],
      partyUp:0,scouted:false,kits:0,horns:0,unlocks:{reforge:false,armor:false,party:false},
      bondCounts:{},usedBg:[],usedNames:[],agents:[],deserters:[],hexes:null,caravan:null,
-     realm:true,provKnown:{0:true},provIntel:{},mapWide:false,crossTried:{},actOneClosed:false};   // the realm exists from turn one; you just can't see most of it
+     realm:true,provKnown:{0:true},provIntel:{},mapWide:false,crossTried:{},actOneClosed:false,
+     ver:SAVE_VER};   // the realm exists from turn one; you just can't see most of it · a fresh record is born at the current shape
   S.regions=REGION_DEFS.map((d,i)=>({id:i,name:d.n,pressure:Math.max(3,d.p+ri(-8,8)),swallowed:false}));
   genWorld();
   S.caravan={q:realmQ(1),r:realmR(1)};
@@ -1101,7 +1109,7 @@ function newGame(){
   // The founding grave: the company already has one debt walking. Guarantees the
   // signature loop fires by week ~3 regardless of play style (inherited-revenant prologue).
   const fd=makeSoldier();
-  S.graves.push({id:nid(),soldierId:fd.id,name:fd.name,bg:fd.bg,
+  S.graves.push({id:nid(),soldierId:fd.id,name:fd.name,bg:fd.bg,face:fd.face,   // the face used to arrive via the first-reload backfill; stamped records skip it
     snap:{maxhp:fd.maxhp,skl:fd.skl,spd:fd.spd,weapon:fd.weapon,wMod:1,armor:fd.armor,feats:['duelist'],level:2,cls:fd.cls,commander:!!fd.commander},
     bonds:[S.roster[0].id],state:'lost',regionId:0,weekDied:0,iter:0,hook:bgOf(fd).hook,seed:true});
   S.roster[0].commander=true;
@@ -1201,10 +1209,35 @@ function refreshHirePool(){ S.hirePool=[makeSoldier(),makeSoldier()]; S.hirePool
 function log(msg,cls){ S.log.unshift({msg,cls:cls||'',week:S.week}); if(S.log.length>140)S.log.pop(); }
 
 /* ============================== SAVE / LOAD ============================== */
-function save(){ if(S.battle) return; try{ localStorage.setItem('graveborne_v01',JSON.stringify({S,uid})); }catch(e){} }
-// pre-v0.60 backfill. Idempotent and null-safe, and called from BOTH load() AND tryResumeBattle() —
-// the resume path replaces S wholesale and never touches load(), so a version bump landing while a battle
-// is stashed (the mobile-rotate case the stash exists for) would otherwise resume into a save with no deeds.
+function save(){ if(!S||S.battle) return; try{ localStorage.setItem('graveborne_v01',JSON.stringify({S,uid})); }catch(e){} }
+/* ---- v0.67 THE SAVE SPINE: one version stamp, one ordered registry, one migration path. ----
+   SAVE_VER is the shape this build writes. Every MIGRATIONS entry with `to` above a record's S.ver runs, in order,
+   stamping S.ver as it goes; migrateSave() is the only walker and is called from BOTH load() AND tryResumeBattle()
+   — the resume route replaces S wholesale and never touches load(), so before v0.67 the two paths kept separate,
+   hand-synced migration lists (and drifted once: a version bump landing while a battle was stashed resumed into
+   a save with no deeds). To change the save shape: bump SAVE_VER and append {to:SAVE_VER, run}. Never edit a
+   shipped entry — it has already run on someone's record. ---- */
+const SAVE_VER=67;
+const MIGRATIONS=[
+  {to:67, run:migrateLegacy},   // everything from v0.1 to v0.66, as it always ran
+];
+// Snapshot the on-disk record ONCE per migration target, before that migration first runs for this player — the
+// restore point recoveryModal() offers if the walk throws. Called from both paths (load, and resume, where the
+// disk copy is the clean pre-battle save). Newest snapshot wins at restore time.
+function snapshotForMigration(fromVer){ try{
+  if((fromVer||0)>=SAVE_VER)return;
+  const key=backupKeyFor(SAVE_VER); if(localStorage.getItem(key))return;
+  const raw=localStorage.getItem('graveborne_v01'); if(raw)localStorage.setItem(key,raw);
+}catch(e){} }
+function migrateSave(){
+  const from=S.ver||0; let ran=false;
+  // A record stamped ABOVE this build (a cached older page opening a newer save) keeps its stamp: the newer fields
+  // are still in it, untouched, so the newer build must not re-walk them. Entries stay presence-tested regardless.
+  if(from>SAVE_VER){ try{ console.warn('Graveborne: record is v'+from+', this build writes v'+SAVE_VER); }catch(e){} return false; }
+  for(const m of MIGRATIONS){ if(m.to<=from)continue; m.run(); S.ver=m.to; ran=true; }   // stamp after each step: a throw leaves S where it stood, never half-claimed
+  if((S.ver||0)<SAVE_VER){ S.ver=SAVE_VER; ran=true; }   // a bump with no shape change still gets stamped, so the next boot skips the walk
+  return ran;
+}
 // A save is "realm shaped" only if the sheet is the right size AND the corners exist. S.realm alone
 // says "migration was attempted", not "it finished" — a mid-flight throw used to leave an unflagged
 // half-migrated save that re-shifted on the next boot.
@@ -1288,9 +1321,10 @@ function deedAddQuiet(s,id,note){   // seeding writes the record without the fir
   if(!s||!DEEDS[id])return; s.deeds=s.deeds||[];
   if(!s.deeds.some(d=>d.id===id))s.deeds.push({id,week:S.week,note});
 }
-function load(){ const _raw=localStorage.getItem('graveborne_v01');
-  try{ if(_raw&&!localStorage.getItem(BACKUP_KEY))localStorage.setItem(BACKUP_KEY,_raw); }catch(e){}   // one-shot pre-realm snapshot
-  try{ const d=JSON.parse(_raw); if(d&&d.S&&!d.S.battle){S=d.S;uid=d.uid;
+// The pre-registry gauntlet (v0.1 → v0.66), verbatim and in its original order. Presence-tested throughout; runs
+// once per record via MIGRATIONS and never again once S.ver is stamped.
+function migrateLegacy(){
+  let touched=false;
   S.regions.forEach(r=>{ if(r.swallowed&&r.salvage===undefined) r.salvage=6; }); // pre-salvage saves
   // pre-world-map saves: add the day clock and the wider March
   if(S.day===undefined) S.day=(S.week-1)*7;
@@ -1313,7 +1347,6 @@ function load(){ const _raw=localStorage.getItem('graveborne_v01');
     save(); // lock the generated world in, or every refresh re-rolls the terrain
   }
   // pre-v0.4 saves: faces, the commander, the story
-  let touched=false;
   for(const arr of [S.roster,S.hirePool]) for(const p of arr){ if(!p.face){p.face=makeFace();touched=true;} }
   for(const g of S.graves){ if(!g.face){g.face=makeFace();touched=true;} }
   if(!S.roster.some(p=>p.commander)&&S.roster.length){ S.roster[0].commander=true; touched=true;
@@ -1346,8 +1379,14 @@ function load(){ const _raw=localStorage.getItem('graveborne_v01');
   if(migrateV062())touched=true;   // may throw; the caller's catch restores from BACKUP_KEY rather than starting a new company
   if(migrateV063())touched=true;
   if(migrateV060())touched=true;
-  if(touched)save();
-  return true;} }catch(e){} return false; }
+  return touched;
+}
+function load(){ const _raw=localStorage.getItem('graveborne_v01');
+  try{ const d=JSON.parse(_raw); if(d&&d.S&&!d.S.battle){
+    snapshotForMigration(d.S.ver);
+    S=d.S; uid=d.uid;
+    if(migrateSave())save();
+    return true; } }catch(e){} return false; }
 // A battle is never written to the main save, so a page reload mid-fight (mobile browsers do this on orientation
 // change / memory pressure) used to drop the whole battle — which reads as "my party's turn reset." Stash the live
 // battle on hide/unload and resume it on next boot, so a rotate or refresh no longer loses your place.
@@ -1355,9 +1394,7 @@ const ACTIVE_KEY='graveborne_active_v01';
 function stashBattle(){ try{
   if(S&&S.battle&&!S.battle.over){
     const skip={_vis:1,_conn:1,_lastPos:1,_lastPosRAF:1,_fitRetry:1};        // transient (Sets / timers) — rebuilt on render
-    // GW/GH are per-battle GLOBALS set by genBattleMap (not on the battle object); tileAt indexes tiles[y*GW+x], so
-    // they MUST be restored on resume or every tile lookup is wrong. Stash them alongside.
-    localStorage.setItem(ACTIVE_KEY, JSON.stringify({S,uid,t:Date.now(),GW,GH},(k,v)=>skip[k]?undefined:v));
+    localStorage.setItem(ACTIVE_KEY, JSON.stringify({S,uid,t:Date.now()},(k,v)=>skip[k]?undefined:v));
   } else localStorage.removeItem(ACTIVE_KEY);
 }catch(e){} }
 function clearStashedBattle(){ try{ localStorage.removeItem(ACTIVE_KEY); }catch(e){} }
@@ -1365,8 +1402,12 @@ function tryResumeBattle(){ try{
   const d=JSON.parse(localStorage.getItem(ACTIVE_KEY));
   if(d&&d.S&&d.S.battle&&!d.S.battle.over&&(Date.now()-(d.t||0)<30*60000)){   // fresh (<30 min) so a long-abandoned fight doesn't resurrect
     S=d.S; uid=d.uid; const B=S.battle;
-    if(typeof d.GW==='number')GW=d.GW; if(typeof d.GH==='number')GH=d.GH;     // restore the map dimensions tileAt() relies on
-    migrateV062(); migrateV063(); migrateV060();                                             // the resume path skips load() — backfill here too, or a mid-battle version bump resumes into a save with no deeds
+    // tileAt() indexes tiles[y*GW+x], so the map dimensions MUST come back with the battle. Since v0.67 the battle
+    // carries its own (B.gw/B.gh, set by genBattleMap); a stash written by an older build kept them beside S.
+    if(typeof B.gw==='number'&&typeof B.gh==='number'){ GW=B.gw; GH=B.gh; }
+    else { if(typeof d.GW==='number')GW=d.GW; if(typeof d.GH==='number')GH=d.GH; B.gw=GW; B.gh=GH; }   // adopt them, or the NEXT stash of this battle has none
+    snapshotForMigration(S.ver);                                              // the on-disk record is the clean pre-battle save — the right restore point
+    migrateSave();                                                            // the one migration path — see SAVE_VER
     delete B._vis; delete B._conn; B._lastPos=null; B._camTouched=false;      // re-fit the camera to the current (possibly rotated) viewport
     return true;
   }
@@ -2063,6 +2104,7 @@ function tileDesc(B,x,y){ // inspect-mode readout: what this square does, and wh
 }
 function genBattleMap(B,bhex,region){
   const SZ=ri(20,24); GW=SZ+ri(0,2); GH=SZ+ri(0,2);          // square-ish and roomy — a proper battleground
+  B.gw=GW; B.gh=GH;                                           // the battle carries its own dimensions — the stash/resume path reads them back from here
   B.tiles=[];
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++)B.tiles.push({x,y,t:'grass',elev:1,blighted:false});
   const T=(x,y)=>(x>=0&&y>=0&&x<GW&&y<GH)?B.tiles[y*GW+x]:null;
@@ -4594,22 +4636,25 @@ function showModal(title,html,btns){
   activeModal={title,html,btns};
   render();
 }
-function closeModal(){ activeModal=null; save(); render(); pumpModals(); if(S.battle)maybeAI(); }
+function modalHtml(){
+  return `<div id="modalBack"><div id="modal"><h2>${esc(activeModal.title)}</h2>${activeModal.html}
+      <div class="btns">${activeModal.btns.map((b,i)=>`<button class="${b.cls||''}" ${b.disabled?'disabled':''} onclick="MODALBTN(${i})">${b.lhtml?b.lhtml:esc(b.label)}</button>`).join('')}</div></div></div>`;
+}
+function closeModal(){ activeModal=null; save(); render(); pumpModals(); if(S&&S.battle)maybeAI(); }
 
 /* ============================== RENDER ============================== */
 function render(){
   const app=document.getElementById('app');
   if(S&&S._mapFlip)setTimeout(()=>{ if(S){S._mapFlip=false;} },40);   // one-shot frame transition
-  if(!S){app.innerHTML='';return;}
+  // No company loaded (a record that would not even parse) is exactly when recoveryModal() needs the screen —
+  // draw the modal alone rather than a blank page that reads as "the game is gone".
+  if(!S){app.innerHTML=activeModal?modalHtml():'';return;}
   let html='';
   if(S.over) html=renderGameOver();
   else if(S.battle) html=renderBattle();
   else if(SNK) html=renderSneak();
   else html=renderCompany();
-  if(activeModal){
-    html+=`<div id="modalBack"><div id="modal"><h2>${esc(activeModal.title)}</h2>${activeModal.html}
-      <div class="btns">${activeModal.btns.map((b,i)=>`<button class="${b.cls||''}" ${b.disabled?'disabled':''} onclick="MODALBTN(${i})">${b.lhtml?b.lhtml:esc(b.label)}</button>`).join('')}</div></div></div>`;
-  }
+  if(activeModal)html+=modalHtml();
   app.innerHTML=html;
   const lg=document.getElementById('log'); if(lg)lg.scrollTop=0;
   if(S.battle) setupBattleView(S.battle);      // apply the pan/zoom camera & (re)bind gesture handlers
@@ -5669,7 +5714,7 @@ if(tryResumeBattle()){                       // a fight was interrupted (reload 
 } else if(!load()){
   // load() swallows exceptions. If a save EXISTS and we got here, something failed mid-migration —
   // never start a fresh company over a live campaign; offer the untouched backup instead.
-  if(localStorage.getItem('graveborne_v01')||localStorage.getItem(BACKUP_KEY))recoveryModal();
+  if(localStorage.getItem('graveborne_v01')||latestBackup())recoveryModal();
   else newGame();
 }
 else {
