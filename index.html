@@ -1543,9 +1543,20 @@ function dangerOf(region){ return region.swallowed?3:(region.pressure>=70?3:regi
 function worldTier(){ return Math.floor((S.week||1)/3); } // difficulty heartbeat: tier 0 (wk1-2), 1 (wk3-5), 2 (wk6-8), 3 (wk9-11)…
 // Ash grafts are only found where the Blight actually is — a clean, low-pressure region yields no relics
 function isBlightField(B,region){ return region.swallowed || region.pressure>=40 || B.obj==='burn' || B.obj==='reclaim' || (S.hexes&&Object.values(S.hexes).some(h=>h.region===region.id&&h.blighted)); }
+// v0.68 — the spine never dead-ends. A story contract is consumed like any other when fought (won, lost, or fled),
+// and used to be culled with its region if the Blight swallowed it; on the loss paths nothing ever re-posted it, so
+// the main quest stranded with the hint still pointing at a mark that no longer existed. Re-post whenever the stage
+// says the beat is owed and no posting carries it. Called after every non-victory battle and every contract refresh.
+function ensureStorySpine(){
+  if(!S.story||S.battle)return false;
+  if(S.story.stage===4&&!S.contracts.some(c=>c.story==='courier')){ postCourierContract(true); return true; }
+  if(S.story.stage===7&&S.story.heir&&!S.contracts.some(c=>c.story==='heir')){ postHeirQuest(S.story.heir,true); return true; }
+  return false;
+}
 function genContracts(){
   // top-up semantics: contracts persist until fought or expired, so travel can't orphan them
-  S.contracts=S.contracts.filter(c=>(c.expires||99)>S.week&&!(S.regions[c.regionId].swallowed&&c.type!=='delve'));
+  S.contracts=S.contracts.filter(c=>(c.expires||99)>S.week&&!(S.regions[c.regionId].swallowed&&c.type!=='delve'&&!c.story));   // story beats outlive a swallowed region
+  ensureStorySpine();
   for(const r of S.regions){
     if(S.contracts.some(c=>c.regionId===r.id))continue;
     if(!provKnown((REGION_DEFS[r.id]||{}).prov||0))continue;   // you cannot take work in a province you have never walked
@@ -2416,10 +2427,11 @@ function topUpFoes(B,budget){
     if(w&&w.up)ups.push({c:3,f:()=>u.weapon=w.up});
     if(!u.wAff&&(B.danger||1)>=2)ups.push({c:2,f:()=>u.wAff={pre:pick(Object.keys(W_PREFIX))}});   // named steel in enemy hands — and loot-table foreshadowing
     const up=pick(ups); up.f(); u._pb=(u._pb||0)+up.c; total+=up.c;
-    const base=ENEMIES[u.ekey].n;                        // earned prefixes, only on untagged names
-    if(u._pb>=6&&u.name==='Veteran '+base)u.name='Elite '+base;
-    else if(u._pb>=6&&u.name===base)u.name='Elite '+base;
-    else if(u._pb>=3&&u.name===base)u.name='Veteran '+base;
+    // earned rank on ANY name — a tier-tagged foe ("Ironbound Husk") used to take the power silently, and a player
+    // read a chaff name on an elite stat block. The rank rides in front of whatever the name already is.
+    // A named leader (the Magister's Blade, Vell) takes the power but keeps its name — a proper name is not chaff.
+    const rank=u._pb>=6?'Elite':u._pb>=3?'Veteran':null;
+    if(rank&&u._rank!==rank&&u.uid!==B.leaderUid){ u.name=rank+' '+(u._rank?u.name.slice(u._rank.length+1):u.name); u._rank=rank; }
   }
 }
 function deployPods(B,contract,ct,danger,budget,ceil){
@@ -2533,7 +2545,7 @@ function startBattle(contract,squadIds){
     const s=soldierById(id); if(!s)return;
     const pcu=B.units.find(z=>z.kind==='pc'&&z.ref===id); if(!pcu)return;
     for(const w of livingSwords(s)){
-      if(swordsOut>=MAX_FIELD_SWORDS)break;
+      if(swordsOut>=MAX_FIELD_SWORDS){ blog(B,`${w.name} stays with the baggage — only ${MAX_FIELD_SWORDS} swords ride.`); continue; }   // the muster said so; the field says it again
       const spot=nearOpen(B,pcu.x,pcu.y,3); if(!spot)break;
       swordsOut++;
       B.units.push({uid:nid(),kind:'pc',sword:true,ref:null,swordId:w.id,ownerId:s.id,name:w.name,
@@ -2553,7 +2565,10 @@ function startBattle(contract,squadIds){
   const danger=contract.danger;
   const flank=(B.obj==='escort'||B.obj==='protect');
   const P=rosterBestPower(), budget=battleBudget(P,danger);   // priced to your best possible muster, not who you brought
-  const ceil=Math.min(MAXFOES,PB_CEIL[clamp(danger||1,1,3)]+(contract.type==='hold'?1:0));
+  // The reckoning fields EVERY risen grave, so its comp fill must leave them room (plus a little for their retinue):
+  // revenants ride on top of the budget, never inside it, and a late-game comp would otherwise fill to the ceiling first.
+  const reserve=contract.reckoning?Math.min(MAXFOES-3,S.graves.filter(g=>g.state==='risen').length+2):0;
+  const ceil=Math.max(3,Math.min(MAXFOES,PB_CEIL[clamp(danger||1,1,3)]+(contract.type==='hold'?1:0))-reserve);
   B.ppower=Math.round(P); B.pbudget=Math.round(budget);
   B.podsActive=podsEligible(B,contract)&&!contract.comp;
   if(B.podsActive){
@@ -2604,10 +2619,18 @@ function startBattle(contract,squadIds){
   // revenant injection
   const risenHere=S.graves.filter(g=>g.state==='risen'&&g.regionId===region.id);
   let revs=[];
-  if(contract.reckoning){ revs=S.graves.filter(g=>g.state==='risen').slice(0,3); } // the finale: all your unresolved dead
+  if(contract.reckoning){ revs=S.graves.filter(g=>g.state==='risen'); }   // the finale: ALL your unresolved dead — the promise is literal (it was capped at three until v0.68)
   else if(contract.revGraveId){ revs=[S.graves.find(g=>g.id===contract.revGraveId)]; }
   else if(risenHere.length&&chance(65)){ revs=[risenHere[0]]; }
-  for(const g of revs){ if(g&&g.state==='risen') spawnRevenant(B,g); }
+  if(contract.reckoning){
+    // Two passes, so every named dead walks BEFORE any retinue fills the room: the revenants first, up to the engine's
+    // ceiling; then their sworn and their risen, in the same order, with whatever room is left. Staged waves and
+    // budget pricing for this field are a later session — until then the room is the bound, and it says so.
+    const spawned=[]; let held=0;
+    for(const g of revs){ if(!g||g.state!=='risen')continue; if(foeCount(B)>=MAXFOES){held++;continue;} spawned.push(spawnRevenant(B,g,true)); }
+    for(const r of spawned){ if(foeCount(B)>=MAXFOES)break; spawnRevenantRetinue(B,r.u,r.revLvl,r.it); }
+    if(held)blog(B,`${held} more of your dead wait beyond the doors — the room holds no more.`);
+  } else for(const g of revs){ if(g&&g.state==='risen') spawnRevenant(B,g); }
   ensureFoesReachable(B);                                       // no enemy stranded behind sealed walls — every battle winnable
   S.battle=B;
   // quartermaster loadout & scouting are spent the moment the mission begins
@@ -2675,7 +2698,7 @@ function spawnProp(B,kind,x,y){
     skl:0,spd:0,res:99,weapon:'shortsword',wMod:0,arm:wagon?1:0,feats:[],traits:[],undead:false,x,y,
     moved:true,acted:true,shakenBy:null,rattled:0,reaper:0,fled:false,graveId:null,face:wagon?null:makeFace()});
 }
-function spawnRevenant(B,g){
+function spawnRevenant(B,g,noRetinue){   // noRetinue: the caller places the retinue itself (the reckoning's two-pass fill)
   const it=(g.iter||0)+(g.snap.ashPromised?1:0); // the Ash keeps its side of the bargain
   const snapLvl=g.snap.level||2, cls=g.snap.cls||'fighter', CL=CLASSES[cls]||CLASSES.fighter;
   // A revenant scales UP to the company — it always overmatches your best by ~2 levels (plus each Conclave
@@ -2695,7 +2718,8 @@ function spawnRevenant(B,g){
     skl,spd,res:99,weapon:g.snap.weapon,wMod,wAff:g.snap.wAff||null,aAff:g.snap.aAff||null,arm,dmgBonus,traits:[],dbl,revLvl,ai:null,regen:0,podId:null,
     feats,undead:true,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:10+it*3+graft,graveId:g.id};
   placeRight(B,u); B.units.push(u); B.revGraveIds.push(g.id);
-  spawnRevenantRetinue(B,u,revLvl,it);
+  if(!noRetinue)spawnRevenantRetinue(B,u,revLvl,it);
+  return {u,revLvl,it};
 }
 // The dead do not walk alone: a revenant leads a detachment of the risen, buffed to match its advance.
 // Built as its own pod so the retinue coordinates (patrol → charge together) around the revenant as anchor.
@@ -3942,6 +3966,9 @@ function endBattle(outcome){
         queueModal(()=>ledgerScene());
       }
       if(B.storyBeat==='heir'&&S.story&&S.story.stage===7){
+        // Advance NOW, not when the epilogue modal runs: the modal queue is in-memory and a reload mid-chain (rites,
+        // level-ups ahead of it) drops it — and a stage-7 record with no posting must mean "owed", never "won".
+        S.story.stage=8; S.story.heirWeek=S.week;   // heirEpilogue re-sets both, idempotently
         queueModal(()=>heirEpilogue());
       }
       if(B.storyBeat==='finale'&&S.story&&S.story.stage===9){
@@ -3998,13 +4025,14 @@ function endBattle(outcome){
     S.prov=Math.max(0,S.prov-5*B.wagonsLost);
     log(`${B.wagonsLost} wagon${B.wagonsLost>1?'s':''} lost — provisions spill into the mud (−${5*B.wagonsLost}).`,'bad');
   }
-  if(S.renown>=12&&!S.actOne){ S.actOne=true; queueModal(()=>showModal('Act I — Proven',
-    `<p>Twelve contracts. The company has a name now, and a graveyard.</p><p class="hint">This is where alpha v0.1 ends its authored arc — play on. The war doesn’t stop because the demo does.</p>`,
+  if(S.renown>=12&&!S.actOne){ S.actOne=true; queueModal(()=>showModal('A Name on the Road',
+    `<p>Twelve contracts. The company has a name now, and a graveyard.</p><p class="hint">The story does not stop for renown — follow the purple marks, and keep the graveyard quiet.</p>`,
     [{label:'Play on',fn:()=>closeModal()}])); }
   S.battle=null;
   clearStashedBattle();   // the fight is over — don't resurrect it on the next boot
   // a fought contract is consumed — won, lost, or fled
   S.contracts=S.contracts.filter(c=>c.id!==B.contractId);
+  if(outcome!=='victory')ensureStorySpine();   // a lost or fled story beat is re-posted, never stranded
   // a beaten map agent is gone from the map
   if(B.agentId&&outcome==='victory')S.agents=S.agents.filter(a=>a.id!==B.agentId);
   if(S._cmdrLost){ const nm=S._cmdrLost; S._cmdrLost=null; queueModal(()=>bannerPassesModal(nm,'fell')); }
@@ -4434,7 +4462,7 @@ window.PALACE2=function(){
      </div></div>`,
     [{label:'The company rides',cls:'primary',fn:()=>{closeModal(); postCourierContract();}}]);
 };
-function postCourierContract(){
+function postCourierContract(repost){
   const roads=Object.values(S.hexes).filter(h=>h.road&&h.setl===null&&(h.region===3||h.region===1));
   const a=roads.length?pick(roads):contractAnchor(1,'patrol');
   S.contracts.push({id:nid(),type:'patrol',cname:'The Magister’s Courier',regionId:hex(a.q,a.r).region,pay:120,danger:3,
@@ -4442,8 +4470,9 @@ function postCourierContract(){
     comp:['acolyte','acolyte','archer','graveguard'],leader:'graveguard',leaderName:'The Magister’s Blade',
     weatherLock:'fog',layout:'pass'});
   S.story.stage=4;
-  log('Posted: The Magister’s Courier — a night road, a fog, a blade with a list. The purple mark on the map.','wk');
-  save(); render();
+  log(repost?'The Courier rides again — the Magister does not send one blade when he has many. The purple mark is back on the map.'
+            :'Posted: The Magister’s Courier — a night road, a fog, a blade with a list. The purple mark on the map.','wk');
+  if(!repost){ save(); render(); }   // a re-post happens inside a refresh that saves and renders itself
 }
 function satchelScene(){
   S.coin+=80; S.renown+=2;
@@ -4459,7 +4488,7 @@ function satchelScene(){
     `<p>Inside: names. Dates. A meeting place under a barrow, three weeks hence. And one line in the Magister’s precise, unhurried hand:</p>
      <div class="callout">“The mercenaries. Find what they love.”</div>
      <p>He knows your banner now.</p>
-     <p class="hint">+80c through Maren’s channels, +2 renown. Grey riders — the Magister’s Hunters — now walk the March, and they are looking for you. Act III arrives in a future build.</p>`,
+     <p class="hint">+80c through Maren’s channels, +2 renown. Grey riders — the Magister’s Hunters — now walk the March, and they are looking for you. The barrow meeting is set. Be there.</p>`,
     [{label:'Burn everything but the names',cls:'primary',fn:()=>closeModal()}]);
   log('The Magister’s Blade is dead; his letters are yours. Somewhere in Karsk Gate, a precise, unhurried man writes your company’s name.','blight');
 }
@@ -4487,7 +4516,7 @@ function chooseHeir(h){
   }
   postHeirQuest(h);
 }
-function postHeirQuest(h){
+function postHeirQuest(h,repost){
   let c;
   if(h==='aldric'){
     const road=Object.values(S.hexes).filter(x=>x.road&&x.region===1&&x.setl===null);
@@ -4504,8 +4533,9 @@ function postHeirQuest(h){
        obj:'protect',story:'heir',caravanRaid:true,comp:['acolyte','acolyte','archer','graveguard'],weatherLock:'fog'};
   }
   S.contracts.push(c);
-  log(`Posted: ${c.cname} — the heir’s price, in purple on the map.`,'wk');
-  save(); render();
+  log(repost?`${c.cname} is posted again — the heir’s price does not lapse because you fled it. Purple on the map.`
+            :`Posted: ${c.cname} — the heir’s price, in purple on the map.`,'wk');
+  if(!repost){ save(); render(); }
 }
 function heirEpilogue(){
   S.story.stage=8; S.renown+=3;
@@ -4519,16 +4549,16 @@ function heirEpilogue(){
      <div class="callout">“The King has asked for the bedside candles. Whatever is decided in that room, the March will bleed for it.”</div>
      <p class="hint">+3 renown. The King is dying. When he passes, Magister Vell will move — and you will be sent for. Watch the log.</p>`,
     [{label:'The company endures',cls:'primary',fn:()=>closeModal()}]);
-  log('Act III part 1 closes: an heir is chosen, a debt is owed, and the candles at the King’s bedside are lit.','wk');
+  log('An heir is chosen, a debt is owed, and the candles at the King’s bedside are lit.','wk');
 }
-/* ---- ACT III FINALE: the deathbed & the reckoning ---- */
+/* ---- THE FINALE — the close of Act I: the deathbed & the reckoning ---- */
 function startFinale(){
   if(!S.story||S.story.stage!==9)return;
   const risen=S.graves.filter(g=>g.state==='risen');
   showModal('The Throne of Karsk',
     `<p>The King is three days dead. In the throne room, Magister Vell stands over the empty seat with the calm of a man who has already won an argument no one else knew they were having.</p>
      <p>“You mistake me for a traitor. I am the only loyalist left. The kingdom dies in war within two generations — I have read the numbers. Better a still, painless world than a burning one. Your ${S.story.heir==='maren'?'princess':S.story.heir==='aldric'?'prince':'Casmir'} cannot stop the arithmetic. Neither can you.”</p>
-     ${risen.length?`<div class="callout">Behind him, in your old colors: ${risen.slice(0,3).map(g=>esc(g.name)).join(', ')}. The dead you never laid to rest. He kept them for exactly this.</div>`:`<p class="hint">Your graveyard is quiet. Every soldier you lost, you laid to rest — and Vell stands with only his own dead to hide behind.</p>`}
+     ${risen.length?`<div class="callout">Behind him, in your old colors: ${risen.map(g=>esc(g.name)).join(', ')}. The dead you never laid to rest. He kept them for exactly this.</div>`:`<p class="hint">Your graveyard is quiet. Every soldier you lost, you laid to rest — and Vell stands with only his own dead to hide behind.</p>`}
      <p class="hint">⚑ Cut Off the Head — kill <b>Magister Vell</b>. Your unresolved dead fight for him.</p>`,
     [{label:'End the argument',cls:'danger',fn:()=>{closeModal(); pickSquad(sq=>startBattle({
         id:nid(),type:'putdown',cname:'The Throne of Karsk',regionId:3,pay:0,danger:3,obj:'assassinate',story:'finale',
@@ -4588,9 +4618,9 @@ function ledgerScene(){
   showModal('The Envoy’s Ledger',
     `<p>The Grey Envoy carried a ledger: payments, bodies, dates — the Magister’s hand on one page, the Conclave’s seal on the facing one. Bound together. Undeniable.</p>
      <div class="callout">“The King must see this. But the King is dying — and three heirs are listening at his door.”</div>
-     <p class="hint">+150c, +3 renown. Act II is closed. The Hunters that remain ride harder now. Act III — the succession, and who inherits the Blight — arrives in a future build.</p>`,
+     <p class="hint">+150c, +3 renown. The Hunters that remain ride harder now. Next comes the succession — three heirs, one ledger, and whoever inherits the Blight. Maren is waiting at Karsk Gate.</p>`,
     [{label:'Wrap it in oilcloth, next to the letters',cls:'primary',fn:()=>closeModal()}]);
-  log('Act II closes: the Envoy is dead and the ledger is yours. The war for the March is about to become a war for the crown.','wk');
+  log('The Envoy is dead and the ledger is yours. The war for the March is about to become a war for the crown.','wk');
 }
 function whisperEvent(s){
   s.whispered=true;
@@ -5224,7 +5254,8 @@ function selectedPanel(){
   const p=here?null:hexPath(S.caravan,{q,r},false,true);
   const dys=p&&p.length>1?travelDays(p):0;
   let html=`<div class="card"><span class="nm">${esc(hexDesc(h))}</span>
-    <div class="statline">${esc(reg.name)} — ${reg.swallowed?'<span class="swallowed">SWALLOWED</span>':'pressure '+reg.pressure}${h.blighted?' · <span class="swallowed">blighted ground</span>':''}${h.road?' · road':''}</div>`;
+    <div class="statline">${esc(reg.name)} — ${reg.swallowed?'<span class="swallowed">SWALLOWED</span>':'pressure '+reg.pressure}${h.blighted?' · <span class="swallowed">blighted ground</span>':''}${h.road?' · road':''}</div>
+    ${reg.swallowed?'':`<div class="pressure" title="Blight pressure ${reg.pressure} — at 100 the region is swallowed and its buried dead rise"><div style="width:${clamp(reg.pressure,0,100)}%"></div></div>`}`;
   if(h.feat)html+=`<div class="bg">${esc(FEAT_INFO[h.feat]||'')}</div>`;
   for(const a of ags){
     if(a.kind==='revenant'){const g=S.graves.find(g=>g.id===a.graveId);
@@ -5256,10 +5287,20 @@ function pickSquad(cb){
   const loadout={kit:false,horn:false};
   const build=()=>{
     const cap=partyCap();
+    // Swords ride beside their banneret and take no slot — but only MAX_FIELD_SWORDS of them, in muster order.
+    // Say which ones stay with the baggage HERE, not silently on the field.
+    const rides=new Set(); let slots=MAX_FIELD_SWORDS;
+    for(const id of picked){ const s=soldierById(id); if(!s)continue; for(const w of livingSwords(s)){ if(slots<=0)break; rides.add(w.id); slots--; } }
     const list=S.roster.map(s=>{
       const benched=(s.benchedUntil||0)>=S.week||isStationed(s);
       const sw=livingSwords(s);
-      return `<button class="pick" ${benched?'disabled':''} onclick="TOG(${s.id})">${benched?'⊘':(picked.has(s.id)?'☑':'☐')} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(wpnName(s.weapon,s.wAff))}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}${deedsOf(s).length?' ⚑'+deedsOf(s).length:''}${sw.length?` <span class="hint">+ brings ${esc(sw.map(w=>w.name).join(', '))}</span>`:''}${isStationed(s)?` <span class="hint">— holding ${esc(provOf(s.stationedProv).n)}</span>`:benched?` <span class="hint">— sworn elsewhere this week</span>`:''}</button>`;
+      let swNote='';
+      if(sw.length){
+        if(picked.has(s.id)){ const ride=sw.filter(w=>rides.has(w.id)), stay=sw.filter(w=>!rides.has(w.id));
+          swNote=` <span class="hint">${ride.length?`+ brings ${esc(ride.map(w=>w.name).join(', '))}`:''}${stay.length?`${ride.length?' · ':'— '}${esc(stay.map(w=>w.name).join(', '))} stay${stay.length>1?'':'s'} with the baggage (${MAX_FIELD_SWORDS} swords ride at most)`:''}</span>`; }
+        else swNote=` <span class="hint">+ brings ${esc(sw.map(w=>w.name).join(', '))}</span>`;
+      }
+      return `<button class="pick" ${benched?'disabled':''} onclick="TOG(${s.id})">${benched?'⊘':(picked.has(s.id)?'☑':'☐')} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(wpnName(s.weapon,s.wAff))}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}${deedsOf(s).length?' ⚑'+deedsOf(s).length:''}${swNote}${isStationed(s)?` <span class="hint">— holding ${esc(provOf(s.stationedProv).n)}</span>`:benched?` <span class="hint">— sworn elsewhere this week</span>`:''}</button>`;
     }).join('');
     let items='';
     if((S.kits||0)>0) items+=`<button class="pick" onclick="LOAD('kit')">${loadout.kit?'☑':'☐'} 🩹 Chirurgeon’s Kit — deploy at full HP (×${S.kits})</button>`;
@@ -5687,7 +5728,7 @@ function renderVictory(){
     <h2>Chronicle</h2>
     ${S.chronicle.slice(-8).map(c=>`<p class="bg">${esc(c)}</p>`).join('')||'<p class="hint">A short, bloody story.</p>'}
     <p style="margin-top:14px;font-style:italic">The Blight is not ended. It never ends. But for one season, on one banner, you fought everyone you failed to protect — and you were still standing when the smoke cleared.</p>
-    <p class="hint">— GRAVEBORNE, Act III. Thank you for playing the alpha. —</p>
+    <p class="hint">— GRAVEBORNE, Act I: The March. Thank you for playing the alpha. —</p>
     <button class="primary" onclick="NEWGAME()">Raise a new banner</button>
   </div></div>`;
 }
