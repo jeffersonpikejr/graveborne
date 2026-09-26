@@ -1,1 +1,7 @@
 .DS_Store
+# art pipeline: master renders and .blend files are reproducible from art/blender/*.py
+art/renders/
+*.blend
+*.blend1
+.bvenv/
+__pycache__/
