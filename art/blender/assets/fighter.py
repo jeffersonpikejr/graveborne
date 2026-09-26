@@ -16,11 +16,14 @@ import math
 from mathutils import Matrix, Vector
 
 from gb import armor as A
+from gb import face as F
 from gb import grit as G
 from gb import kit as K
 from gb import mat as M
 
 FIG_SCALE = 0.6          # 1 m = 0.6 tile: a 1.85 m mercenary stands ~1.1 tiles tall
+HEAD_SCALE = 1.08        # heads a touch large, so faces read on the board
+HEAD_TILT = -10.0        # chin up: unflinching, and it turns the face toward the camera
 
 VARIANTS = {
     'fighter_m':                    {'sex': 'male'},
@@ -37,9 +40,9 @@ VARIANTS = {
 
 BODY = {   # a siege wedge: broad through the shoulders and chest, heavy in the legs, planted wide
     'male':   dict(hf=1.0, sh=0.272, chest=0.25, waist=0.206, sy=0.64, neck=0.08, bust=0.0, bulk=1.0,
-                   tone='#84675a', hair='#1e1711', beard=True, style='crop'),
+                   tone='#84675a', lips='#6e4239', hair='#1e1711', iris='#3b2c20', beard=True, style='crop'),
     'female': dict(hf=0.965, sh=0.25, chest=0.233, waist=0.188, sy=0.66, neck=0.066, bust=0.03, bulk=0.94,
-                   tone='#917064', hair='#2a1c13', beard=False, style='knot'),
+                   tone='#917064', lips='#7a463e', hair='#2a1c13', iris='#4a5358', beard=False, style='knot'),
 }
 
 
@@ -54,11 +57,6 @@ def build(v, seed=7, turn=-4.0):
         return Vector((x, y, z * hf))
 
     head_c = V(0.0, -0.012, 1.715)
-    scar = None
-    if cmd:   # the founding scar: brow to cheek, across the eye
-        p1 = (0.036, head_c.z + 0.042)
-        n = (0.678, -0.735)
-        scar = (n[0], n[1], n[0] * p1[0] + n[1] * p1[1], 0.0045)
 
     # ---------------------------------------------------------------- materials
     plate = G.steel('plate', rust=0.4, blood=0.38, seed=1)
@@ -73,9 +71,14 @@ def build(v, seed=7, turn=-4.0):
     boots = G.leather('boots', color='#2b2017', mud=2.4, seed=12)
     hose = G.cloth('hose', color='#2a2622', blood=0.1, seed=10)
     ox = G.cloth('oxblood', blood=0.5, seed=9)
-    skin = G.skin('skin' + ('_scar' if scar else ''), Bd['tone'], scar=scar, stubble=0.35 if Bd['beard'] else 0.0)
-    hair = G.hair('hair', Bd['hair'])
-    eyes = G.eyes()
+    skin = G.skin('skin', Bd['tone'])
+    face_skin = G.skin('face', Bd['tone'], face=True, dirt=0.72, stubble=0.3 if Bd['beard'] else 0.0,
+                       creases=G.CREASES_HARD if Bd['beard'] else G.CREASES_LIGHT)
+    lips = G.skin('lips', Bd['lips'], windburn=0.1, dirt=0.3)
+    hair = G.hair('hair', Bd['hair'], flow='down' if Bd['beard'] else 'back')
+    grey = G.hair('greying', '#77716a', seed=18) if vet else None
+    eye_m = G.eye('eye', Bd['iris'])
+    dark = G.flat('dark', '#140d0a')
     shield_face = G.paint_over_steel('shield_face', chip=0.6, blood=0.85)
     wood = G.wood('wood')
 
@@ -241,11 +244,13 @@ def build(v, seed=7, turn=-4.0):
     # ---------------------------------------------------------------- collar, scarf, rank
     parts.append(A.shell('collar', V(0.0, 0.0, 1.47), V(0.0, -0.005, 1.585), [(0.13, 0.0), (0.108, 0.5), (0.095, 1.0)],
                          plate, seg=32, lip=0.004, thick=0.005))
-    # the scarf: two flat wraps of oxblood wool, bunched at the throat
-    parts.append(A.torus('scarf', V(0.0, -0.006, 1.556), 0.103, 0.02, ox, sy=0.9, lumpy=0.4, rz=0.036, folds=0.006,
+    # the scarf: oxblood wool wound high around the neck like a cowl, bunched at the throat
+    parts.append(A.torus('scarf', V(0.0, -0.004, 1.585), 0.088, 0.02, ox, sy=0.95, lumpy=0.4, rz=0.034, folds=0.006,
                          seed=seed, rseg=14))
-    parts.append(A.torus('scarf2', V(0.004, -0.014, 1.518), 0.122, 0.018, ox, sy=0.84, lumpy=0.45, rz=0.03,
+    parts.append(A.torus('scarf2', V(0.002, -0.01, 1.545), 0.108, 0.021, ox, sy=0.9, lumpy=0.45, rz=0.036,
                          folds=0.006, seed=seed + 3, rseg=14))
+    parts.append(A.torus('scarf3', V(0.004, -0.014, 1.508), 0.124, 0.018, ox, sy=0.84, lumpy=0.45, rz=0.03,
+                         folds=0.006, seed=seed + 5, rseg=14))
     if cmd:    # one tarnished mark of rank: a gilt gorget on the breast, the company's roundel at its centre
         gg = K.lathe('gorget', [(C + 0.004, 1.43 * hf), (C - 0.026, 1.475 * hf)], old_gilt, seg=24,
                      sy=Bd['sy'] + 0.06, arc=(-128.0, -52.0), cap_bottom=False, cap_top=False)
@@ -290,8 +295,11 @@ def build(v, seed=7, turn=-4.0):
 
     # ---------------------------------------------------------------- neck & head
     parts.append(K.tube('neck', V(0.0, 0.0, 1.5), V(0.0, -0.008, 1.665), Bd['neck'], Bd['neck'] * 0.95, skin, seg=18))
-    hp_, eyes_at = A.head('head', head_c, sex, skin, hair, eyes, beard=Bd['beard'], hair_style=Bd['style'])
-    parts += hp_
+    hroot, _ = F.head('head', sex, face_skin, lips, hair, eye_m, dark, beard=Bd['beard'], hair_style=Bd['style'],
+                      scar=1 if cmd else None, crooked=0.003 if (vet and Bd['beard']) else 0.0, greying=grey, seed=seed)
+    hroot.matrix_world = (Matrix.Translation(head_c) @ Matrix.Rotation(math.radians(HEAD_TILT), 4, 'X')
+                          @ Matrix.Scale(HEAD_SCALE, 4))
+    parts.append(hroot)
     if rev:   # blight light spilling from the eyes onto the face
         parts.append(K.glow('face_glow', head_c + Vector((0.0, -0.105, 0.012)), '#b98cf0', 0.35, radius=0.012))
 

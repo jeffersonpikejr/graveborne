@@ -17,7 +17,8 @@ Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 
 ## Render → review → ship
 
     .bvenv/bin/python art/blender/render.py fighter            # all variants → art/renders/fighter/*.png
-    .bvenv/bin/python art/blender/render.py fighter --draft    # 384px / 24 samples, ~8s each, for iterating
+    .bvenv/bin/python art/blender/render.py fighter --draft    # 384px / 24 samples, ~15s each, for iterating
+    .bvenv/bin/python art/blender/render.py fighter --portrait # head-and-shoulders portraits (face review, unit card)
     .bvenv/bin/python art/tools/post.py sheet art/renders/fighter/*.png --out review.png   # at real game sizes
     .bvenv/bin/python art/tools/post.py ship  art/renders/fighter/*.png --out art/sprites  # 384px WebP
     python3 -m http.server 8931 --directory . &
@@ -63,8 +64,11 @@ painted-miniature materials.)
     blender/gb/grit.py      battle-worn materials (the house look)
     blender/gb/mat.py       palette, colour helpers, revenant corruption, the first painted materials
     blender/gb/kit.py       primitives: skin-modifier limbs, lathes, tubes, blades, hafted weapons
-    blender/gb/armor.py     humanoid kit: plate shells, pauldrons, cops, gauntlets, straps, torn cloth, heads,
+    blender/gb/armor.py     humanoid kit: plate shells, pauldrons, cops, gauntlets, straps, torn cloth,
                             the great shield, the broadsword
+    blender/gb/face.py      heads: a sculpted skull plus every feature as its own shape, placed by ray-cast —
+                            lidded eyes (white, iris, pupil), brows, nose, lips, ears, tufted hair and beards,
+                            loose strands, scars
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer
     tools/post.py           review sheets at real display sizes; WebP export

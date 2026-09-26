@@ -13,6 +13,7 @@ Revenant mode (mat.set_mode) drains every colour toward grave-grey and lets blig
 cracks, exactly as the painted materials did.
 """
 import bpy
+from mathutils import Vector
 
 from .mat import MODE, _CACHE, _corrupt, _mix, _maprange, _math, hexlin
 
@@ -296,18 +297,19 @@ def maille(name, color='#4c4e51', rust=0.35, blood=0.15, mud=1.0, seed=5):
     return m
 
 
-def brass(name, color=None, tarnish=0.95, blood=0.1, mud=1.0, seed=7):
-    """Tarnished gold: dark and green-brown in every recess, bright only where hands and blows polished it."""
+def brass(name, color=None, tarnish=0.95, blood=0.1, mud=1.0, seed=7, film=0.55):
+    """Tarnished gold: dark and green-brown in every recess, filmed over everywhere else, bright only where hands
+    and blows polished it. film = how much of the open surface the tarnish has taken."""
     hit, key = _cached(('brass', name))
     if hit:
         return hit
     g = _G(name, seed)
     nt = g.nt
     col = _mix(nt, 'MULTIPLY', g.col(color or COL['brass']), _maprange(nt, g.noise(9.0, w=3.0), 0.3, 0.7, 0.75, 1.05))
-    tm = _math(nt, 'MINIMUM', _math(nt, 'ADD', _math(nt, 'MULTIPLY', g.cavity, tarnish * 1.2),
-                                    _maprange(nt, g.noise(5.0, w=12.0), 0.5, 0.7, 0.0, tarnish * 0.6)), 1.0)
+    cover = _maprange(nt, g.noise(6.0, detail=8.0, rough=0.62, w=12.0), 0.3, 0.62, 0.0, film)
+    tm = _math(nt, 'MINIMUM', _math(nt, 'ADD', _math(nt, 'MULTIPLY', g.cavity, tarnish * 1.2), cover), 1.0)
     col = _mix(nt, 'MIX', col, g.col(COL['tarnish'], 'earth'), tm)
-    rgh = _lerp(nt, 0.32, 0.75, tm)
+    rgh = _lerp(nt, 0.45, 0.8, tm)
     met = _lerp(nt, 1.0, 0.45, tm)
     col = _mix(nt, 'MIX', col, g.col('#b39550'), _math(nt, 'MULTIPLY', g.edge, 0.4))
     col, rgh, met = _metal_damage(g, col, rgh, met, 0.0, blood, 0.5, mud)
@@ -384,8 +386,60 @@ def leather(name, color=None, blood=0.15, mud=1.2, seed=11):
     return m
 
 
-def skin(name, tone, scar=None, windburn=0.45, dirt=0.55, stubble=0.0, seed=13):
-    """Windburned, dirty skin. scar=(ax, az, c, width): a pale seam along ax*x + az*z = c (object space)."""
+def _blob(g, center, sigma):
+    """exp(-|p - c|^2 / sigma^2) in object space: a soft spot of colour on a face."""
+    nt = g.nt
+    d = g.N.new('ShaderNodeVectorMath')
+    d.operation = 'DISTANCE'
+    g.L.new(g.obj, d.inputs[0])
+    d.inputs[1].default_value = center
+    dd = _math(nt, 'MULTIPLY', d.outputs['Value'], d.outputs['Value'])
+    return _math(nt, 'EXPONENT', _math(nt, 'MULTIPLY', dd, -1.0 / (sigma * sigma)))
+
+
+def _segment_dist(g, a, b):
+    """Distance in the object's X-Z plane from the shading point to the segment a-b (a face-front line)."""
+    nt = g.nt
+    sep = g.N.new('ShaderNodeSeparateXYZ')
+    g.L.new(g.obj, sep.inputs[0])
+    p = g.N.new('ShaderNodeCombineXYZ')
+    g.L.new(sep.outputs['X'], p.inputs['X'])
+    g.L.new(sep.outputs['Z'], p.inputs['Z'])
+    A = Vector((a[0], 0.0, a[1]))
+    AB = Vector((b[0] - a[0], 0.0, b[1] - a[1]))
+    pa = g.N.new('ShaderNodeVectorMath')
+    pa.operation = 'SUBTRACT'
+    g.L.new(p.outputs['Vector'], pa.inputs[0])
+    pa.inputs[1].default_value = A
+    dot = g.N.new('ShaderNodeVectorMath')
+    dot.operation = 'DOT_PRODUCT'
+    g.L.new(pa.outputs['Vector'], dot.inputs[0])
+    dot.inputs[1].default_value = AB
+    t = _maprange(nt, _math(nt, 'MULTIPLY', dot.outputs['Value'], 1.0 / max(1e-9, AB.length_squared)), 0.0, 1.0)
+    sc = g.N.new('ShaderNodeVectorMath')
+    sc.operation = 'SCALE'
+    sc.inputs[0].default_value = AB
+    g.L.new(t, sc.inputs['Scale'])
+    cp = g.N.new('ShaderNodeVectorMath')
+    cp.operation = 'ADD'
+    g.L.new(sc.outputs['Vector'], cp.inputs[0])
+    cp.inputs[1].default_value = A
+    dd = g.N.new('ShaderNodeVectorMath')
+    dd.operation = 'DISTANCE'
+    g.L.new(p.outputs['Vector'], dd.inputs[0])
+    g.L.new(cp.outputs['Vector'], dd.inputs[1])
+    return dd.outputs['Value']
+
+
+# face creases in the head frame (x, z): forehead furrows and the folds from nose to mouth. Soft, never drawn on.
+CREASES_HARD = [[(-0.03, 0.05), (0.0, 0.054), (0.03, 0.05)], [(-0.026, 0.063), (0.0, 0.066), (0.026, 0.063)],
+                [(0.017, -0.041), (0.025, -0.055), (0.029, -0.072)], [(-0.017, -0.041), (-0.025, -0.055), (-0.029, -0.072)]]
+CREASES_LIGHT = [CREASES_HARD[2], CREASES_HARD[3]]
+
+
+def skin(name, tone, scar=None, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=False, creases=None):
+    """Windburned, dirty skin. scar=(ax, az, c, width): a pale seam along ax*x + az*z = c (object space).
+    face=True paints the head's own frame (face.py): weather-red cheeks, nose and ears, shadowed eye sockets."""
     hit, key = _cached(('skin', name))
     if hit:
         return hit
@@ -393,6 +447,26 @@ def skin(name, tone, scar=None, windburn=0.45, dirt=0.55, stubble=0.0, seed=13):
     nt = g.nt
     col = g.col(tone, 'skin')
     col = _mix(nt, 'MIX', col, g.col('#9a4a36', 'skin'), _maprange(nt, g.noise(6.0, w=1.0), 0.4, 0.75, 0.0, windburn))
+    if face:
+        red = None
+        for c, s, a in (((0.045, -0.075, -0.022), 0.02, 0.55), ((-0.045, -0.075, -0.022), 0.02, 0.55),
+                        ((0.0, -0.118, -0.034), 0.012, 0.6), ((0.078, 0.008, 0.0), 0.016, 0.5),
+                        ((-0.078, 0.008, 0.0), 0.016, 0.5)):
+            b = _math(nt, 'MULTIPLY', _blob(g, c, s), a)
+            red = b if red is None else _math(nt, 'MAXIMUM', red, b)
+        col = _mix(nt, 'MIX', col, g.col('#94412f', 'skin'), red)
+        sock = _math(nt, 'MAXIMUM', _blob(g, (0.029, -0.08, 0.008), 0.015), _blob(g, (-0.029, -0.08, 0.008), 0.015))
+        col = _mix(nt, 'MIX', col, g.col('#3b2319', 'skin'), _math(nt, 'MULTIPLY', sock, 0.45))
+        bags = _math(nt, 'MAXIMUM', _blob(g, (0.03, -0.086, -0.013), 0.008), _blob(g, (-0.03, -0.086, -0.013), 0.008))
+        col = _mix(nt, 'MIX', col, g.col('#4a2c21', 'skin'), _math(nt, 'MULTIPLY', bags, 0.32))   # sleepless
+    if creases:
+        lines = None
+        for poly in creases:
+            for a, b in zip(poly, poly[1:]):
+                m = _maprange(nt, _segment_dist(g, a, b), 0.0007, 0.0028, 1.0, 0.0)
+                lines = m if lines is None else _math(nt, 'MAXIMUM', lines, m)
+        col = _mix(nt, 'MIX', col, g.col('#3a2218', 'skin'), _math(nt, 'MULTIPLY', lines, 0.34))
+        g.bump(lines, -0.35)
     col = _mix(nt, 'MIX', col, g.col(COL['grime'], 'earth'), _maprange(nt, g.noise(9.0, detail=8.0, w=3.0), 0.45, 0.75, 0.0, dirt))
     col = _mix(nt, 'MIX', col, g.col('#6e5a4c', 'skin'), _maprange(nt, g.noise(3.0, w=4.0), 0.3, 0.7, 0.35, 0.0))   # sallow
     if stubble > 0:
@@ -411,20 +485,23 @@ def skin(name, tone, scar=None, windburn=0.45, dirt=0.55, stubble=0.0, seed=13):
     b.inputs['Subsurface Weight'].default_value = 0.12
     b.inputs['Subsurface Radius'].default_value = (0.9, 0.35, 0.2)
     b.inputs['Subsurface Scale'].default_value = 0.004
-    g.bump(g.noise(180.0, detail=3.0, w=7.0), 0.18)
+    g.bump(g.noise(180.0, detail=3.0, w=7.0), 0.25)
+    g.bump(g.noise(900.0, detail=2.0, w=8.0), 0.12)          # pores: kills the plastic sheen
     g.cracks(1.0)
-    m = g.finish(col, _maprange(nt, g.noise(12.0, w=9.0), 0.3, 0.7, 0.42, 0.62), 0.0)
+    m = g.finish(col, _maprange(nt, g.noise(12.0, w=9.0), 0.3, 0.7, 0.55, 0.75), 0.0)
     _CACHE[key] = m
     return m
 
 
-def hair(name, color=None, seed=17):
+def hair(name, color=None, seed=17, flow='down'):
+    """Hair and beards. flow = the way the strands run: 'down' (loose, beards) or 'back' (pulled back hard)."""
     hit, key = _cached(('hair', name))
     if hit:
         return hit
     g = _G(name, seed)
     nt = g.nt
-    strands = g.noise(160.0, detail=4.0, vec=g.stretched(1.0, 1.0, 0.1), w=2.0)
+    strands = g.noise(160.0, detail=4.0, vec=g.stretched(1.0, 0.1, 1.0) if flow == 'back' else g.stretched(1.0, 1.0, 0.1),
+                      w=2.0)
     clumps = g.noise(30.0, detail=6.0, w=3.0)
     col = _mix(nt, 'MULTIPLY', g.col(color or COL['hair'], 'cloth'), _maprange(nt, strands, 0.25, 0.75, 0.45, 1.35))
     col = _mix(nt, 'MULTIPLY', col, _maprange(nt, clumps, 0.3, 0.7, 0.6, 1.1))
@@ -453,6 +530,54 @@ def wood(name, color='#3b2c1e', blood=0.1, seed=19):
     g.bump(grain, 0.3)
     g.cracks(0.5)
     m = g.finish(col, 0.75, 0.0)
+    _CACHE[key] = m
+    return m
+
+
+def eye(name, iris='#3b2c20'):
+    """An eyeball in its own object space (face toward -Y): a dirty, faintly bloodshot white, an iris, a pupil,
+    and a wet highlight. Revenant: the whites go dark and the iris burns blight-violet."""
+    hit, key = _cached(('eye', name))
+    if hit:
+        return hit
+    g = _G(name, 29)
+    nt = g.nt
+    nv = g.N.new('ShaderNodeVectorMath')
+    nv.operation = 'NORMALIZE'
+    g.L.new(g.obj, nv.inputs[0])
+    sep = g.N.new('ShaderNodeSeparateXYZ')
+    g.L.new(nv.outputs['Vector'], sep.inputs[0])
+    fwd = _math(nt, 'MULTIPLY', sep.outputs['Y'], -1.0)            # cos of the angle off the gaze
+    iris_m = _maprange(nt, fwd, 0.74, 0.77)
+    pupil_m = _maprange(nt, fwd, 0.945, 0.96)
+    if g.rev:
+        white = hexlin('#26222b')
+        ir = hexlin('#c69cf0')
+    else:
+        white = hexlin('#cbc1ad')
+        ir = hexlin(iris)
+    col = _mix(nt, 'MIX', white, hexlin('#9c6a5c'), _maprange(nt, fwd, 0.2, 0.6, 0.55, 0.0))   # bloodshot at the edges
+    col = _mix(nt, 'MIX', col, ir, iris_m)
+    col = _mix(nt, 'MIX', col, hexlin('#070505'), pupil_m)
+    if g.rev:
+        g.bsdf.inputs['Emission Color'].default_value = (*ir, 1.0)
+        g.L.new(_math(nt, 'MULTIPLY', iris_m, 22.0), g.bsdf.inputs['Emission Strength'])
+    g.bsdf.inputs['Specular IOR Level'].default_value = 0.6
+    m = g.finish(col, 0.1, 0.0)
+    _CACHE[key] = m
+    return m
+
+
+def flat(name, color, rough=0.9):
+    """A plain dark matte (nostrils, the inner ear, a leather tie)."""
+    hit, key = _cached(('flat', name))
+    if hit:
+        return hit
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    b = m.node_tree.nodes['Principled BSDF']
+    b.inputs['Base Color'].default_value = (*hexlin(color), 1.0)
+    b.inputs['Roughness'].default_value = rough
     _CACHE[key] = m
     return m
 

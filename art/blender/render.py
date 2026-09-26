@@ -22,6 +22,23 @@ from gb import rig  # noqa: E402
 REV_RIM = (0.72, 0.45, 1.0)   # a revenant is back-lit in blight violet
 
 
+def portrait_camera(elev=12.0, scale=0.34, res=512):
+    """Re-aim the house camera at the head: nearly level, head and shoulders filling the frame."""
+    import math
+    from mathutils import Vector
+    sc = bpy.context.scene
+    head = bpy.data.objects.get('head_root')
+    bpy.context.view_layer.update()
+    target = head.matrix_world.translation.copy() + Vector((0.0, 0.0, -0.035)) if head else Vector((0, 0, 0.9))
+    th = math.radians(elev)
+    d = Vector((0.0, math.cos(th), -math.sin(th)))
+    cam = sc.camera
+    cam.data.ortho_scale = scale
+    cam.location = target - d * 10.0
+    cam.rotation_euler = (math.pi / 2 - th, 0.0, 0.0)
+    sc.render.resolution_x = sc.render.resolution_y = res
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('asset')
@@ -36,6 +53,8 @@ def main():
     ap.add_argument('--look', default='grit', choices=['grit', 'painted'], help='house render look (gb/rig.py LOOKS)')
     ap.add_argument('--base', action='store_true', help='stand figures on a painted miniature base (else bare, '
                                                          'with the team ring drawn by the game in CSS)')
+    ap.add_argument('--portrait', action='store_true', help='frame the head and shoulders from a low angle '
+                                                             '(face review; later the unit card and roster)')
     a = ap.parse_args()
     if a.draft:
         a.res, a.samples = 384, 24
@@ -50,7 +69,11 @@ def main():
         rig.stage(elev=a.elev, res=a.res, samples=a.samples,
                   rim_color=REV_RIM if rev else None, rim_energy=5.0 if rev else None, look=a.look)
         mod.build({**v, 'base': a.base})
-        path = os.path.join(out, f'{name}{a.suffix}.png')
+        suffix = a.suffix
+        if a.portrait:
+            portrait_camera()
+            suffix += '_portrait'
+        path = os.path.join(out, f'{name}{suffix}.png')
         t = time.time()
         rig.render(path)
         print(f'[render] {name}{a.suffix}: {time.time() - t:.1f}s -> {os.path.relpath(path)}', flush=True)

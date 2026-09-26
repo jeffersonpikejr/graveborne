@@ -14,6 +14,9 @@ the Line-Breaker concept art and briefs:
   rivets, repairs and mismatched trim, never ornament.
 - **Weight.** Figures are broad and planted; gear is heavy, practical, inherited from dead campaigns.
 - **Every humanoid model has a male and a female form.**
+- **Faces at the RuneScape / Project Zomboid level at minimum** (set on revision 3): every feature is its own
+  shape — lidded eyes with whites and irises, heavy brows, a nose with nostrils, lips, ears, hair and beards with
+  volume — slightly exaggerated so it reads on the board. Heads run 8% large and tilt chin-up toward the camera.
 - **Commander** (any class): company banner strapped to the back, one tarnished mark of rank, a founding scar,
   fewer loose pieces. **Veteran** (level 5, the game's veterancy capstone): gear assembled from dead men's
   armour — a foreign gilt pauldron, a mismatched greave, a patched cuirass.
@@ -53,7 +56,7 @@ Status: ✅ approved · 🔍 in review · ⏳ queued
 ### Wave 1 — The Company (style anchor + every unit you control)
 | # | Asset | Variants | Score | Status |
 |---|---|---|---|---|
-| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded (rev. 2, grimdark pass) | base · Commander · Veteran, each living + Revenant, male + female | 3×2×3 = 18 | 🔍 |
+| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded with a built face (rev. 3) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | 🔍 |
 | 2 | Ranger — hood & cloak, longbow, quiver | same matrix | 3×2×3 = 18 | ⏳ |
 | 3 | Cleric — white tabard with red cross, mail coif, flanged mace | same matrix | 3×2×3 = 18 | ⏳ |
 | 4 | Ash Acolyte — hooded ash-robe, blight veins, floating ashfire | same matrix | 3×2×3 = 18 | ⏳ |
