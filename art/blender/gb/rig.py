@@ -139,6 +139,11 @@ LOOKS = {
     'grit':    dict(view='AgX', look='AgX - High Contrast', exposure=0.1,
                     world=dict(top=(0.13, 0.135, 0.15), bottom=(0.01, 0.009, 0.008), strength=0.7),
                     key=3.0, rim=3.4),
+    # portraits: the same grade, a dimmer dome and a harder key, so sockets, cheek hollows and the shadowed cheek
+    # hold their darks after the pixel-art pass (the portrait reference sheet is lit this way)
+    'portrait': dict(view='AgX', look='AgX - High Contrast', exposure=0.15,
+                     world=dict(top=(0.1, 0.1, 0.11), bottom=(0.008, 0.007, 0.006), strength=0.35),
+                     key=3.6, rim=2.2),
     # the first (painted-miniature) look, kept for comparison
     'painted': dict(view='Standard', look='None', exposure=0.0, world={}, key=2.6, rim=4.0),
 }

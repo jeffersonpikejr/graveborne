@@ -21,11 +21,14 @@ from . import kit as K
 from .mat import MODE, hexlin
 
 # per-form proportions (metres) and feature sizes
+# Proportions follow the grimdark portrait reference sheet: long, gaunt faces; eyes at mid-head, narrow and
+# heavy-lidded over dark circles; thin low brows; a long nose rising out of the brow; a small thin-lipped mouth a
+# third of the way from nose to chin; hollow cheeks under hard cheekbones.
 FORMS = {
-    'male':   dict(W=0.083, D=0.1, H=0.112, jaw=0.0, chin=0.09, brow=0.09, eye=0.0125, eye_x=0.0295, nose=1.1,
-                   mouth=0.024, lip=1.0),
-    'female': dict(W=0.077, D=0.096, H=0.107, jaw=0.2, chin=0.035, brow=0.05, eye=0.0128, eye_x=0.0285, nose=0.9,
-                   mouth=0.021, lip=1.15),
+    'male':   dict(W=0.078, D=0.1, H=0.121, jaw=0.04, chin=0.08, brow=0.075, eye=0.0122, eye_x=0.0292, eye_z=0.004,
+                   nose=1.0, mouth=0.021, lip=1.0),
+    'female': dict(W=0.072, D=0.096, H=0.115, jaw=0.22, chin=0.035, brow=0.045, eye=0.0122, eye_x=0.0278, eye_z=0.004,
+                   nose=0.86, mouth=0.019, lip=1.08),
 }
 
 
@@ -42,18 +45,20 @@ def _shape(u, f):
             y *= 1.0 - 0.55 * t
     if y < 0:                                         # a flatter face plane
         y *= 0.9 + 0.1 * min(1.0, abs(x) * 1.6)
-    g = math.exp(-((z - 0.24) ** 2) / 0.01) * math.exp(-(x * x) / 0.45) * front ** 2
-    y -= f['brow'] * g                                # brow shelf
-    for ex in (-0.36, 0.36):                          # eye sockets
-        g = math.exp(-((x - ex) ** 2 + (z - 0.08) ** 2) / 0.024) * front
+    ez = f['eye_z'] / f['H']                          # sockets sit exactly where the eyes go
+    ex_u = f['eye_x'] / f['W']
+    g = math.exp(-((z - ez - 0.17) ** 2) / 0.008) * math.exp(-(x * x) / 0.45) * front ** 2
+    y -= f['brow'] * g                                # brow shelf, low over the eyes
+    for ex in (-ex_u, ex_u):                          # eye sockets
+        g = math.exp(-((x - ex) ** 2 + (z - ez) ** 2) / 0.026) * front
         y += 0.17 * g
-    g = math.exp(-(x * x) / 0.03) * math.exp(-((z + 0.2) ** 2) / 0.06) * front ** 3
-    y -= 0.06 * g                                     # the nose's footing
-    for cx in (-0.55, 0.55):                          # cheekbones, and the hollow under them
-        g = math.exp(-((x - cx) ** 2 + (z + 0.05) ** 2) / 0.04) * front
-        y -= 0.05 * g
-        g = math.exp(-((x - cx * 0.9) ** 2 + (z + 0.38) ** 2) / 0.03) * front
-        y += 0.03 * g
+    g = math.exp(-(x * x) / 0.02) * math.exp(-((z - ez + 0.1) ** 2) / 0.02) * front ** 3
+    y -= 0.05 * g                                     # the nose's root between the eyes
+    for cx in (-0.55, 0.55):                          # hard cheekbones, and gaunt hollows under them
+        g = math.exp(-((x - cx) ** 2 + (z - ez + 0.14) ** 2) / 0.035) * front
+        y -= 0.055 * g
+        g = math.exp(-((x - cx * 0.88) ** 2 + (z + 0.42) ** 2) / 0.03) * front
+        y += 0.055 * g
     g = math.exp(-(x * x) / 0.06) * math.exp(-((z + 0.55) ** 2) / 0.05) * front
     y -= 0.03 * g                                     # the muzzle the lips sit on
     g = math.exp(-((z + 0.82) ** 2) / 0.02) * math.exp(-(x * x) / 0.08) * front
@@ -210,24 +215,25 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
     K.subsurf(parts[0], 1)
     W, D, H = f['W'], f['D'], f['H']
 
-    # ---- eyes: white, iris, pupil; under a heavy upper lid and a lower lid
+    # ---- eyes: a dim white, iris, pupil — a narrow almond under a heavy upper lid, a lower lid under it
     re = f['eye']
+    ez = f['eye_z']
     eyes = []
     for s in (-1, 1):
-        p, _ = sk.hit(s * f['eye_x'], 0.009)
-        c = p + Vector((0.0, re - 0.0055, 0.0))
+        p, _ = sk.hit(s * f['eye_x'], ez)
+        c = p + Vector((0.0, re - 0.005, 0.0))
         eyes.append(c)
         parts.append(_ball(f'{name}_eye', re, eye_mat, c))
-        up = lambda x, y, z: y < 0.35 and z > 0.36 * (1 - x * x) - 0.04          # noqa: E731 — heavy, stern lid
-        lo = lambda x, y, z: y < 0.3 and z < -0.44 * (1 - x * x) + 0.02          # noqa: E731
-        parts.append(_cap(f'{name}_lid', re + 0.0012, skin, c, up))
-        parts.append(_cap(f'{name}_lidlo', re + 0.0008, skin, c, lo, thick=0.0016))
+        up = lambda x, y, z: y < 0.4 and z > 0.2 * (1 - x * x) - 0.03           # noqa: E731 — heavy, tired lid
+        lo = lambda x, y, z: y < 0.35 and z < -0.36 * (1 - x * x) + 0.02         # noqa: E731
+        parts.append(_cap(f'{name}_lid', re + 0.0012, skin, c, up, thick=0.003))
+        parts.append(_cap(f'{name}_lidlo', re + 0.0009, skin, c, lo, thick=0.0018))
 
-    # ---- brows: heavy, lowered at the inner end (a face that has stopped flinching)
+    # ---- brows: thin, low and straight, lowered at the inner end (a face that has stopped flinching)
     for s in (-1, 1):
-        xs = [0.007, 0.019, 0.032, 0.045, 0.056]
-        zs = [0.022, 0.029, 0.033, 0.031, 0.024]
-        ws = [0.0075, 0.0095, 0.009, 0.0072, 0.0035]
+        xs = [0.008, 0.019, 0.031, 0.043, 0.053]
+        zs = [ez + 0.012, ez + 0.017, ez + 0.02, ez + 0.019, ez + 0.014]
+        ws = [0.0048, 0.0058, 0.0055, 0.0045, 0.0024]
         segs = [list(range(5))]
         if scar == s:                                  # the scar cuts the brow in two
             segs = [[0, 1, 2], [3, 4]]
@@ -243,31 +249,45 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
                 P.append(pp)
                 Nn.append(nn)
             if len(P) >= 2:
-                parts.append(_ribbon(f'{name}_brow', P, Nn, [ws[i] for i in idx], 0.0032, hair))
+                parts.append(_ribbon(f'{name}_brow', P, Nn, [ws[i] for i in idx], 0.0024, hair))
 
-    # ---- nose: bridge, a heavy tip, nostril wings, the dark of the nostrils
+    # ---- nose: lofted out of the face — a long bridge rising from between the brows to a narrow tip, its edges
+    # sunk into the skin so it grows from the face instead of sitting on it; nostril wings; the dark of the nostrils
     ns = f['nose']
-    pb, _ = sk.hit(0.0, 0.016, 0.001)
-    pm, _ = sk.hit(0.0, -0.008, 0.0)
-    pt, _ = sk.hit(0.0, -0.033, 0.0)
-    pz, _ = sk.hit(0.0, -0.046, 0.0)
-    bridge = pb
-    mid = pm + Vector((crooked, -0.0065 * ns, 0.0))
-    tip = pt + Vector((crooked * 0.4, -0.021 * ns, 0.0))
-    base = pz + Vector((0.0, -0.007 * ns, 0.0))
-    parts.append(K.skin_chain(f'{name}_nose', [bridge, mid, tip, base],
-                              [(0.0078 * ns, 0.0055), (0.0088 * ns, 0.0065), (0.0128 * ns, 0.0108), (0.0092 * ns, 0.0065)],
-                              skin))
+    stations = [(ez + 0.016, 0.002, 0.0115), (ez, 0.0065, 0.0078), (ez - 0.016, 0.0105, 0.007),
+                (ez - 0.03, 0.0155, 0.0076), (ez - 0.04, 0.0185, 0.0092), (ez - 0.047, 0.0115, 0.0086),
+                (ez - 0.052, 0.002, 0.0062)]
+    nb = bmesh.new()
+    rows = []
+    for k, (z, pr, w) in enumerate(stations):
+        kink = crooked * math.sin(math.pi * min(1.0, k / 4.0))          # a once-broken nose bends mid-bridge
+        row = []
+        for j in range(9):
+            th = -math.pi / 2 + math.pi * j / 8
+            x = w * ns * math.sin(th) + kink
+            face_y = sk.hit(x, z)[0].y
+            y = face_y + 0.0035 - (pr * ns + 0.0035) * max(0.0, math.cos(th)) ** 1.25
+            row.append(nb.verts.new((x, y, z)))
+        rows.append(row)
+    for k in range(len(rows) - 1):
+        for j in range(8):
+            nb.faces.new((rows[k][j], rows[k][j + 1], rows[k + 1][j + 1], rows[k + 1][j]))
+    bmesh.ops.recalc_face_normals(nb, faces=nb.faces)
+    nose = K._obj(f'{name}_nose', nb, skin)
+    K.subsurf(nose, 2)
+    parts.append(nose)
+    zt = ez - 0.042
+    tip = Vector((crooked * 0.6, sk.hit(0.0, zt)[0].y - 0.0185 * ns, zt))
     for s in (-1, 1):
-        parts.append(_ball(f'{name}_ala', 0.0078 * ns, skin, tip + Vector((s * 0.0128 * ns, 0.0085, -0.0065)),
-                           scale=(1.0, 1.1, 0.85), seg=16, rings=10))
-        parts.append(_ball(f'{name}_nostril', 0.0029 * ns, dark, tip + Vector((s * 0.0056 * ns, 0.0045, -0.0088)),
-                           scale=(1.25, 1.0, 0.7), seg=10, rings=6))
+        parts.append(_ball(f'{name}_ala', 0.0056 * ns, skin, tip + Vector((s * 0.0098 * ns, 0.0095, -0.002)),
+                           scale=(1.0, 1.15, 0.85), seg=16, rings=10))
+        parts.append(_ball(f'{name}_nostril', 0.0024 * ns, dark, tip + Vector((s * 0.0048 * ns, 0.0062, -0.0068)),
+                           scale=(1.3, 1.0, 0.65), seg=10, rings=6))
 
-    # ---- lips: set grim, the corners turned down
+    # ---- lips: thin and small, a third of the way from nose to chin, the corners turned down
     mw = f['mouth']
-    for which, z0, drop, rc, rs, lift in (('lip', -0.0605, 0.0042, 0.0034, 0.0015, 0.0018),
-                                          ('liplo', -0.0685, 0.0022, 0.0043, 0.0016, 0.0011)):
+    for which, z0, drop, rc, rs, lift in (('lip', ez - 0.07, 0.0034, 0.0021, 0.001, 0.0014),
+                                          ('liplo', ez - 0.0765, 0.0018, 0.0029, 0.0012, 0.0009)):
         P, R = [], []
         for k in range(7):
             x = -mw + 2 * mw * k / 6
@@ -278,21 +298,28 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
             pp, _ = sk.hit(x, z, lift)
             P.append(pp)
             rr = (rs + (rc - rs) * (1 - t * t)) * f['lip']
-            R.append((rr, rr * 0.8))
+            R.append((rr, rr * 0.65))
         parts.append(K.skin_chain(f'{name}_{which}', P, R, lips))
 
-    # ---- ears
+    # ---- ears, from the brow line down to the nose's base: a flat body swept back, a rolled rim (helix) round the
+    # back and top, the lobe below, and a reddish hollow (concha) in front of the canal — never a black hole
     for s in (-1, 1):
-        c = Vector((s * (W * 0.97), 0.008, 0.0))
-        ear = _ball(f'{name}_ear', 1.0, skin, c, scale=(0.009, 0.021, 0.031), seg=18, rings=12)
-        ear.rotation_euler = (0.0, 0.0, s * math.radians(-18))
-        parts.append(ear)
-        rim = _ball(f'{name}_helix', 1.0, skin, c + Vector((s * 0.004, 0.006, 0.004)), scale=(0.005, 0.012, 0.028),
-                    seg=14, rings=10)
-        rim.rotation_euler = (0.0, 0.0, s * math.radians(-18))
-        parts.append(rim)
-        parts.append(_ball(f'{name}_concha', 1.0, dark, c + Vector((s * 0.006, -0.004, -0.004)), scale=(0.003, 0.008, 0.011),
-                           seg=10, rings=8))
+        c = Vector((s * (W * 0.99), 0.012, ez - 0.016))
+        tilt = (math.radians(-14), 0.0, s * math.radians(-12))
+        body = _ball(f'{name}_ear', 1.0, skin, c, scale=(0.0065, 0.016, 0.028), seg=20, rings=14)
+        body.rotation_euler = tilt
+        parts.append(body)
+        for k, (dy, dz, r) in enumerate(((0.009, 0.012, 0.0042), (0.013, 0.0, 0.0038), (0.01, -0.012, 0.0036),
+                                          (0.002, 0.021, 0.0036))):
+            rim = _ball(f'{name}_helix', r, skin, c + Vector((s * 0.0045, dy, dz)), scale=(0.9, 1.0, 1.6), seg=12, rings=8)
+            rim.rotation_euler = tilt
+            parts.append(rim)
+        parts.append(_ball(f'{name}_lobe', 0.0058, skin, c + Vector((s * 0.002, 0.004, -0.026)), scale=(0.8, 1.0, 1.1),
+                           seg=12, rings=8))
+        concha = _ball(f'{name}_concha', 1.0, lips, c + Vector((s * 0.0045, -0.001, -0.004)), scale=(0.0035, 0.008, 0.011),
+                       seg=12, rings=8)
+        concha.rotation_euler = tilt
+        parts.append(concha)
 
     # ---- beard: thickest at the chin, a ragged upper edge, a mustache, tufts
     if beard:
@@ -300,12 +327,12 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
             x, y, z = c
             if y > 0.045:
                 return False
-            top = -0.074 + 0.078 * min(1.0, abs(x) / 0.07) ** 1.3 + 0.005 * mnoise.noise(c * 90.0)
-            mouth = abs(x) < mw + 0.005 and -0.075 < z < -0.052
+            top = ez - 0.084 + 0.084 * min(1.0, abs(x) / 0.066) ** 1.3 + 0.005 * mnoise.noise(c * 90.0)
+            mouth = abs(x) < mw + 0.005 and ez - 0.084 < z < ez - 0.062
             return z < top and not mouth
 
         def bpush(co, n):
-            chin = math.exp(-(co.x / 0.034) ** 2) * min(1.0, max(0.0, (-0.058 - co.z) / 0.04))
+            chin = math.exp(-(co.x / 0.034) ** 2) * min(1.0, max(0.0, (ez - 0.072 - co.z) / 0.045))
             return 0.004 + 0.011 * chin + 0.0022 * (mnoise.noise(co * 110.0) + 1.0)
         bmat = greying or hair
         bd = sk.region(f'{name}_beard', bzone, hair, bpush, thick=0.004)
@@ -314,8 +341,8 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
         if tuft:
             parts.append(tuft)
         P, R = [], []
-        for x, z, r in ((-mw - 0.004, -0.074, 0.0026), (-0.018, -0.058, 0.0044), (0.0, -0.0535, 0.005),
-                        (0.018, -0.058, 0.0044), (mw + 0.004, -0.074, 0.0026)):
+        for x, z, r in ((-mw - 0.004, ez - 0.086, 0.0024), (-0.016, ez - 0.067, 0.004), (0.0, ez - 0.0625, 0.0046),
+                        (0.016, ez - 0.067, 0.004), (mw + 0.004, ez - 0.086, 0.0024)):
             pp, _ = sk.hit(x, z, 0.0055)
             P.append(pp)
             R.append((r, r * 0.8))
@@ -326,7 +353,7 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
         x, y, z = c
         front = max(0.0, -y / D)
         back = max(0.0, y / D)
-        h = 0.034 + 0.028 * front - 0.1 * back
+        h = 0.038 + 0.03 * front - 0.105 * back
         h += recede * 0.012 * math.exp(-((abs(x) - 0.045) / 0.012) ** 2) * front
         return z > h + 0.004 * mnoise.noise(c * 80.0)
     if hair_style == 'crop':
@@ -355,12 +382,12 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
             parts.append(coil)
         parts.append(K.tube(f'{name}_tie', knot + Vector((0.0, -0.012, -0.03)), knot + Vector((0.0, -0.004, -0.018)),
                             0.014, 0.014, dark, seg=12))
-        for s in (-1, 1):                              # loose strands down the cheeks
+        for s in (-1, 1):                              # loose strands at the temples, hanging past the ears
             P, R = [], []
-            for k, (x, z) in enumerate(((0.05, 0.05), (0.057, 0.02), (0.06, -0.01), (0.058, -0.04), (0.052, -0.062))):
-                pp, _ = sk.hit(s * x, z, 0.0045 + 0.0015 * math.sin(k * 1.7 + s))
+            for k, (x, z) in enumerate(((0.056, 0.055), (0.066, 0.03), (0.071, 0.0), (0.07, -0.03), (0.066, -0.058))):
+                pp, _ = sk.hit(s * x, z, 0.0065 + 0.002 * math.sin(k * 1.7 + s))
                 P.append(pp)
-                R.append((0.0039 - 0.0004 * k, 0.0027))
+                R.append((0.0048 - 0.0005 * k, 0.0032))
             parts.append(K.skin_chain(f'{name}_strand', P, R, hair))
 
     # ---- the founding scar: a raised seam from the brow, past the eye's outer corner, onto the cheek
@@ -369,12 +396,12 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
         for x, z in ((0.036, 0.066), (0.041, 0.045), (0.046, 0.022), (0.05, 0.0), (0.05, -0.022), (0.046, -0.042)):
             pp, _ = sk.hit(scar * x, z, 0.0012)
             P.append(pp)
-            R.append((0.0019, 0.0012))
+            R.append((0.0016, 0.001))
         scar_m = bpy.data.materials.new(name + '_scar')
         scar_m.use_nodes = True
         b = scar_m.node_tree.nodes['Principled BSDF']
-        b.inputs['Base Color'].default_value = (*hexlin('#9aa39a' if MODE['revenant'] else '#c29a8a'), 1.0)
-        b.inputs['Roughness'].default_value = 0.38
+        b.inputs['Base Color'].default_value = (*hexlin('#6f5f78' if MODE['revenant'] else '#8a3f37'), 1.0)
+        b.inputs['Roughness'].default_value = 0.45
         parts.append(K.skin_chain(f'{name}_scar', P, R, scar_m))
 
     root = K.root(name + '_root')

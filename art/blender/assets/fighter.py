@@ -40,9 +40,9 @@ VARIANTS = {
 
 BODY = {   # a siege wedge: broad through the shoulders and chest, heavy in the legs, planted wide
     'male':   dict(hf=1.0, sh=0.272, chest=0.25, waist=0.206, sy=0.64, neck=0.08, bust=0.0, bulk=1.0,
-                   tone='#84675a', lips='#6e4239', hair='#1e1711', iris='#3b2c20', beard=True, style='crop'),
+                   tone='#94796a', lips='#7b5550', hair='#1e1711', iris='#3b2c20', beard=True, style='crop'),
     'female': dict(hf=0.965, sh=0.25, chest=0.233, waist=0.188, sy=0.66, neck=0.066, bust=0.03, bulk=0.94,
-                   tone='#917064', lips='#7a463e', hair='#2a1c13', iris='#4a5358', beard=False, style='knot'),
+                   tone='#9e8476', lips='#855a54', hair='#2a1c13', iris='#4a5358', beard=False, style='knot'),
 }
 
 
@@ -297,11 +297,12 @@ def build(v, seed=7, turn=-4.0):
     parts.append(K.tube('neck', V(0.0, 0.0, 1.5), V(0.0, -0.008, 1.665), Bd['neck'], Bd['neck'] * 0.95, skin, seg=18))
     hroot, _ = F.head('head', sex, face_skin, lips, hair, eye_m, dark, beard=Bd['beard'], hair_style=Bd['style'],
                       scar=1 if cmd else None, crooked=0.003 if (vet and Bd['beard']) else 0.0, greying=grey, seed=seed)
-    hroot.matrix_world = (Matrix.Translation(head_c) @ Matrix.Rotation(math.radians(HEAD_TILT), 4, 'X')
+    tilt = 0.0 if v.get('portrait') else HEAD_TILT       # portraits hold the head level, like the reference sheet
+    hroot.matrix_world = (Matrix.Translation(head_c) @ Matrix.Rotation(math.radians(tilt), 4, 'X')
                           @ Matrix.Scale(HEAD_SCALE, 4))
     parts.append(hroot)
     if rev:   # blight light spilling from the eyes onto the face
-        parts.append(K.glow('face_glow', head_c + Vector((0.0, -0.105, 0.012)), '#b98cf0', 0.35, radius=0.012))
+        parts.append(K.glow('face_glow', head_c + Vector((0.0, -0.105, 0.012)), '#b98cf0', 0.18, radius=0.012))
 
     # ---------------------------------------------------------------- the great shield (left arm)
     sp_, _ = A.great_shield('shield', 0.6, 1.04, shield_face, iron, lames, brass, plate)

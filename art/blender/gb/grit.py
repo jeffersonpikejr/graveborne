@@ -432,8 +432,8 @@ def _segment_dist(g, a, b):
 
 
 # face creases in the head frame (x, z): forehead furrows and the folds from nose to mouth. Soft, never drawn on.
-CREASES_HARD = [[(-0.03, 0.05), (0.0, 0.054), (0.03, 0.05)], [(-0.026, 0.063), (0.0, 0.066), (0.026, 0.063)],
-                [(0.017, -0.041), (0.025, -0.055), (0.029, -0.072)], [(-0.017, -0.041), (-0.025, -0.055), (-0.029, -0.072)]]
+CREASES_HARD = [[(-0.03, 0.052), (0.0, 0.056), (0.03, 0.052)], [(-0.026, 0.065), (0.0, 0.068), (0.026, 0.065)],
+                [(0.014, -0.047), (0.022, -0.06), (0.027, -0.077)], [(-0.014, -0.047), (-0.022, -0.06), (-0.027, -0.077)]]
 CREASES_LIGHT = [CREASES_HARD[2], CREASES_HARD[3]]
 
 
@@ -449,16 +449,16 @@ def skin(name, tone, scar=None, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, 
     col = _mix(nt, 'MIX', col, g.col('#9a4a36', 'skin'), _maprange(nt, g.noise(6.0, w=1.0), 0.4, 0.75, 0.0, windburn))
     if face:
         red = None
-        for c, s, a in (((0.045, -0.075, -0.022), 0.02, 0.55), ((-0.045, -0.075, -0.022), 0.02, 0.55),
-                        ((0.0, -0.118, -0.034), 0.012, 0.6), ((0.078, 0.008, 0.0), 0.016, 0.5),
-                        ((-0.078, 0.008, 0.0), 0.016, 0.5)):
+        for c, s, a in (((0.043, -0.074, -0.03), 0.02, 0.45), ((-0.043, -0.074, -0.03), 0.02, 0.45),
+                        ((0.0, -0.12, -0.038), 0.012, 0.5)):
             b = _math(nt, 'MULTIPLY', _blob(g, c, s), a)
             red = b if red is None else _math(nt, 'MAXIMUM', red, b)
         col = _mix(nt, 'MIX', col, g.col('#94412f', 'skin'), red)
-        sock = _math(nt, 'MAXIMUM', _blob(g, (0.029, -0.08, 0.008), 0.015), _blob(g, (-0.029, -0.08, 0.008), 0.015))
-        col = _mix(nt, 'MIX', col, g.col('#3b2319', 'skin'), _math(nt, 'MULTIPLY', sock, 0.45))
-        bags = _math(nt, 'MAXIMUM', _blob(g, (0.03, -0.086, -0.013), 0.008), _blob(g, (-0.03, -0.086, -0.013), 0.008))
-        col = _mix(nt, 'MIX', col, g.col('#4a2c21', 'skin'), _math(nt, 'MULTIPLY', bags, 0.32))   # sleepless
+        sock = _math(nt, 'MAXIMUM', _blob(g, (0.029, -0.08, 0.004), 0.016), _blob(g, (-0.029, -0.08, 0.004), 0.016))
+        col = _mix(nt, 'MIX', col, g.col('#3b2319', 'skin'), _math(nt, 'MULTIPLY', sock, 0.5))
+        # dark circles: the sleepless, haunted look every face in the company carries
+        bags = _math(nt, 'MAXIMUM', _blob(g, (0.029, -0.086, -0.011), 0.0095), _blob(g, (-0.029, -0.086, -0.011), 0.0095))
+        col = _mix(nt, 'MIX', col, g.col('#3a2420', 'skin'), _math(nt, 'MULTIPLY', bags, 0.62))
     if creases:
         lines = None
         for poly in creases:
@@ -469,6 +469,9 @@ def skin(name, tone, scar=None, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, 
         g.bump(lines, -0.35)
     col = _mix(nt, 'MIX', col, g.col(COL['grime'], 'earth'), _maprange(nt, g.noise(9.0, detail=8.0, w=3.0), 0.45, 0.75, 0.0, dirt))
     col = _mix(nt, 'MIX', col, g.col('#6e5a4c', 'skin'), _maprange(nt, g.noise(3.0, w=4.0), 0.3, 0.7, 0.35, 0.0))   # sallow
+    mottle = _maprange(nt, g.noise(22.0, detail=6.0, rough=0.7, w=5.0), 0.3, 0.7, 0.0, 1.0)             # painterly blotching
+    col = _mix(nt, 'MIX', col, g.col('#b89a86', 'skin'), _math(nt, 'MULTIPLY', mottle, 0.22))
+    col = _mix(nt, 'MIX', col, g.col('#5e4336', 'skin'), _math(nt, 'MULTIPLY', _math(nt, 'SUBTRACT', 1.0, mottle), 0.18))
     if stubble > 0:
         col = _mix(nt, 'MIX', col, g.col('#2a2019', 'skin'), _math(nt, 'MULTIPLY', g.noise(400.0, detail=1.0, w=5.0), stubble))
     if scar:
@@ -554,14 +557,14 @@ def eye(name, iris='#3b2c20'):
         white = hexlin('#26222b')
         ir = hexlin('#c69cf0')
     else:
-        white = hexlin('#cbc1ad')
+        white = hexlin('#aa9f8b')         # dim, dirty whites: the eyes read as tired, not startled
         ir = hexlin(iris)
     col = _mix(nt, 'MIX', white, hexlin('#9c6a5c'), _maprange(nt, fwd, 0.2, 0.6, 0.55, 0.0))   # bloodshot at the edges
     col = _mix(nt, 'MIX', col, ir, iris_m)
     col = _mix(nt, 'MIX', col, hexlin('#070505'), pupil_m)
     if g.rev:
         g.bsdf.inputs['Emission Color'].default_value = (*ir, 1.0)
-        g.L.new(_math(nt, 'MULTIPLY', iris_m, 22.0), g.bsdf.inputs['Emission Strength'])
+        g.L.new(_math(nt, 'MULTIPLY', iris_m, 9.0), g.bsdf.inputs['Emission Strength'])
     g.bsdf.inputs['Specular IOR Level'].default_value = 0.6
     m = g.finish(col, 0.1, 0.0)
     _CACHE[key] = m

@@ -22,20 +22,21 @@ from gb import rig  # noqa: E402
 REV_RIM = (0.72, 0.45, 1.0)   # a revenant is back-lit in blight violet
 
 
-def portrait_camera(elev=12.0, scale=0.34, res=512):
-    """Re-aim the house camera at the head: nearly level, head and shoulders filling the frame."""
+def portrait_camera(elev=6.0, azimuth=28.0, scale=0.2, res=512):
+    """Re-aim the house camera for a portrait: a three-quarter bust, nearly level, the face turned toward the
+    image's left (the convention of the portrait reference sheet)."""
     import math
     from mathutils import Vector
     sc = bpy.context.scene
     head = bpy.data.objects.get('head_root')
     bpy.context.view_layer.update()
-    target = head.matrix_world.translation.copy() + Vector((0.0, 0.0, -0.035)) if head else Vector((0, 0, 0.9))
-    th = math.radians(elev)
-    d = Vector((0.0, math.cos(th), -math.sin(th)))
+    target = head.matrix_world.translation.copy() + Vector((0.0, 0.0, -0.014)) if head else Vector((0, 0, 0.9))
+    th, az = math.radians(elev), math.radians(azimuth)
+    d = Vector((-math.sin(az) * math.cos(th), math.cos(az) * math.cos(th), -math.sin(th)))
     cam = sc.camera
     cam.data.ortho_scale = scale
     cam.location = target - d * 10.0
-    cam.rotation_euler = (math.pi / 2 - th, 0.0, 0.0)
+    cam.rotation_euler = (math.pi / 2 - th, 0.0, az)
     sc.render.resolution_x = sc.render.resolution_y = res
 
 
@@ -50,7 +51,8 @@ def main():
     ap.add_argument('--suffix', default='')
     ap.add_argument('--blend', action='store_true', help='also save the .blend for inspection')
     ap.add_argument('--draft', action='store_true', help='quick look: 384px, 24 samples')
-    ap.add_argument('--look', default='grit', choices=['grit', 'painted'], help='house render look (gb/rig.py LOOKS)')
+    ap.add_argument('--look', default='grit', choices=['grit', 'portrait', 'painted'],
+                    help='house render look (gb/rig.py LOOKS); --portrait switches grit to portrait')
     ap.add_argument('--base', action='store_true', help='stand figures on a painted miniature base (else bare, '
                                                          'with the team ring drawn by the game in CSS)')
     ap.add_argument('--portrait', action='store_true', help='frame the head and shoulders from a low angle '
@@ -67,8 +69,9 @@ def main():
             continue
         rev = v.get('revenant', False)
         rig.stage(elev=a.elev, res=a.res, samples=a.samples,
-                  rim_color=REV_RIM if rev else None, rim_energy=5.0 if rev else None, look=a.look)
-        mod.build({**v, 'base': a.base})
+                  rim_color=REV_RIM if rev else None, rim_energy=5.0 if rev else None,
+                  look='portrait' if a.portrait and a.look == 'grit' else a.look)
+        mod.build({**v, 'base': a.base, 'portrait': a.portrait})
         suffix = a.suffix
         if a.portrait:
             portrait_camera()
