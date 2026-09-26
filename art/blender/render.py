@@ -33,6 +33,7 @@ def main():
     ap.add_argument('--suffix', default='')
     ap.add_argument('--blend', action='store_true', help='also save the .blend for inspection')
     ap.add_argument('--draft', action='store_true', help='quick look: 384px, 24 samples')
+    ap.add_argument('--look', default='grit', choices=['grit', 'painted'], help='house render look (gb/rig.py LOOKS)')
     ap.add_argument('--base', action='store_true', help='stand figures on a painted miniature base (else bare, '
                                                          'with the team ring drawn by the game in CSS)')
     a = ap.parse_args()
@@ -47,7 +48,7 @@ def main():
             continue
         rev = v.get('revenant', False)
         rig.stage(elev=a.elev, res=a.res, samples=a.samples,
-                  rim_color=REV_RIM if rev else None, rim_energy=6.0 if rev else 4.0)
+                  rim_color=REV_RIM if rev else None, rim_energy=5.0 if rev else None, look=a.look)
         mod.build({**v, 'base': a.base})
         path = os.path.join(out, f'{name}{a.suffix}.png')
         t = time.time()

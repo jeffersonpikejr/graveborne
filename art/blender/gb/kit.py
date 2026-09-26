@@ -154,10 +154,11 @@ def tube(name, a, b, r0, r1, mat, seg=12, caps=True):
 
 
 # ---------------------------------------------------------------- arms & armour
-def blade(name, length, width, thick, mat, fuller=True):
-    """A straight double-edged blade along +Z from the guard (z=0) to the point. Diamond section, crisp edges."""
+def blade(name, length, width, thick, mat, fuller=True, secs=None):
+    """A straight double-edged blade along +Z from the guard (z=0) to the point. Diamond section, crisp edges.
+    secs = [(t along the blade, width factor), ...] ending at (1.0, 0.0)."""
     bm = bmesh.new()
-    secs = [(0.0, 1.0), (0.55, 0.92), (0.82, 0.70), (1.0, 0.0)]
+    secs = secs or [(0.0, 1.0), (0.55, 0.92), (0.82, 0.70), (1.0, 0.0)]
     rings = []
     for t, s in secs:
         z = t * length

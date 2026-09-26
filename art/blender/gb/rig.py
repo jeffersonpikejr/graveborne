@@ -107,7 +107,7 @@ def shadow_catcher(size=4.0):
     return pl
 
 
-def render_settings(res=768, samples=96, view='Standard', exposure=0.0):
+def render_settings(res=768, samples=96, view='Standard', exposure=0.0, look='None'):
     sc = bpy.context.scene
     sc.render.engine = 'CYCLES'
     sc.cycles.device = 'CPU'
@@ -121,7 +121,7 @@ def render_settings(res=768, samples=96, view='Standard', exposure=0.0):
     sc.render.resolution_percentage = 100
     sc.render.filter_size = 1.2
     sc.view_settings.view_transform = view
-    sc.view_settings.look = 'None'
+    sc.view_settings.look = look
     sc.view_settings.exposure = exposure
     sc.render.image_settings.file_format = 'PNG'
     sc.render.image_settings.color_mode = 'RGBA'
@@ -134,11 +134,22 @@ def render(path):
     bpy.ops.render.render(write_still=True)
 
 
-def stage(elev=45.0, res=768, samples=96, rim_color=None, rim_energy=4.0):
+LOOKS = {
+    # the grimdark house look: filmic grade, an overcast dome for steel to reflect, a harder key
+    'grit':    dict(view='AgX', look='AgX - High Contrast', exposure=0.1,
+                    world=dict(top=(0.13, 0.135, 0.15), bottom=(0.01, 0.009, 0.008), strength=0.7),
+                    key=3.0, rim=3.4),
+    # the first (painted-miniature) look, kept for comparison
+    'painted': dict(view='Standard', look='None', exposure=0.0, world={}, key=2.6, rim=4.0),
+}
+
+
+def stage(elev=45.0, res=768, samples=96, rim_color=None, rim_energy=None, look='grit'):
     """Reset and build the complete house stage. Assets then add geometry and call render()."""
+    L = LOOKS[look]
     reset()
-    render_settings(res=res, samples=samples)
-    world()
-    lights(rim_color=rim_color or (0.80, 0.88, 1.0), rim_energy=rim_energy)
+    render_settings(res=res, samples=samples, view=L['view'], look=L['look'], exposure=L['exposure'])
+    world(**L['world'])
+    lights(rim_color=rim_color or (0.80, 0.88, 1.0), rim_energy=rim_energy or L['rim'], key_energy=L['key'])
     camera(elev=elev)
     shadow_catcher()

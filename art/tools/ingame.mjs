@@ -4,16 +4,18 @@
 //   python3 -m http.server 8931 --directory .            # serve the repo root
 //   node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review [--mode ring|mini|both]
 //
-// Sprite files follow <class>[_commander][_revenant][_mini].webp (see art/README.md). The override is the
-// integration contract in miniature: a 1.5-tile sprite anchored at 50%/74% on the tile centre, a team ring
-// drawn in CSS under the feet (mode "ring"), or a painted base baked into the sprite (mode "mini").
+// Sprite files follow <class>[_commander|_veteran][_revenant]_<m|f>.webp (see art/README.md): the Commander look
+// wins, then the Veteran look from level 5 (the game's own veterancy capstone), then the base look; the form
+// comes from the soldier's `form` field (the game has none yet — the preview stages one). The override is the
+// integration contract in miniature: a 1.5-tile sprite anchored at 50%/74% on the tile centre, and a team ring
+// drawn in CSS under the feet.
 import fs from 'node:fs';
 import path from 'node:path';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, arr) => (v.startsWith('--') ? a.concat([[v.slice(2), arr[i + 1]]]) : a), []));
 const SPR = args.sprites || 'art/sprites';
 const OUT = args.out || '.';
-const MODE = args.mode || 'both';
+const MODE = args.mode || 'ring';
 const BASE = process.env.GB_URL || 'http://localhost:8931/';
 const { chromium } = await import(process.env.PW_MODULE || 'playwright');   // PW_MODULE=/path/to/playwright/index.mjs if not installed locally
 fs.mkdirSync(OUT, { recursive: true });
@@ -44,8 +46,12 @@ function inject(page, mode) {
     window.pcTopDown = function (s, size, o) {
       o = o || {};
       if (!window.__sprMode) return window.__origPc(s, size, o);
-      const k = ((s && s.cls) || 'fighter') + (s && s.commander ? '_commander' : '') + (o.revenant ? '_revenant' : '');
-      const src = sprites[k + (window.__sprMode === 'mini' ? '_mini' : '')] || sprites[k];
+      s = s || {};
+      const cls = s.cls || 'fighter', rev = o.revenant ? '_revenant' : '';
+      const form = s.form || (s.commander ? 'f' : 'm');
+      const tiers = s.commander ? ['_commander', ''] : ((s.level || 1) >= 5 ? ['_veteran', ''] : ['']);
+      let src = null;
+      for (const t of tiers) for (const f of [form, form === 'm' ? 'f' : 'm']) src = src || sprites[`${cls}${t}${rev}_${f}`];
       if (!src) return window.__origPc(s, size, o);
       if (size >= 44) return `<div class="spr-card" style="width:${size}px;height:${size}px;background-image:url(${src});background-size:175%;background-position:50% 64%"></div>`;
       return `<img class="spr" src="${src}" alt="">`;
@@ -80,6 +86,10 @@ async function stage(page) {
   await page.waitForTimeout(250); await dismiss(page);
   await page.evaluate(() => {
     const S = G.state, c = S.contracts.find(c => c.type === 'patrol') || S.contracts[0];
+    // staged: the Commander (female form) and a second Fighter at veterancy (male form) — the game has no
+    // form field yet, so the preview sets one
+    S.roster[0].form = 'f';
+    Object.assign(S.roster[1], { cls: 'fighter', level: 5, form: 'm', weapon: 'shortsword' });
     startBattle(c, S.roster.slice(0, 4).map(s => s.id));
   });
   await page.waitForTimeout(400); await dismiss(page);

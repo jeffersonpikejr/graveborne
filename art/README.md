@@ -41,23 +41,33 @@ Every sprite obeys the same rules, so sprites drop into the battle grid with no 
 | Canvas | 1.5 × 1.5 tiles; the tile centre lands at 50% across, 74% down |
 | Placement in CSS | `width: 1.5·TS; left: −0.25·TS; top: −0.61·TS` relative to the tile |
 | Light | warm key from upper-left front (the only shadow-caster), cool fill right, cold rim behind, soft overhead contact |
-| Facing | figures face the camera (−Y), turned 8° to show more of the shield side |
+| Grade | the `grit` look: AgX High Contrast under a dim overcast dome (`rig.LOOKS`) |
+| Facing | figures face the camera (−Y), turned 4° |
+| Scale | humanoids are modelled in metres; `FIG_SCALE = 0.6` makes a 1.85 m mercenary ~1.1 tiles tall |
 
-## Materials (`blender/gb/mat.py`)
+## Materials (`blender/gb/grit.py`)
 
-Painted-miniature shading: base coat → dark wash in recesses (ambient occlusion) → highlight on convex edges
-(Cycles pointiness, relative to the base coat) → grime. Colours are authored as the game's own sRGB hex values.
-**Revenant mode** re-renders any asset corrupted: palette drained toward grave-grey, skin gone pale, sparse
-blight-violet fissures, violet back-light and eyes.
+Battle-worn realism, per the art direction in `ASSETS.md`. Every surface is a base material plus the damage a
+campaign leaves, in order: scratches and pitting → worn-bright edges → grime packed in recesses → rust or
+tarnish → oxblood smears → mud climbing from the ground (in world space, so it rises from the same ground line
+on every part). Library: `steel`, `paint_over_steel` (the bone-white shield), `maille`, `brass` (tarnished),
+`cloth` (with an optional painted device), `leather`, `skin` (windburn, dirt, stubble, scars), `hair`, `wood`.
+
+**Revenant mode** (`mat.set_mode`) re-renders any asset corrupted: palette drained toward grave-grey, skin gone
+pale, sparse blight-violet fissures, violet back-light and glowing eyes. (`gb/mat.py` also keeps the first,
+painted-miniature materials.)
 
 ## Layout
 
-    blender/gb/rig.py       camera, lights, world, render settings, shadow catcher
-    blender/gb/mat.py       painted materials, palette, revenant corruption
-    blender/gb/kit.py       modeling vocabulary: skin-modifier limbs, lathes, kite shield, blade, banner, base
+    blender/gb/rig.py       camera, lights, world, grade presets, render settings, shadow catcher
+    blender/gb/grit.py      battle-worn materials (the house look)
+    blender/gb/mat.py       palette, colour helpers, revenant corruption, the first painted materials
+    blender/gb/kit.py       primitives: skin-modifier limbs, lathes, tubes, blades, hafted weapons
+    blender/gb/armor.py     humanoid kit: plate shells, pauldrons, cops, gauntlets, straps, torn cloth, heads,
+                            the great shield, the broadsword
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer
     tools/post.py           review sheets at real display sizes; WebP export
     tools/ingame.mjs        before/after screenshots inside the running game
     renders/                master renders (768px PNG, 1.5 tiles square) — gitignored, reproducible
-    sprites/                shippable 384px WebP, named <asset>[_commander][_revenant][_mini].webp
+    sprites/                shippable 384px WebP, named <class>[_commander|_veteran][_revenant]_<m|f>.webp

@@ -3,6 +3,23 @@
 Source of truth for the Blender overhaul. One asset at a time goes through review (render → in-game preview →
 feedback → approval); only approved assets get wired into `index.html`.
 
+## Art direction (set on the Fighter review)
+
+The first pass (painted tabletop miniature) was rejected as too clean and toy-like. The direction now follows
+the Line-Breaker concept art and briefs:
+
+- **Grimdark realism, battle-worn.** Dull, dented, pitted steel with grime packed in every recess; old oxblood
+  smears; rust; mud climbing from the ground. Nothing new, nothing polished.
+- **Company palette:** bone-white, cold ash-grey, oxblood, dull steel, muted earth. **Tarnished gold only** as
+  rivets, repairs and mismatched trim, never ornament.
+- **Weight.** Figures are broad and planted; gear is heavy, practical, inherited from dead campaigns.
+- **Every humanoid model has a male and a female form.**
+- **Commander** (any class): company banner strapped to the back, one tarnished mark of rank, a founding scar,
+  fewer loose pieces. **Veteran** (level 5, the game's veterancy capstone): gear assembled from dead men's
+  armour — a foreign gilt pauldron, a mismatched greave, a patched cuirass.
+
+Each class therefore ships as a matrix: {base, Commander, Veteran} × {living, Revenant} × {male, female}.
+
 ## How the order was set
 
 **Priority = screen time × gap × leverage**, each scored 1–3:
@@ -36,11 +53,11 @@ Status: ✅ approved · 🔍 in review · ⏳ queued
 ### Wave 1 — The Company (style anchor + every unit you control)
 | # | Asset | Variants | Score | Status |
 |---|---|---|---|---|
-| 1 | **Fighter** — nasal helm, red surcoat over mail, chevron kite shield, arming sword | base · Commander banner · Revenant · Revenant Commander | 3×2×3 = 18 | 🔍 |
-| 2 | Ranger — hood & cloak, longbow, quiver | same 4 | 3×2×3 = 18 | ⏳ |
-| 3 | Cleric — white tabard with red cross, mail coif, flanged mace | same 4 | 3×2×3 = 18 | ⏳ |
-| 4 | Ash Acolyte — hooded ash-robe, blight veins, floating ashfire | same 4 | 3×2×3 = 18 | ⏳ |
-| 5 | Underkingdom Shade — black leathers, twin daggers (rare Cinderling recruit) | same 4 | 2×2×2 = 8 | ⏳ |
+| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded (rev. 2, grimdark pass) | base · Commander · Veteran, each living + Revenant, male + female | 3×2×3 = 18 | 🔍 |
+| 2 | Ranger — hood & cloak, longbow, quiver | same matrix | 3×2×3 = 18 | ⏳ |
+| 3 | Cleric — white tabard with red cross, mail coif, flanged mace | same matrix | 3×2×3 = 18 | ⏳ |
+| 4 | Ash Acolyte — hooded ash-robe, blight veins, floating ashfire | same matrix | 3×2×3 = 18 | ⏳ |
+| 5 | Underkingdom Shade — black leathers, twin daggers (rare Cinderling recruit) | same matrix | 2×2×2 = 8 | ⏳ |
 
 ### Wave 2 — The Enemy (one style for the whole board; fill the three missing designs)
 Ordered by how often each appears across contract pools and pod doctrines, with missing art weighted up.
@@ -110,4 +127,7 @@ Ordered by how often each appears across contract pools and pod doctrines, with 
   still loads `<img>`), about 20–30 KB each.
 - Every sprite has its procedural SVG as a fallback, so the overhaul lands one approved asset at a time and a
   missing file never breaks a battle.
-- Units stop being coloured chips. How friend/foe is shown instead is decision #2 on the Fighter review.
+- Units stop being coloured chips; a team ring drawn in CSS under the feet carries friend/foe and the live
+  states (gold = the soldier you're commanding, violet = revenant, red = target).
+- Soldiers have no sex field today (the game calls every soldier "her"). Male/female sprites need a `form`
+  field rolled at hire, plus a save migration that assigns one to existing soldiers and graves.
