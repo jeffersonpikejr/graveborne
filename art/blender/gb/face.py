@@ -46,7 +46,7 @@ ANCHORS = {
                    trap_z=0.0),
     'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.75, chin=0.52, chin_round=0.75, nose=0.78,
                    lip=1.3, eye=1.12, gaunt=0.4, ear=0.8, neck=0.84, scm=0.85, adam=0.0, muzzle=0.82,
-                   cheek_z=0.004, brow_w=0.75, fold=0.25, chin_y=-0.0015, chin_z=0.0065, lower_y=0.006, neck_d=1.12,
+                   cheek_z=0.004, brow_w=0.75, fold=0.25, chin_y=-0.003, chin_z=0.0065, lower_y=0.006, neck_d=1.12,
                    neck_back=0.004, trap=0.45, shoulder=0.9, lip_hu=0.0064, lip_hl=0.0100, lip_pu=0.004, lip_pl=0.0042,
                    bow=0.32,
                    masseter=0.6, jaw_y=-0.004, jaw_z=0.006, jaw_k=0.02, taper=0.18, mouth_z=0.0025, cheek_up=1.15, cheek_pad=1.0, forehead=1.0,
