@@ -28,15 +28,15 @@ from . import kit as K
 # and chin, a smaller nose, fuller lips, a slimmer neck, no larynx.
 FORMS = {
     'male':   dict(sx=1.0, sy=1.0, sz=1.0, brow=1.0, brow_y=0.0, jaw=1.0, chin=1.0, chin_round=0.0, nose=1.0, lip=1.0,
-                   eye=1.0, gaunt=1.0, ear=1.0, neck=1.0, scm=1.0, adam=1.0, muzzle=1.0, cheek_z=0.0, brow_w=1.0,
+                   eye=1.0, gaunt=1.0, ear=0.88, neck=1.0, scm=1.0, adam=1.0, muzzle=1.0, cheek_z=0.0, brow_w=1.0,
                    fold=1.0, chin_y=0.0, chin_z=0.0, lower_y=0.0),
     'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.8, chin=0.62, chin_round=0.35, nose=0.78,
-                   lip=1.3, eye=1.12, gaunt=0.55, ear=0.88, neck=0.78, scm=0.8, adam=0.0, muzzle=0.82,
-                   cheek_z=0.002, brow_w=0.75, fold=0.25, chin_y=0.001, chin_z=0.004, lower_y=0.006),
+                   lip=1.3, eye=1.12, gaunt=0.55, ear=0.8, neck=0.78, scm=0.8, adam=0.0, muzzle=0.82,
+                   cheek_z=0.002, brow_w=0.75, fold=0.25, chin_y=0.004, chin_z=0.004, lower_y=0.006),
 }
 EYE_R = 0.0125          # eyeball radius; the same for both forms, so the female eye reads a touch larger
 GRID = 0.0014           # meshing resolution (m): fine enough for the lid margin and the mouth line
-LOWPOLY = dict(skin=4200, hair=1800, beard=1500, brow=400)     # triangles after decimation: large readable planes
+LOWPOLY = dict(skin=4200, hair=2600, beard=1500, brow=400)     # triangles after decimation: large readable planes
 
 
 # ------------------------------------------------------------------------------------------------ distance field
@@ -125,8 +125,34 @@ class Layout:
         self.sex = sex
         self.k = np.array((f['sx'], f['sy'], f['sz']), np.float32)
         self.crooked = crooked
-        self.eye = self.S(0.03, -0.066, 0.0)                        # the +x eyeball's centre: 6 mm behind the brow
-        self.hw = 0.0145                                           # half the eye opening's width
+        self.eye = self.S(0.03, -0.0685, 0.0)                       # the +x eyeball's centre, under the brow
+        self.hw = 0.0148                                           # half the eye opening's width
+        self.brow_chain = self._brow()
+
+    def _brow(self):
+        """The brow ridge as a chain of capsules laid along the forehead: (centre, radius) pairs, strongest above
+        the nose and fading into the temples, so it follows the skull round instead of standing off it as a bar."""
+        S, br = self.S, self.f['brow']
+
+        def base(P):
+            d = _ell(P, S(0.0, 0.014, 0.025), S(0.072, 0.096, 0.081))
+            d = _smin(d, _ell(P, S(0.0, -0.045, 0.025), S(0.06, 0.04, 0.05)), 0.02)
+            return _smax(d, np.abs(P[:, 0]) - 0.0695 * self.f['sx'], 0.016)
+
+        pts = []
+        #          x      z       stands off   radius
+        for x, z, out, r in ((0.0, 0.0125, 0.0045, 0.0060), (0.015, 0.0148, 0.0050, 0.0064), (0.03, 0.0172, 0.0048, 0.0056),
+                             (0.045, 0.0168, 0.0024, 0.0044), (0.056, 0.015, 0.0004, 0.0032)):
+            p = np.array([[x, -0.2, z]], np.float32) * (self.k[0], 1.0, self.k[2])
+            for _ in range(300):
+                dd = base(p)[0]
+                if dd < 1e-5:
+                    break
+                p[0, 1] += max(dd, 2e-5)
+            o = out * (0.35 + 0.65 * br)
+            rr = r * (0.6 + 0.4 * br)
+            pts.append((np.array((p[0, 0], p[0, 1] - o + rr, p[0, 2]), np.float32), rr))
+        return [(pts[i], pts[i + 1], 0.006) for i in range(len(pts) - 1)]
 
     def S(self, x, y, z):
         return np.array((x, y, z), np.float32) * self.k
@@ -138,92 +164,105 @@ class Layout:
 def field(P, L, scar=None):
     """Signed distance to the skin (m, negative inside) at points P (N, 3)."""
     f, S = L.f, L.S
-    x = P[:, 0]
-    Pm = np.column_stack((np.abs(x), P[:, 1], P[:, 2]))           # mirrored: one side built, both sides agree
-    # cranium: broad at the temples, a forehead that curves back, flat temple planes
+    x, z = P[:, 0], P[:, 2]
+    Pm = np.column_stack((np.abs(x), P[:, 1], z))                 # mirrored: one side built, both sides agree
+    # cranium: broad at the temples, the occiput's mass behind the ear, flat temple planes; a broad frontal bone,
+    # so the forehead stays flat across and curves back above
     d = _ell(P, S(0.0, 0.014, 0.025), S(0.072, 0.096, 0.081))
+    d = _smin(d, _ell(P, S(0.0, 0.06, 0.0), S(0.056, 0.05, 0.052)), 0.02)
+    d = _smin(d, _ell(P, S(0.0, -0.045, 0.025), S(0.06, 0.04, 0.05)), 0.02)
     d = _smax(d, np.abs(x) - 0.0695 * f['sx'], 0.016)
+    # the neck: a short column from under the back of the skull into the shoulders. Sternomastoids from behind the
+    # ears to the notch give it a front plane and side planes; the trapezius slopes from the nape to the shoulders;
+    # collarbones and the top of the chest close it off (the armour hides the rest)
+    nk = f['neck']
+    sq = np.array((1.0, 1.0 / 0.9, 1.0), np.float32)
+    d = _smin(d, _cap(P * sq, S(0.0, 0.022, -0.04) * sq, S(0.0, 0.01, -0.175) * sq, 0.047 * nk, 0.054 * nk), 0.018)
+    d = _smin(d, _cap(Pm, S(0.051, 0.032, -0.038), S(0.016, -0.03, -0.168), 0.0105 * nk * f['scm']), 0.014)
+    d = _smin(d, _both(lambda Q: _cap(Q, S(0.02, 0.058, -0.07), S(0.11, 0.022, -0.17), 0.026 * nk), P, 0.02), 0.022)
+    d = _smin(d, _both(lambda Q: _cap(Q, S(0.014, -0.036, -0.176), S(0.1, -0.012, -0.172), 0.011 * nk), P, 0.01), 0.016)
+    d = _smin(d, _ell(P, S(0.0, 0.012, -0.215), S(0.125, 0.07, 0.05)), 0.03)
+    d = _smax(d, -0.21 * L.k[2] - z, 0.004)
+    d = _smax(d, np.abs(x) - 0.1, 0.006)
+    if f['adam']:
+        d = _smin(d, _ell(P, S(0.0, -0.041, -0.098), S(0.0075, 0.0075, 0.011)), 0.008)
     # the face's mass (maxilla, the volume of the cheeks)
     ly = f['lower_y']        # how far the lower face (maxilla, mouth, chin) sits back under the brow
     d = _smin(d, _ell(P, S(0.0, -0.034 + ly, -0.032), S(0.058 * (0.9 + 0.1 * f['muzzle']), 0.058, 0.056)), 0.02)
-    # brow ridge: a horizontal bar with a flat front, the glabella between the brows
-    br = f['brow']
-    d = _smin(d, _both(lambda Q: _ell(Q, S(0.027, -0.0785 + f['brow_y'], 0.0165), S(0.027, 0.0055 + 0.0025 * br, 0.0068 + 0.002 * br),
-                                     M=_R(rz=18)), P), 0.008)
-    d = _smin(d, _ell(P, S(0.0, -0.08 + f['brow_y'], 0.012), S(0.012, 0.0068, 0.01)), 0.008)
-    # cheekbones and their arches back to the ear; the gaunt plane under them
-    d = _smin(d, _ell(Pm, S(0.046, -0.068, -0.019 + f['cheek_z']), S(0.02, 0.015, 0.012), M=_R(rz=30)), 0.01)
-    d = _smin(d, _cap(Pm, S(0.05, -0.056, -0.018), S(0.066, -0.004, -0.013), 0.0055), 0.012)
-    d = _smax(d, -_ell(Pm, S(0.051, -0.086 + 0.006 * (1 - f['gaunt']), -0.052), S(0.018, 0.013, 0.02) * f['gaunt'] ** 0.5),
-              0.012)
+    # brow ridge: strongest above the nose, following the skull round and fading into the temples; no shelf
+    for a, b, k in L.brow_chain:
+        d = _smin(d, _both(lambda Q: _cap(Q, a[0], b[0], a[1], b[1]), P, 0.006) if a[0][0] == 0 else _cap(Pm, a[0], b[0], a[1], b[1]),
+                  k)
+    # cheekbones: a broad plane under the outer eye that turns back gradually into the temple; the gaunt plane below
+    d = _smin(d, _ell(Pm, S(0.047, -0.066, -0.02 + f['cheek_z']), S(0.021, 0.014, 0.013), M=_R(rz=35)), 0.016)
+    d = _smin(d, _ell(Pm, S(0.053, -0.03, -0.016), S(0.0065, 0.028, 0.0075), M=_R(rz=-12)), 0.018)
+    d = _smax(d, -_ell(Pm, S(0.051, -0.086 + 0.006 * (1 - f['gaunt']), -0.052), S(0.016, 0.011, 0.017) * f['gaunt'] ** 0.5),
+              0.016)
     # the muzzle the lips sit on
     d = _smin(d, _ell(P, S(0.0, -0.071 + ly + 0.025 * (1 - f['muzzle']), -0.056), S(0.036, 0.025 * f['muzzle'], 0.021)),
               0.012)
-    # mandible: ramus under the ear, the body along the jaw line, a chin with a flat lower plane
+    # mandible: ramus under the ear, a clear angle below it, the body along the jaw line; a chin with a flat lower
+    # plane that projects a little
     jw, ch = f['jaw'], f['chin']
-    A, C, Rm = S(0.056 * jw, 0.022, -0.062), S(0.017 * ch, -0.077 + ly, -0.092), S(0.061 * jw, 0.02, -0.022)
+    A, C, Rm = S(0.056 * jw, 0.022, -0.062), S(0.017 * ch, -0.0785 + ly, -0.092), S(0.061 * jw, 0.02, -0.022)
     rj = 0.011 * jw ** 1.2
-    d = _smin(d, _both(lambda Q: _cap(Q, A, C, rj, rj * 0.9), P, 0.012), 0.014)
-    d = _smin(d, _cap(Pm, Rm, A, rj * 0.9, rj), 0.012)
-    # the chin: a broad form with a flat lower plane, set back a few millimetres behind the lower lip
+    d = _smin(d, _both(lambda Q: _cap(Q, A, C, rj, rj * 0.9), P, 0.012), 0.011)
+    d = _smin(d, _cap(Pm, Rm, A, rj * 0.9, rj), 0.009)
+    d = _smin(d, _ell(Pm, A + S(0.001, 0.002, -0.002), S(0.006, 0.009, 0.006)), 0.008)      # the gonial angle
     cz = 0.0105 * (0.8 + 0.2 * ch)
-    cc = S(0.0, -0.08 + ly + f['chin_y'], -0.091 + f['chin_z'])
+    cc = S(0.0, -0.0812 + ly + f['chin_y'], -0.091 + f['chin_z'])
     chin = _rbox(P, cc, S(0.02 * ch ** 1.5 + 0.002, 0.011, cz), 0.006)
     if f['chin_round']:
         chin = chin + (_ell(P, cc, S(0.0125, 0.0100, cz + 0.001)) - chin) * f['chin_round']
-    d = _smin(d, chin, 0.012)
-    # the neck rises from under the back of the skull; sternomastoids from behind the ears to the notch; trapezius
-    nk = f['neck']
-    sq = np.array((1.0, 1.0 / 0.92, 1.0), np.float32)
-    d = _smin(d, _cap(P * sq, S(0.0, 0.024, -0.035) * sq, S(0.0, 0.013, -0.235) * sq, 0.05 * nk, 0.058 * nk), 0.02)
-    d = _smin(d, _cap(Pm, S(0.05, 0.034, -0.04), S(0.017, -0.027, -0.2), 0.0105 * nk * f['scm']), 0.016)   # a notch between
-    d = _smin(d, _both(lambda Q: _cap(Q, S(0.022, 0.056, -0.085), S(0.125, 0.03, -0.235), 0.024 * nk * f['scm'] ** 0.5),
-                       P, 0.02), 0.02)
-    if f['adam']:
-        d = _smin(d, _ell(P, S(0.0, -0.043, -0.104), S(0.0075, 0.0075, 0.012)), 0.008)
-    # eye sockets, carved under the brow; the under-eye plane that carries the tiredness
-    d = _smax(d, -_ell(Pm, S(0.03, -0.081, -0.001), S(0.019, 0.012, 0.0135)), 0.006)
-    d = _smin(d, _ell(Pm, S(0.03, -0.0775, -0.013), S(0.015, 0.0055, 0.005)), 0.004)
-    # nose in three masses: a bridge from the root between the brows, a wedge-shaped tip projecting forward, the
-    # alar base; nostrils cut under it. A once-broken nose kinks sideways.
+    d = _smin(d, chin, 0.016)
+    # eye sockets, carved under the brow but shallow enough that the eye stays a shape; the under-eye plane
+    c = L.eye
+    d = _smax(d, -_ell(Pm, S(0.03, c[1] - 0.0155, -0.001), S(0.019, 0.011, 0.0135)), 0.006)
+    d = _smin(d, _ell(Pm, S(0.03, c[1] - 0.011, -0.013), S(0.015, 0.0055, 0.005)), 0.004)
+    # nose in three masses: a bridge that tapers up to the root (nasal bone, then a wider cartilage midsection with
+    # a slight hump where they meet), a wedge-shaped tip projecting forward, the alar base spread wide; nostrils cut
+    # under it. A once-broken nose kinks sideways.
     ns, kx = f['nose'], L.crooked
 
     def ny(y):          # a nose's parts stand off the face in proportion to its size
         return -0.079 + (y + 0.079) * ns
-    d = _smin(d, _cap(P, S(0.0, -0.079, 0.005), S(kx, ny(-0.1085), -0.024), 0.006 * ns, 0.0082 * ns), 0.006)
+    root, mid, low = S(0.0, -0.0795, 0.004), S(kx * 0.5, ny(-0.0958 + 0.0008 * (1 - ns) / 0.22), -0.011), S(kx, ny(-0.1085), -0.024)
+    d = _smin(d, _cap(P, root, mid, 0.0043 * ns, 0.0058 * ns), 0.006)
+    d = _smin(d, _cap(P, mid, low, 0.0058 * ns, 0.0074 * ns), 0.004)
     d = _smin(d, _rbox(P, S(kx * 0.8, ny(-0.1115), -0.0305), S(0.0088, 0.0082, 0.0078) * ns, 0.0042 * ns,
-                       M=_R(rx=-28 + 14 * (1 - ns) / 0.22)), 0.005)
-    d = _smin(d, _ell(Pm, S(0.0105 * ns, ny(-0.1015) + 0.5 * f['lower_y'], -0.0348), S(0.0068, 0.0086, 0.0068) * ns),
-              0.004)
-    d = _smin(d, _ell(P, S(kx * 0.6, ny(-0.1045) + 0.5 * f['lower_y'], -0.0378), S(0.0055, 0.008, 0.0042) * ns), 0.004)
-    d = _smax(d, -_both(lambda Q: _ell(Q, S(0.0058 * ns, ny(-0.1058), -0.0405), S(0.0036, 0.0048, 0.0026) * ns), P, 0.002),
+                       M=_R(rx=-28 + 14 * (1 - ns) / 0.22)), 0.004)
+    d = _smin(d, _ell(Pm, S(0.0122 * ns, ny(-0.1005) + 0.5 * ly, -0.0352), S(0.0076, 0.0084, 0.0064) * ns), 0.005)
+    d = _smin(d, _ell(P, S(kx * 0.6, ny(-0.1045) + 0.5 * ly, -0.0378), S(0.0055, 0.008, 0.0042) * ns), 0.004)
+    d = _smax(d, -_both(lambda Q: _ell(Q, S(0.0064 * ns, ny(-0.1058), -0.0405), S(0.0036, 0.0048, 0.0026) * ns), P, 0.002),
               0.0015)
-    # lips: a thin upper lip, a slightly fuller lower one, the mouth line cut between them (level: a neutral
-    # mouth), the corners dimpled, the fold under the lower lip
+    # lips: thin, emerging from the muzzle rather than laid on it, the upper with a slight bow; the mouth line level
+    # (a neutral mouth), the corners dimpled, the fold under the lower lip. Set a little higher: a shorter philtrum.
     lp = f['lip']
-    lb = 0.02 * (1 - f['muzzle']) + f['lower_y']          # lips sit back with a smaller muzzle, a receding lower face
-    d = _smin(d, _ell(P, S(0.0, -0.093 + lb, -0.0532), S(0.025, 0.005, 0.0042 * lp)), 0.004)
-    d = _smin(d, _ell(P, S(0.0, -0.0915 + lb, -0.0616), S(0.021, 0.0048 * f['muzzle'], 0.0045 * lp ** 0.7)), 0.004)
-    slit = np.minimum(_cap(Pm, S(0.0, -0.0985 + lb, -0.0572), S(0.014, -0.0962 + lb, -0.0572), 0.0009),
-                      _cap(Pm, S(0.014, -0.0962 + lb, -0.0572), S(0.0285, -0.0885 + lb, -0.0576), 0.0009, 0.0007))
+    lb = 0.04 * (1 - f['muzzle']) + ly          # lips stay on the muzzle's surface when it is set back
+    mz = 0.0018
+    d = _smin(d, _ell(P, S(0.0, -0.092 + lb, -0.0532 + mz), S(0.025, 0.0045, 0.0038 * lp)), 0.006)
+    d = _smax(d, -_ell(P, S(0.0, -0.0968 + lb, -0.0492 + mz), S(0.0022, 0.0022, 0.0016)), 0.0012)       # the bow
+    d = _smin(d, _ell(P, S(0.0, -0.0912 + lb, -0.0616 + mz), S(0.021, 0.0036 * f['muzzle'], 0.0042 * lp ** 0.7)), 0.006)
+    slit = np.minimum(_cap(Pm, S(0.0, -0.0975 + lb, -0.0572 + mz), S(0.014, -0.0955 + lb, -0.0572 + mz), 0.0009),
+                      _cap(Pm, S(0.014, -0.0955 + lb, -0.0572 + mz), S(0.0285, -0.0882 + lb, -0.0576 + mz), 0.0009, 0.0007))
     d = _smax(d, -slit, 0.0008)
-    d = _smax(d, -_ell(Pm, S(0.0285, -0.0885 + lb, -0.0577), np.full(3, 0.0022, np.float32)), 0.0012)
-    d = _smax(d, -_ell(P, S(0.0, -0.0955 + lb + 0.003 * (1 - f['fold']), -0.0705), S(0.013, 0.003, 0.003) * f['fold'] ** 0.5),
+    d = _smax(d, -_ell(Pm, S(0.0285, -0.0882 + lb, -0.0577 + mz), np.full(3, 0.002, np.float32)), 0.0012)
+    d = _smax(d, -_ell(P, S(0.0, -0.0952 + lb + 0.003 * (1 - f['fold']), -0.0695 + mz), S(0.013, 0.003, 0.003) * f['fold'] ** 0.5),
               0.006)
-    # ears, from the brow down to the nose base, tilted back and flared: the rim (helix), the hollow, the lobe
-    E = _R(rx=-15, rz=-11)
+    # ears, from the brow down to the nose base, tilted back, tucked against the skull: rim, hollow, lobe
+    E = _R(rx=-15, rz=-5)
     er = f['ear']
-    e = _ell(Pm, S(0.0745, 0.014, -0.013), S(0.0072, 0.0172 * er, 0.0305 * er), M=E)
-    e = _smin(e, _ell(Pm, S(0.0728, 0.009, -0.013 - 0.027 * er), S(0.0058, 0.0078 * er, 0.009 * er)), 0.004)
-    e = _smax(e, -_ell(Pm, S(0.0802, 0.01, -0.015), S(0.0052, 0.009 * er, 0.013 * er), M=E), 0.002)
-    e = _smax(e, -_ell(Pm, S(0.0815, 0.019, -0.003), S(0.0038, 0.011 * er, 0.02 * er), M=E), 0.0015)
-    d = _smin(d, e, 0.004)
+    e = _ell(Pm, S(0.0705, 0.014, -0.013), S(0.0064, 0.0172 * er, 0.0305 * er), M=E)
+    e = _smin(e, _ell(Pm, S(0.0695, 0.009, -0.013 - 0.027 * er), S(0.0054, 0.0078 * er, 0.009 * er)), 0.004)
+    e = _smax(e, -_ell(Pm, S(0.0758, 0.01, -0.015), S(0.0048, 0.009 * er, 0.013 * er), M=E), 0.002)
+    e = _smax(e, -_ell(Pm, S(0.0772, 0.019, -0.003), S(0.0035, 0.011 * er, 0.02 * er), M=E), 0.0015)
+    d = _smin(d, e, 0.007)
     # the founding scar: a shallow, uneven groove
     if scar:
         for a, b, w in scar:
             d = _smax(d, -_cap(P, a, b, w * 0.5), 0.0006)
-    # eyes: a shell of lid around each eyeball, the eyeball's own room, and the hooded almond opening cut through
-    c = L.eye
+    # eyes: a shell of lid around each eyeball, the eyeball's own room, and the almond opening cut through: hooded,
+    # but open enough to read
     lid = _ell(Pm, c, np.full(3, EYE_R + 0.0026, np.float32))
     lid = _smax(lid, Pm[:, 1] - (c[1] + 0.003), 0.001)
     d = _smin(d, lid, 0.003)
@@ -231,8 +270,8 @@ def field(P, L, scar=None):
     q = Pm - c
     t = np.clip(q[:, 0] / L.hw, -1.0, 1.0)
     w = np.maximum(0.0, 1.0 - t * t)
-    up = 0.0042 * f['eye'] * w ** 0.6 + 0.0008 * t
-    lo = -0.0045 * f['eye'] * w ** 0.8 + 0.0008 * t
+    up = 0.0049 * f['eye'] * w ** 0.6 + 0.0008 * t
+    lo = -0.0051 * f['eye'] * w ** 0.8 + 0.0008 * t
     ap = np.maximum(np.maximum(q[:, 2] - up, lo - q[:, 2]), np.maximum(np.abs(q[:, 0]) - L.hw, q[:, 1]))
     return _smax(d, -ap, 0.0006)
 
@@ -368,11 +407,31 @@ def _theta(P):
     return np.degrees(np.arctan2(np.abs(P[:, 0]), -P[:, 1]))
 
 
+_CROP = np.array([(0.0, -0.75, 0.66), (0.5, -0.55, 0.67), (-0.5, -0.55, 0.67), (0.0, 0.1, 1.0), (0.85, 0.05, 0.5),
+                  (-0.85, 0.05, 0.5), (0.45, 0.7, 0.55), (-0.45, 0.7, 0.55), (0.0, 0.95, 0.3)], np.float32)
+_CROP /= np.linalg.norm(_CROP, axis=1)[:, None]
+
+
+def clumps(P, style, L, noise):
+    """0 in the grooves between the hair's large clumps, 1 inside them. A crop falls in nine clumps from the crown;
+    hair pulled back for the knot runs in six bands from front to back."""
+    if style == 'crop':
+        u = P - L.S(0.0, 0.014, 0.025)
+        u = u / np.maximum(np.linalg.norm(u, axis=1), 1e-9)[:, None]
+        u = u + 0.08 * (np.column_stack([noise(P * s, 45.0) for s in (1.0, 1.3, 1.7)]) - 0.5)
+        dots = np.sort(u @ _CROP.T, axis=1)
+        return np.clip((dots[:, -1] - dots[:, -2]) / 0.05, 0.0, 1.0) ** 0.6
+    b = P[:, 0] / (0.025 * L.k[0]) + 0.5 + 0.6 * (noise(P * (1.0, 0.3, 1.0), 40.0) - 0.5)
+    return np.clip((0.5 - np.abs(b - np.floor(b) - 0.5)) / 0.12, 0.0, 1.0) ** 0.7
+
+
 def hairline(P, style, L, noise):
-    """Height of the hairline over the skull at each point's angle round the head (head frame, m)."""
+    """Height of the hairline over the skull at each point's angle round the head (head frame, m), broken where
+    the clumps part."""
     th = _theta(P)
-    if style == 'crop':   # a man's crop: a slightly receding front, down to the nape at the back
-        z = np.interp(th, [0, 28, 40, 58, 90, 118, 150, 180], [0.056, 0.058, 0.063, 0.044, 0.026, 0.0, -0.036, -0.056])
+    if style == 'crop':   # a man's crop: receding at the temples, down to the nape at the back
+        z = np.interp(th, [0, 22, 36, 46, 58, 90, 118, 150, 180], [0.055, 0.057, 0.066, 0.058, 0.044, 0.026, 0.0, -0.036, -0.056])
+        z = z + 0.004 * (1.0 - clumps(P, style, L, noise))
     else:                 # the undercut: sides and back shaved up to a line under the knot's mass
         z = np.interp(th, [0, 30, 50, 75, 110, 150, 180], [0.057, 0.055, 0.05, 0.047, 0.046, 0.043, 0.038])
     return z * L.k[2] + 0.003 * (noise(P, 140.0) - 0.5) + 0.001 * (noise(P, 400.0) - 0.5)
@@ -388,9 +447,10 @@ def _thick_hair(style, L, noise):
     def t(P):
         depth = np.clip((P[:, 2] - hairline(P, style, L, noise)) / 0.014, 0.3, 1.0)
         top = np.clip((P[:, 2] - 0.02) / 0.06, 0.0, 1.0)            # fuller on the crown than over the ears
+        cl = clumps(P, style, L, noise)                             # grooves between the clumps
         if style == 'crop':
-            return (0.003 + 0.0025 * top) * depth + 0.003 * (noise(P, 70.0) - 0.4) + 0.0012 * noise(P, 190.0)
-        return 0.0048 * depth + 0.0014 * (noise(P * (1.0, 0.25, 1.0), 150.0) - 0.3)   # pulled back hard: ridged
+            return (0.0038 + 0.0034 * top) * depth * (0.15 + 0.85 * cl) + 0.0012 * (noise(P, 90.0) - 0.4)
+        return 0.0052 * depth * (0.6 + 0.4 * cl) + 0.0008 * (noise(P * (1.0, 0.25, 1.0), 150.0) - 0.3)   # pulled back
     return t
 
 
@@ -459,13 +519,13 @@ def marks(sex, scar=None, crooked=0.0, style='crop'):
         red=[(tuple(S(s * 0.045, -0.082, -0.026)), 0.02, 0.45) for s in (-1, 1)] +
             [(tuple(S(0.0, -0.079 + (-0.118 + 0.079) * FORMS[sex]['nose'], -0.031)), 0.012, 0.5)] +
             [(tuple(S(s * 0.078, 0.012, -0.012)), 0.016, 0.35) for s in (-1, 1)],
-        sock=[(tuple(S(s * 0.03, -0.084, 0.002)), 0.016, 0.5) for s in (-1, 1)],
-        bags=[(tuple(S(s * 0.03, -0.087, -0.0125)), 0.0095, 0.55) for s in (-1, 1)],
+        sock=[(tuple(L.eye * (s, 1, 1) + S(0.0, -0.014, 0.002)), 0.016, 0.25) for s in (-1, 1)],
+        bags=[(tuple(L.eye * (s, 1, 1) + S(0.0, -0.012, -0.0125)), 0.0095, 0.35) for s in (-1, 1)],
         lip_amount=0.45 if sex == 'male' else 0.72,
-        lash=[] if sex == 'male' else [(tuple(L.eye * (s, 1, 1) + S(0.0, -EYE_R - 0.0015, 0.0044)),
+        lash=[] if sex == 'male' else [(tuple(L.eye * (s, 1, 1) + S(0.0, -EYE_R - 0.0015, 0.005)),
                                         tuple(S(0.0125, 0.004, 0.0013))) for s in (-1, 1)],
-        lips=[(tuple(S(0.0, -0.095 + FORMS[sex]['lower_y'], -0.0532)), tuple(S(0.029, 0.012, 0.0045 * FORMS[sex]['lip']))),
-              (tuple(S(0.0, -0.095 + FORMS[sex]['lower_y'], -0.0618)), tuple(S(0.025, 0.012, 0.0052 * FORMS[sex]['lip'])))],
+        lips=[(tuple(S(0.0, -0.095 + 0.04 * (1 - FORMS[sex]['muzzle']) + FORMS[sex]['lower_y'], -0.0514)), tuple(S(0.029, 0.012, 0.0045 * FORMS[sex]['lip']))),
+              (tuple(S(0.0, -0.095 + 0.04 * (1 - FORMS[sex]['muzzle']) + FORMS[sex]['lower_y'], -0.06)), tuple(S(0.025, 0.012, 0.0052 * FORMS[sex]['lip'])))],
         creases=[[tuple(np.array(S(s * x, 0, z))[[0, 2]]) for x, z in ((0.0175, -0.034), (0.025, -0.046), (0.0305, -0.061))]
                  for s in (-1, 1)],
         forehead=[[tuple(np.array(S(x, 0, z))[[0, 2]]) for x, z in ((-0.028, zz - 0.003), (0.0, zz), (0.028, zz - 0.003))]

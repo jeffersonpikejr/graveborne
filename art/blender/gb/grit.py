@@ -28,7 +28,7 @@ COL = {
 class _G:
     """One material's node tree plus the shared inputs every damage layer reads."""
 
-    def __init__(self, name, seed):
+    def __init__(self, name, seed, ao_dist=0.025):
         rev = MODE['revenant']
         self.rev = rev
         self.m = bpy.data.materials.new(name + ('_rev' if rev else ''))
@@ -43,7 +43,7 @@ class _G:
         ao = self.N.new('ShaderNodeAmbientOcclusion')
         ao.only_local = True
         ao.samples = 8
-        ao.inputs['Distance'].default_value = 0.025
+        ao.inputs['Distance'].default_value = ao_dist
         self.cavity = _maprange(self.nt, ao.outputs['AO'], 0.35, 1.0, 1.0, 0.0)      # 1 deep in a recess
         self.edge = _maprange(self.nt, self.geo.outputs['Pointiness'], 0.515, 0.585)   # 1 on a convex edge
         sep = self.N.new('ShaderNodeSeparateXYZ')
@@ -514,7 +514,7 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
     hit, key = _cached(('skin', name))
     if hit:
         return hit
-    g = _G(name, seed)
+    g = _G(name, seed, ao_dist=0.012)          # tight occlusion: creases darken, eye sockets don't turn into holes
     nt = g.nt
     col = g.col(tone, 'skin')
     col = _mix(nt, 'MIX', col, g.col('#9a4a36', 'skin'), _maprange(nt, g.noise(6.0, w=1.0), 0.4, 0.75, 0.0, windburn))
@@ -573,7 +573,7 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
             sm = m if sm is None else _math(nt, 'MAXIMUM', sm, m)
         col = _mix(nt, 'MIX', col, g.col('#5c4440', 'skin'), _math(nt, 'MULTIPLY', sm, 0.75))
         g.bump(sm, -0.3)
-    col = _mix(nt, 'MIX', col, g.col('#2a1a12', 'skin'), _math(nt, 'MULTIPLY', g.cavity, 0.85))
+    col = _mix(nt, 'MIX', col, g.col('#2a1a12', 'skin'), _math(nt, 'MULTIPLY', g.cavity, 0.6))
     b = g.bsdf
     b.inputs['Subsurface Weight'].default_value = 0.12
     b.inputs['Subsurface Radius'].default_value = (0.9, 0.35, 0.2)
@@ -647,7 +647,7 @@ def eye(name, iris='#3b2c20'):
         white = hexlin('#26222b')
         ir = hexlin('#c69cf0')
     else:
-        white = hexlin('#b3a893')         # dirty whites, bright enough to read against the socket
+        white = hexlin('#bdb29d')         # dirty whites, bright enough to read against the socket
         ir = hexlin(iris)
     col = _mix(nt, 'MIX', white, hexlin('#9c6a5c'), _maprange(nt, fwd, 0.2, 0.6, 0.55, 0.0))   # bloodshot at the edges
     col = _mix(nt, 'MIX', col, ir, iris_m)

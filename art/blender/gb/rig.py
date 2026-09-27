@@ -63,7 +63,7 @@ def _sun(name, frm, energy, color, angle_deg, shadow=True):
     return ob
 
 
-def lights(rim_color=(0.80, 0.88, 1.0), rim_energy=4.0, key_energy=2.6):
+def lights(rim_color=(0.80, 0.88, 1.0), rim_energy=4.0, key_energy=2.6, front_fill=0.0):
     """The house light. `frm` vectors point FROM the scene TOWARD the light.
     Only the key casts shadows: rims exist to carve the silhouette, not to throw shadows at the camera."""
     _sun('key', (-0.50, -0.55, 1.05), key_energy, (1.0, 0.86, 0.70), 16)    # high: short shadows stay on the tile
@@ -71,6 +71,8 @@ def lights(rim_color=(0.80, 0.88, 1.0), rim_energy=4.0, key_energy=2.6):
     _sun('rim', (0.40, 0.95, 0.45), rim_energy, rim_color, 4, shadow=False)
     _sun('rim2', (-0.80, 0.65, 0.30), rim_energy * 0.5, rim_color, 6, shadow=False)
     _sun('contact', (0.0, 0.0, 1.0), 0.6, (1.0, 0.95, 0.9), 70)     # soft overhead: a grounding blob under the feet
+    if front_fill:   # portraits: a soft light near eye level, so the eyes stay shapes under the brow
+        _sun('front', (0.35, -1.0, 0.12), front_fill, (0.95, 0.9, 0.84), 40, shadow=False)
 
 
 def world(top=(0.075, 0.078, 0.085), bottom=(0.008, 0.007, 0.006), strength=0.5):
@@ -143,7 +145,7 @@ LOOKS = {
     # hold their darks after the pixel-art pass (the portrait reference sheet is lit this way)
     'portrait': dict(view='AgX', look='AgX - High Contrast', exposure=0.15,
                      world=dict(top=(0.1, 0.1, 0.11), bottom=(0.008, 0.007, 0.006), strength=0.35),
-                     key=3.6, rim=2.2),
+                     key=3.6, rim=2.2, front_fill=0.4),
     # the first (painted-miniature) look, kept for comparison
     'painted': dict(view='Standard', look='None', exposure=0.0, world={}, key=2.6, rim=4.0),
 }
@@ -155,6 +157,7 @@ def stage(elev=45.0, res=768, samples=96, rim_color=None, rim_energy=None, look=
     reset()
     render_settings(res=res, samples=samples, view=L['view'], look=L['look'], exposure=L['exposure'])
     world(**L['world'])
-    lights(rim_color=rim_color or (0.80, 0.88, 1.0), rim_energy=rim_energy or L['rim'], key_energy=L['key'])
+    lights(rim_color=rim_color or (0.80, 0.88, 1.0), rim_energy=rim_energy or L['rim'], key_energy=L['key'],
+           front_fill=L.get('front_fill', 0.0))
     camera(elev=elev)
     shadow_catcher()

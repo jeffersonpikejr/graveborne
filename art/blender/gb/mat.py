@@ -40,8 +40,11 @@ def hexlin(h):
 
 def _corrupt(lin, kind):
     """Revenant palette shift: drain toward a cold grave-grey. Skin goes the game's revenant pale."""
-    if kind == 'skin':
-        return hexlin('#98a396')
+    if kind == 'skin':   # grave-pale, but keeping each colour's lightness: sockets, lips and creases stay dark
+        pale = hexlin('#8e988c')
+        lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+        k = min(1.25, max(0.12, lum / 0.2))
+        return tuple(c * k for c in pale)
     grave = hexlin('#5d6460')
     k = 0.55 if kind != 'metal' else 0.35
     return tuple((1 - k) * c + k * g for c, g in zip(lin, grave))
