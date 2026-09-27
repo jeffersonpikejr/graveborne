@@ -31,15 +31,16 @@ FORMS = {
     'male':   dict(sx=1.0, sy=1.0, sz=1.0, brow=1.0, brow_y=0.0, jaw=1.0, chin=1.0, chin_round=0.0, nose=1.0, lip=1.0,
                    eye=1.0, gaunt=1.0, ear=0.88, neck=1.0, scm=1.0, adam=1.0, muzzle=1.0, cheek_z=0.0, brow_w=1.0,
                    fold=1.0, chin_y=0.0, chin_z=0.0, lower_y=0.0, neck_d=0.92, neck_back=0.0, trap=0.8, shoulder=1.0,
-                   lip_y=1.0, lip_lo=1.0, bow=1.0),
+                   lip_hu=0.0042, lip_hl=0.0062, lip_pu=0.0024, lip_pl=0.0021, bow=0.24),
     'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.8, chin=0.62, chin_round=0.35, nose=0.78,
                    lip=1.3, eye=1.12, gaunt=0.55, ear=0.8, neck=0.88, scm=0.9, adam=0.0, muzzle=0.82,
                    cheek_z=0.002, brow_w=0.75, fold=0.25, chin_y=0.002, chin_z=0.004, lower_y=0.006, neck_d=1.0,
-                   neck_back=0.004, trap=0.45, shoulder=0.9, lip_y=1.25, lip_lo=1.5, bow=1.6),
+                   neck_back=0.004, trap=0.45, shoulder=0.9, lip_hu=0.0064, lip_hl=0.0100, lip_pu=0.004, lip_pl=0.0042,
+                   bow=0.32),
 }
 EYE_R = 0.0125          # eyeball radius; the same for both forms, so the female eye reads a touch larger
 GRID = 0.0014           # meshing resolution (m): fine enough for the lid margin and the mouth line
-LOWPOLY = dict(skin=4200, hair=2600, beard=1500, brow=400)     # triangles after decimation: large readable planes
+LOWPOLY = dict(skin=9000, hair=2600, beard=1500, brow=400)     # the lips and nostrils need the skin's budget     # triangles after decimation: large readable planes
 
 
 # ------------------------------------------------------------------------------------------------ distance field
@@ -132,6 +133,7 @@ class Layout:
         self.hw = 0.0148                                           # half the eye opening's width
         self.brow_chain = self._brow()
         self.cheek = self._cheek()
+        self.mouth = self._mouth()
 
     def _probe(self, fn, x, z):
         """The front surface of field `fn` at (x, z), ray-marched along +Y, and its outward normal there."""
@@ -169,6 +171,65 @@ class Layout:
             c = (p - n * (rn - up)).astype(np.float32)
             out.append((c, M, np.array((ra, rn, rb), np.float32)))
         return out
+
+    def _mouth(self):
+        """The lips, after the anatomy: an upper lip facing forward-down (a central tubercle between two lateral
+        lobes, the Cupid's bow above), a fuller lower lip facing forward-up (two lobes), about 1 : 1.5 in height.
+        Every lobe is placed on the muzzle's own surface and projects from it, so the lips are mass, not width;
+        they taper soft into the corners. Philtral columns run from under the nose to the bow's peaks."""
+        S, f, k = self.S, self.f, self.k
+        ly = f['lower_y']
+        fc, fr = S(0.0, -0.034 + ly, -0.032), S(0.058 * (0.9 + 0.1 * f['muzzle']), 0.058, 0.056)
+        mc, mr = S(0.0, -0.071 + ly, -0.058), S(0.036 * (0.9 + 0.1 * f['muzzle']), 0.025, 0.025)
+
+        def base(P):
+            return _smin(_ell(P, fc, fr), _ell(P, mc, mr), 0.014)
+
+        zs = float(-0.0554 * k[2])                     # the mouth line at the centre
+        w = float(0.0285 * k[0])                       # half the mouth's width: unchanged, the lips gain mass
+        hu, hl, pu, pl = f['lip_hu'], f['lip_hl'], f['lip_pu'], f['lip_pl']
+        kx = float(k[0])
+
+        def lobe(x, z, along, long_, thick, proj, tilt):
+            p, n = self._probe(base, x, z)
+            fh = np.array((n[0], n[1], 0.0), np.float32)
+            fh /= np.linalg.norm(fh)
+            th = np.radians(tilt)
+            a = fh * np.float32(np.cos(th)) + np.array((0.0, 0.0, np.sin(th)), np.float32)
+            a /= np.linalg.norm(a)
+            t = np.array((-fh[1], fh[0], 0.0), np.float32)
+            M = np.column_stack((t, a, np.cross(t, a))).astype(np.float32)
+            return (p + a * (proj - long_)).astype(np.float32), M, np.array((along, long_, thick), np.float32)
+
+        upper = [lobe(0.0, zs + 0.5 * hu, 0.0078 * kx, 0.0062, 0.62 * hu, pu, -30.0),          # the tubercle
+                 lobe(0.0125 * kx, zs + 0.45 * hu, 0.0105 * kx, 0.0056, 0.55 * hu, 0.85 * pu, -28.0),
+                 lobe(0.0215 * kx, zs + 0.3 * hu, 0.0072 * kx, 0.0042, 0.42 * hu, 0.45 * pu, -22.0)]
+        lower = [lobe(0.0068 * kx, zs - 0.5 * hl, 0.0098 * kx, 0.0066, 0.55 * hl, pl, 24.0),
+                 lobe(0.0175 * kx, zs - 0.42 * hl, 0.0085 * kx, 0.005, 0.45 * hl, 0.6 * pl, 18.0),
+                 lobe(0.0238 * kx, zs - 0.25 * hl, 0.0055 * kx, 0.0036, 0.3 * hl, 0.25 * pl, 10.0)]
+        pk = 0.0052 * kx                                # the bow's peaks, under the philtral columns
+        phil = []
+        for (x0, z0), (x1, z1) in (((0.0042 * kx, -0.0432 * k[2]), (pk, zs + 0.95 * hu)),):
+            p0, n0 = self._probe(base, x0, z0)
+            p1, n1 = self._probe(base, x1, z1)
+            r = 0.0015
+            phil.append(((p0 - n0 * (r - 0.0004)).astype(np.float32), (p1 - n1 * (r - 0.001)).astype(np.float32), r))
+        c0, n0 = self._probe(base, 0.0, zs)
+        cw, nw = self._probe(base, w, zs)
+        fp, fn = self._probe(base, 0.0, zs - hl - 0.0042)
+        return dict(zs=zs, w=w, hu=hu, hl=hl, pk=pk, upper=upper, lower=lower, phil=phil,
+                    yb0=float(c0[1] + 0.0035), arch=float((cw[1] - c0[1]) / (w * w)),
+                    fold=(fp - fn * 0.0008).astype(np.float32))
+
+    def bow(self, x):
+        """Height of the upper lip's vermilion border (the Cupid's bow) at x: peaks under the philtral columns, a dip
+        between them, falling away into the corners. The same curve edges the lips' colour in the shader."""
+        mo, f = self.mouth, self.f
+        ax = np.abs(x)
+        u = np.clip(ax / mo['w'], 0.0, 1.0)
+        corner = np.sqrt(np.maximum(0.0, 1.0 - u ** 2.4))
+        dip = 1.0 - f['bow'] * np.maximum(0.0, 1.0 - ax / mo['pk']) ** 1.5
+        return mo['zs'] + mo['hu'] * corner * dip
 
     def _brow(self):
         """The brow ridge as a chain of capsules laid along the forehead: (centre, radius) pairs, strongest above
@@ -280,21 +341,28 @@ def field(P, L, scar=None):
     d = _smin(d, _ell(P, S(kx * 0.6, ny(-0.1045) + 0.5 * ly, -0.0378), S(0.0055, 0.008, 0.0042) * ns), 0.004)
     d = _smax(d, -_both(lambda Q: _ell(Q, S(0.0064 * ns, ny(-0.1058), -0.0405), S(0.0036, 0.0048, 0.0026) * ns), P, 0.002),
               0.0015)
-    # lips: thin, emerging from the muzzle rather than laid on it, the upper with a slight bow; the mouth line level
-    # (a neutral mouth), the corners dimpled, the fold under the lower lip. Set a little higher: a shorter philtrum.
-    lp, lyp, llo, bw = f['lip'], f['lip_y'], f['lip_lo'], f['bow']
-    lb = ly          # the lips, the muzzle and the chin set back together: no hollow between them
-    mz = 0.0018
-    kl = 0.006 - 0.0025 * (lyp - 1.0) / 0.25          # fuller lips join the muzzle more crisply: two distinct planes
-    d = _smin(d, _ell(P, S(0.0, -0.092 + lb, -0.0532 + mz), S(0.025, 0.0045 * lyp, 0.0038 * lp)), kl)
-    d = _smax(d, -_ell(P, S(0.0, -0.0968 + lb, -0.0492 + mz), S(0.0022, 0.0022, 0.0016) * bw ** 0.5), 0.0012)   # the bow
-    d = _smin(d, _ell(P, S(0.0, -0.0912 + lb, -0.0616 + mz), S(0.021, 0.0036 * llo, 0.0042 * lp ** 0.7 * llo ** 0.2)), kl)
-    slit = np.minimum(_cap(Pm, S(0.0, -0.0975 + lb, -0.0572 + mz), S(0.014, -0.0955 + lb, -0.0572 + mz), 0.0012),
-                      _cap(Pm, S(0.014, -0.0955 + lb, -0.0572 + mz), S(0.0285, -0.0882 + lb, -0.0576 + mz), 0.0012, 0.0008))
-    d = _smax(d, -slit, 0.0008)
-    d = _smax(d, -_ell(Pm, S(0.0285, -0.0874 + lb, -0.0577 + mz), np.full(3, 0.0014, np.float32)), 0.002)
-    if f['fold'] >= 0.5:     # the fold under the lower lip: a soft hollow on the male; the female's stays full
-        d = _smax(d, -_ell(P, S(0.0, -0.0938 + lb, -0.07 + mz), S(0.012, 0.0022, 0.0042) * f['fold'] ** 0.5), 0.01)
+    # lips (see Layout._mouth): philtral columns, the upper lip's three lobes, the lower lip's; the mouth line a thin
+    # cut that fades out at soft corners; a soft fold under the lower lip
+    mo = L.mouth
+    for a_, b_, r_ in mo['phil']:
+        d = _smin(d, _cap(Pm, a_, b_, r_), 0.002)
+    for lobes, kk, top in ((mo['upper'], 0.0035, True), (mo['lower'], 0.003, False)):
+        lip = None
+        for c_, M_, r_ in lobes:
+            e = _ell(Pm, c_, r_, M=M_)
+            lip = e if lip is None else _smin(lip, e, 0.004)
+        if top:     # the vermilion border: the upper lip ends along the bow, a slight ridge
+            lip = _smax(lip, z - L.bow(x) - 0.0003, 0.0009)
+        d = _smin(d, lip, kk)
+    ax = np.abs(x)
+    u = np.clip(ax / mo['w'], 0.0, 1.0)
+    zl = mo['zs'] - 0.0007 * np.exp(-(x / 0.006) ** 2) - 0.0005 * u * u      # the tubercle presses the line down
+    yb = mo['yb0'] + mo['arch'] * x * x
+    half = 0.0003 * np.sqrt(np.maximum(0.0, 1.0 - u ** 4)) * np.sqrt(np.clip((yb - P[:, 1]) / 0.0035, 0.0, 1.0))
+    slit = np.maximum(np.maximum(np.abs(z - zl) - half, P[:, 1] - yb), ax - mo['w'])     # a V: no lit back wall
+    d = _smax(d, -slit, 0.0004)
+    if f['fold'] >= 0.5:     # the male's fold under the lower lip; the female's forms softly where lip meets chin
+        d = _smax(d, -_ell(P, mo['fold'], S(0.012, 0.0022, 0.0035)), 0.006)
     # ears, from the brow down to the nose base, tilted back, tucked against the skull: rim, hollow, lobe
     E = _R(rx=-15, rz=-5)
     er = f['ear']
@@ -556,18 +624,6 @@ def scar_path(L, side):
 
 
 # ------------------------------------------------------------------------------------------------ shader landmarks
-def _lip_marks(sex, S):
-    """The lips' colour: the upper lip in two lobes either side of a dip (the bow), the lower one fuller."""
-    f = FORMS[sex]
-    y = -0.095 + f['lower_y']
-    lp = f['lip']
-    if f['bow'] > 1.0:
-        upper = [(tuple(S(s * 0.0085, y, -0.0512)), tuple(S(0.018, 0.012, 0.0046 * lp))) for s in (-1, 1)]
-    else:
-        upper = [(tuple(S(0.0, y, -0.0514)), tuple(S(0.029, 0.012, 0.0045 * lp)))]
-    return upper + [(tuple(S(0.0, y, -0.06)), tuple(S(0.025, 0.012, 0.0052 * lp * f['lip_lo'] ** 0.3)))]
-
-
 def marks(sex, scar=None, crooked=0.0, style='crop'):
     """Where the skin shader paints: weather on the cheeks and nose, the sockets and the dark circles, the lips,
     the scar. (The undercut's stubble is a vertex attribute the head writes: see _stubble.)"""
@@ -579,10 +635,11 @@ def marks(sex, scar=None, crooked=0.0, style='crop'):
             [(tuple(S(s * 0.078, 0.012, -0.012)), 0.016, 0.35) for s in (-1, 1)],
         sock=[(tuple(L.eye * (s, 1, 1) + S(0.0, -0.014, 0.002)), 0.016, 0.25) for s in (-1, 1)],
         bags=[(tuple(L.eye * (s, 1, 1) + S(0.0, -0.012, -0.0125)), 0.0095, 0.35) for s in (-1, 1)],
-        lip_amount=0.45 if sex == 'male' else 0.72,
+        lip_amount=0.45 if sex == 'male' else 0.6,
         lash=[] if sex == 'male' else [(tuple(L.eye * (s, 1, 1) + S(0.0, -EYE_R - 0.0015, 0.005)),
                                         tuple(S(0.0125, 0.004, 0.0013))) for s in (-1, 1)],
-        lips=_lip_marks(sex, S),
+        vermilion=dict(zs=L.mouth['zs'], w=L.mouth['w'], hu=L.mouth['hu'], hl=L.mouth['hl'], pk=L.mouth['pk'],
+                       dip=FORMS[sex]['bow']),
         creases=[[tuple(np.array(S(s * x, 0, z))[[0, 2]]) for x, z in ((0.0175, -0.034), (0.025, -0.046), (0.0305, -0.061))]
                  for s in (-1, 1)],
         forehead=[[tuple(np.array(S(x, 0, z))[[0, 2]]) for x, z in ((-0.028, zz - 0.003), (0.0, zz), (0.028, zz - 0.003))]

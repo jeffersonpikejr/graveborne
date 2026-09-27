@@ -445,6 +445,33 @@ def _eblob(g, center, radii):
     return _math(nt, 'EXPONENT', _math(nt, 'MULTIPLY', dot.outputs['Value'], -1.0))
 
 
+def _vermilion(g, v):
+    """The lips' colour, from the head's mouth landmarks (face.Layout._mouth): the upper vermilion's border rises to
+    the bow's two peaks and dips between them, both lips taper into the corners; a crisp edge, not a smudge."""
+    nt = g.nt
+    sep = g.N.new('ShaderNodeSeparateXYZ')
+    g.L.new(g.obj, sep.inputs[0])
+    X, Y, Z = sep.outputs['X'], sep.outputs['Y'], sep.outputs['Z']
+    ax = _math(nt, 'ABSOLUTE', X)
+    u = _maprange(nt, ax, 0.0, v['w'])
+    corner_u = _math(nt, 'POWER', _math(nt, 'MAXIMUM', _math(nt, 'SUBTRACT', 1.0, _math(nt, 'POWER', u, 2.4)), 0.0), 0.5)
+    corner_l = _math(nt, 'POWER', _math(nt, 'MAXIMUM', _math(nt, 'SUBTRACT', 1.0, _math(nt, 'POWER', u, 2.2)), 0.0), 0.55)
+    dip = _math(nt, 'SUBTRACT', 1.0, _math(nt, 'MULTIPLY', _math(nt, 'POWER', _maprange(nt, ax, 0.0, v['pk'], 1.0, 0.0), 1.5), v['dip']))
+    zb = _math(nt, 'ADD', v['zs'], _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', corner_u, dip), v['hu']))
+    zlb = _math(nt, 'SUBTRACT', v['zs'], _math(nt, 'MULTIPLY', corner_l, v['hl']))
+    upper = _math(nt, 'MULTIPLY', _maprange(nt, _math(nt, 'SUBTRACT', zb, Z), -0.0002, 0.0005),
+                  _maprange(nt, _math(nt, 'SUBTRACT', Z, v['zs']), -0.0012, 0.0))
+    lower = _math(nt, 'MULTIPLY', _maprange(nt, _math(nt, 'SUBTRACT', Z, zlb), -0.0002, 0.0007),
+                  _maprange(nt, _math(nt, 'SUBTRACT', v['zs'], Z), -0.0012, 0.0))
+    front = _maprange(nt, Y, -0.06, -0.075)
+    # the mouth line: where the lips meet, a thin dark line (pressed down at the centre by the tubercle)
+    zl = _math(nt, 'SUBTRACT', v['zs'], _math(nt, 'ADD', _math(nt, 'MULTIPLY', _math(nt, 'EXPONENT', _math(nt, 'MULTIPLY',
+              _math(nt, 'MULTIPLY', X, X), -1.0 / 0.006 ** 2)), 0.0007), _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', u, u), 0.0005)))
+    line = _math(nt, 'MULTIPLY', _maprange(nt, _math(nt, 'ABSOLUTE', _math(nt, 'SUBTRACT', Z, zl)), 0.0003, 0.0009, 1.0, 0.0),
+                 _maprange(nt, u, 0.85, 1.0, 1.0, 0.0))
+    return _math(nt, 'MULTIPLY', _math(nt, 'MAXIMUM', upper, lower), front), _math(nt, 'MULTIPLY', line, front)
+
+
 def _segment_dist3(g, a, b):
     """Distance in object space from the shading point to the 3D segment a-b (a scar lying on the skin)."""
     nt = g.nt
@@ -551,9 +578,12 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
     mottle = _maprange(nt, g.noise(22.0, detail=6.0, rough=0.7, w=5.0), 0.3, 0.7, 0.0, 1.0)             # painterly blotching
     col = _mix(nt, 'MIX', col, g.col('#b89a86', 'skin'), _math(nt, 'MULTIPLY', mottle, 0.22))
     col = _mix(nt, 'MIX', col, g.col('#5e4336', 'skin'), _math(nt, 'MULTIPLY', _math(nt, 'SUBTRACT', 1.0, mottle), 0.18))
+    lipm = stomion = None
     if face:     # lips and lash line after the grime and mottling, so they keep their colour
+        lipm, stomion = _vermilion(g, face['vermilion'])
         col = _mix(nt, 'MIX', col, g.col(face.get('lip_color', '#7b5550'), 'skin'),
-                   _math(nt, 'MULTIPLY', eblobs(face['lips']), face.get('lip_amount', 0.45)))
+                   _math(nt, 'MULTIPLY', lipm, face.get('lip_amount', 0.45)))
+        col = _mix(nt, 'MIX', col, g.col('#2a1512', 'skin'), _math(nt, 'MULTIPLY', stomion, 0.75))
         if face.get('lash'):     # a dark lash line along the upper lid
             col = _mix(nt, 'MIX', col, g.col('#1d1311', 'skin'), _math(nt, 'MULTIPLY', eblobs(face['lash']), 0.8))
     speck = g.noise(400.0, detail=1.0, w=5.0)
@@ -582,7 +612,11 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
     g.bump(g.noise(180.0, detail=3.0, w=7.0), 0.25)
     g.bump(g.noise(900.0, detail=2.0, w=8.0), 0.12)          # pores: kills the plastic sheen
     g.cracks(1.0)
-    m = g.finish(col, _maprange(nt, g.noise(12.0, w=9.0), 0.3, 0.7, 0.55, 0.75), 0.0)
+    rgh = _maprange(nt, g.noise(12.0, w=9.0), 0.3, 0.7, 0.55, 0.75)
+    if lipm is not None:     # the lips carry a faint sheen
+        rgh = _lerp(nt, rgh, 0.5, _math(nt, 'MULTIPLY', lipm, 0.6))
+        rgh = _lerp(nt, rgh, 0.95, stomion)          # but the mouth line is matte: no glint inside it
+    m = g.finish(col, rgh, 0.0)
     _CACHE[key] = m
     return m
 
