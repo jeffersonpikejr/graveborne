@@ -31,8 +31,9 @@ from . import kit as K
 # slightly larger and thicker ears, crisper shading. Female: a softer oval-to-heart face -- a narrower jaw that tapers
 # from high cheekbones to a rounder chin, a fuller cheek, an upright forehead, a lighter brow with a subtle arch,
 # rounder lids, a shorter nose with a narrower bridge and a softer tip, fuller lips, lighter traps, ears closer to the
-# head, softer shading. Her neck is slimmer than his but not delicate: sex reads through jaw, chin, brow, lips and
-# cheeks, not through a stalk of a neck. Both share one proportional framework (hers 5% smaller).
+# head, softer shading; her muzzle narrower and set back so the cheek runs down into the mouth, her traps starting
+# lower so the neck rises clear of the jaw. Her neck is slimmer than his but not delicate: sex reads through jaw, chin,
+# brow, lips and cheeks, not through a stalk of a neck. Both share one proportional framework (hers 5% smaller).
 ANCHORS = {
     'male':   dict(sx=1.0, sy=1.0, sz=1.0, brow=1.0, brow_y=0.0, jaw=1.0, chin=1.06, chin_round=0.0, nose=1.0, lip=1.0,
                    eye=1.0, gaunt=0.85, ear=0.88, neck=1.0, scm=1.1, adam=1.0, muzzle=1.0, cheek_z=-0.002, brow_w=1.0,
@@ -41,16 +42,18 @@ ANCHORS = {
                    masseter=0.8, jaw_y=0.0, jaw_z=0.0, jaw_k=0.013, taper=0.0, mouth_z=0.0, cheek_up=0.85, cheek_pad=0.0, forehead=0.0,
                    glabella=1.15, brow_arch=0.0, brow_lift=0.0, eye_depth=0.0008, lid_h=0.93, lid_round=0.72, lid_t=0.0004,
                    nose_len=1.02, bridge=1.0, tip_round=0.85, submental=1.15, ear_t=1.12, ear_yaw=-12.0, shade=32.0,
-                   lash=0.0, lip_tint=0.45),
-    'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.78, chin=0.52, chin_round=0.75, nose=0.78,
-                   lip=1.3, eye=1.12, gaunt=0.4, ear=0.8, neck=0.88, scm=0.9, adam=0.0, muzzle=0.82,
-                   cheek_z=0.004, brow_w=0.75, fold=0.25, chin_y=0.002, chin_z=0.0065, lower_y=0.006, neck_d=1.12,
+                   lash=0.0, lip_tint=0.45, nose_proj=0.92, muzzle_w=1.0, muzzle_y=0.0, muzzle_k=0.014, modiolus=1.0,
+                   trap_z=0.0),
+    'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.75, chin=0.52, chin_round=0.75, nose=0.78,
+                   lip=1.3, eye=1.12, gaunt=0.4, ear=0.8, neck=0.84, scm=0.85, adam=0.0, muzzle=0.82,
+                   cheek_z=0.004, brow_w=0.75, fold=0.25, chin_y=-0.0015, chin_z=0.0065, lower_y=0.006, neck_d=1.12,
                    neck_back=0.004, trap=0.45, shoulder=0.9, lip_hu=0.0064, lip_hl=0.0100, lip_pu=0.004, lip_pl=0.0042,
                    bow=0.32,
-                   masseter=0.6, jaw_y=-0.004, jaw_z=0.006, jaw_k=0.02, taper=0.13, mouth_z=0.0025, cheek_up=1.15, cheek_pad=1.0, forehead=1.0,
+                   masseter=0.6, jaw_y=-0.004, jaw_z=0.006, jaw_k=0.02, taper=0.18, mouth_z=0.0025, cheek_up=1.15, cheek_pad=1.0, forehead=1.0,
                    glabella=1.0, brow_arch=1.0, brow_lift=0.0015, eye_depth=0.0, lid_h=1.04, lid_round=0.48, lid_t=0.0,
                    nose_len=0.93, bridge=0.85, tip_round=1.35, submental=0.85, ear_t=0.9, ear_yaw=-7.0, shade=44.0,
-                   lash=1.0, lip_tint=0.6),
+                   lash=1.0, lip_tint=0.6, nose_proj=1.0, muzzle_w=0.8, muzzle_y=0.0035, muzzle_k=0.024, modiolus=0.75,
+                   trap_z=-0.016),
 }
 
 
@@ -113,6 +116,26 @@ def _rbox(P, c, half, rnd, M=None):
         q = q @ M
     q = np.abs(q) - (np.asarray(half) - rnd)
     return np.sqrt((np.maximum(q, 0.0) ** 2).sum(1)) + np.minimum(q.max(1), 0.0) - rnd
+
+
+def _nose_wedge(P, top, bot, r0, r1, t0, t1, below, depth):
+    """The nasal pyramid. Each horizontal section is a wedge: the dorsum at its apex (rounded to the bridge's radius
+    there) and the sidewalls opening back into the cheeks at a half-angle t (degrees), buried `depth` behind the
+    dorsum. The dorsum runs top -> bot; below bot the section carries straight on down for `below`, into the tip and
+    the alae. So the nose is one mass on the face, attached all the way down: never a bridge over a void."""
+    z0, z1 = float(top[2]), float(bot[2])
+    s = np.clip((z0 - P[:, 2]) / (z0 - z1), 0.0, 1.0)
+    xd = top[0] + s * (bot[0] - top[0])
+    yd = top[1] + s * (bot[1] - top[1])
+    r = r0 + s * (r1 - r0)
+    th = np.radians(t0 + s * (t1 - t0))
+    a = np.abs(P[:, 0] - xd)
+    w = P[:, 1] - yd
+    ct, st = np.cos(th), np.sin(th)
+    sd = np.where(a * st + w * ct < 0.0, np.sqrt(a * a + w * w), a * ct - w * st) - r
+    sd = np.maximum(sd, w - depth)
+    e = np.maximum(P[:, 2] - z0, (z1 - below) - P[:, 2])
+    return _smax(sd, e, 0.003)
 
 
 def _both(fn, P, k=0.008):
@@ -185,6 +208,13 @@ class Layout:
             P = np.column_stack((P[:, 0] / (1.0 - f['taper'] * t), P[:, 1], P[:, 2]))
         return _ell(P, c, r)
 
+    def muzzle(self, P):
+        """The muzzle the lips sit on (the teeth and the orbicularis over them): on the female narrower and set back
+        a touch, and blended wide (muzzle_k), so the cheeks run down into the mouth with no bar across the face."""
+        f, S = self.f, self.S
+        return _ell(P, S(0.0, -0.071 + f['lower_y'] + f['muzzle_y'], -0.058),
+                    S(0.036 * (0.9 + 0.1 * f['muzzle']) * f['muzzle_w'], 0.025, 0.025))
+
     def nz(self, z):
         """A height on the nose, measured from its root: a shorter nose (nose_len < 1) lifts its tip and base."""
         return 0.004 + (z - 0.004) * self.f['nose_len']
@@ -226,8 +256,12 @@ class Layout:
         #          x      z      along  across  thick  proud
         for x, z, ra, rb, rn, up in ((0.045, -0.02, 0.017, 0.013, 0.007, 0.003), (0.057, -0.013, 0.02, 0.008, 0.006, 0.0022)):
             out.append(patch(x, z + f['cheek_z'], ra, rb, rn, up * f['cheek_up']))
-        # the cheek's soft tissue in front of and under the cheekbone: what rounds a face toward an oval or a heart
-        self.pad = patch(0.036, -0.026 + f['cheek_z'], 0.016, 0.014, 0.009, 0.0022 * f['cheek_pad']) if f['cheek_pad'] > 0.05 else None
+        # the cheek's soft tissue in front of and under the cheekbone, and running on down beside the nose to the
+        # mouth's corner: what rounds a face toward an oval or a heart, and carries the cheek into the mouth without
+        # a step (the muzzle then reads as part of the face, not a bar across it)
+        cp = f['cheek_pad']
+        self.pads = [] if cp <= 0.05 else [patch(0.036, -0.026 + f['cheek_z'], 0.016, 0.014, 0.009, 0.0022 * cp),
+                                          patch(0.026, -0.043 + f['cheek_z'], 0.012, 0.014, 0.008, 0.0018 * cp)]
         return out
 
     def _mouth(self):
@@ -236,11 +270,8 @@ class Layout:
         Every lobe is placed on the muzzle's own surface and projects from it, so the lips are mass, not width;
         they taper soft into the corners. Philtral columns run from under the nose to the bow's peaks."""
         S, f, k = self.S, self.f, self.k
-        ly = f['lower_y']
-        mc, mr = S(0.0, -0.071 + ly, -0.058), S(0.036 * (0.9 + 0.1 * f['muzzle']), 0.025, 0.025)
-
         def base(P):
-            return _smin(self.facemass(P), _ell(P, mc, mr), 0.014)
+            return _smin(self.facemass(P), self.muzzle(P), f['muzzle_k'])
 
         zs = float((-0.0554 + f['mouth_z']) * k[2])    # the mouth line at the centre (the philtrum keeps its length
                                                         # when a shorter nose lifts the nose's base)
@@ -346,8 +377,8 @@ def field(P, L, scar=None):
     d = _smin(d, _ell(P, S(0.0, 0.046 + nb, -0.186), S(0.09, 0.058, 0.05)), 0.03)      # the upper back, under the traps
     d = _smin(d, _cap(Pm, S(0.051, 0.032, -0.038), S(0.016, -0.034, -0.158), 0.0108 * nk * f['scm']), 0.018)
     tr = f['trap']
-    d = _smin(d, _both(lambda Q: _cap(Q, S(0.018, 0.06, -0.08 - 0.012 * (1 - tr)), S(0.15, 0.018, -0.2), 0.005 + 0.02 * tr),
-                       P, 0.02), 0.03)
+    d = _smin(d, _both(lambda Q: _cap(Q, S(0.018, 0.06, -0.08 - 0.012 * (1 - tr) + f['trap_z']), S(0.15, 0.018, -0.2),
+                                      0.005 + 0.02 * tr), P, 0.02), 0.03)
     d = _smin(d, _ell(P, S(0.0, 0.018, -0.2), S(0.125 * f['shoulder'], 0.066, 0.045)), 0.03)
     d = _smax(d, -0.195 * L.k[2] - z, 0.004)
     d = _smax(d, np.abs(x) - 0.1, 0.006)
@@ -364,12 +395,12 @@ def field(P, L, scar=None):
     # gradually into the side of the face and the temple; a soft gaunt plane below them
     for cc_, M_, r_ in L.cheek:     # a tight blend: a wide one would swell the whole cheek between the masses
         d = _smin(d, _ell(Pm, cc_, r_, M=M_), 0.007)
-    if L.pad is not None:           # the female's soft cheek, blended wide on purpose
-        d = _smin(d, _ell(Pm, L.pad[0], L.pad[2], M=L.pad[1]), 0.014)
+    for pc_, pM_, pr_ in L.pads:    # the female's soft cheek, blended wide on purpose
+        d = _smin(d, _ell(Pm, pc_, pr_, M=pM_), 0.014)
     d = _smax(d, -_ell(Pm, S(0.051, -0.086 + 0.006 * (1 - f['gaunt']), -0.052), S(0.015, 0.01, 0.016) * f['gaunt'] ** 0.5),
               0.02)
-    # the muzzle the lips sit on
-    d = _smin(d, _ell(P, S(0.0, -0.071 + ly, -0.058), S(0.036 * (0.9 + 0.1 * f['muzzle']), 0.025, 0.025)), 0.014)
+    # the muzzle the lips sit on (see Layout.muzzle)
+    d = _smin(d, L.muzzle(P), f['muzzle_k'])
     # mandible: ramus under the ear, a clear angle below it, the body along the jaw line; a chin with a flat lower
     # plane that projects a little
     jw, ch = f['jaw'], f['chin']
@@ -401,23 +432,25 @@ def field(P, L, scar=None):
     # under it. A once-broken nose kinks sideways.
     ns, kx = f['nose'], L.crooked
 
-    def ny(y):          # a nose's parts stand off the face in proportion to its size
-        return -0.079 + (y + 0.079) * ns
+    def ny(y):          # a nose's parts stand off the face in proportion to its size (and its projection)
+        return -0.079 + (y + 0.079) * ns * f['nose_proj']
     nz, bw = L.nz, f['bridge']
     root, mid, low = S(0.0, -0.0795, 0.004), S(kx * 0.5, ny(-0.0958 + 0.0008 * (1 - ns) / 0.22), nz(-0.011)), S(kx, ny(-0.1085), nz(-0.024))
     d = _smin(d, _cap(P, root, mid, 0.0043 * ns * bw, 0.0058 * ns * bw), 0.006)
     d = _smin(d, _cap(P, mid, low, 0.0058 * ns * bw, 0.0074 * ns), 0.004)
+    # the sidewalls: from the dorsum back into the cheeks, all the way down into the tip and the alae
+    d = _smin(d, _nose_wedge(P, root, low, 0.0043 * ns * bw, 0.0074 * ns, 19.0, 23.0, 0.008 * ns, 0.024), 0.007)
     tip_half = np.array((0.0088, 0.0082, 0.0078), np.float32) * ns
     d = _smin(d, _rbox(P, S(kx * 0.8, ny(-0.1115), nz(-0.0305)), S(*tip_half), min(0.0042 * ns * f['tip_round'], 0.9 * float(tip_half.min())),
                        M=_R(rx=-28 + 14 * (1 - ns) / 0.22)), 0.004)
     # the nasal base as one form: alar wings swept from the tip's sides back onto the cheek (their bases sit on the
     # face: nothing behind them), a floor under the tip that ties tip, wings and columella into one underside, and
     # small, shallow nostrils facing down, sheltered by the tip and the alar rims
-    d = _smin(d, _ell(Pm, S(0.0118 * ns, ny(-0.0982) + 0.5 * ly, nz(-0.0352)), S(0.0066, 0.0122, 0.0062) * ns, M=_R(rz=-16)), 0.006)
+    d = _smin(d, _ell(Pm, S(0.0118 * ns, ny(-0.0982) + 0.5 * ly, nz(-0.0352)), S(0.0066, 0.0122, 0.0062) * ns, M=_R(rz=-24)), 0.008)
     d = _smin(d, _ell(P, S(kx * 0.5, ny(-0.1) + 0.5 * ly, nz(-0.0366)), S(0.0118, 0.0118, 0.0044) * ns), 0.005)
     d = _smin(d, _ell(P, S(kx * 0.6, ny(-0.1045) + 0.5 * ly, nz(-0.0376)), S(0.0042, 0.0078, 0.0042) * ns), 0.004)
-    d = _smax(d, -_both(lambda Q: _ell(Q, S(0.0062 * ns, ny(-0.1032) + 0.5 * ly, nz(-0.0414)), S(0.0027, 0.0043, 0.0018) * ns,
-                                       M=_R(rz=-28)), P, 0.002), 0.001)
+    d = _smax(d, -_both(lambda Q: _ell(Q, S(0.0062 * ns, ny(-0.1032) + 0.5 * ly, nz(-0.0414)), S(0.003, 0.0045, 0.0019) * ns,
+                                       M=_R(rz=-28)), P, 0.002), 0.0014)
     # lips (see Layout._mouth): philtral columns, the upper lip's three lobes, the lower lip's; the mouth line a thin
     # cut that fades out at soft corners; a soft fold under the lower lip
     mo = L.mouth
@@ -439,7 +472,7 @@ def field(P, L, scar=None):
     # grid happens to sample inside it); the skin shader draws the dark line along its floor
     valley = np.exp(-((z - zl) / 0.001) ** 2) * np.sqrt(np.maximum(0.0, 1.0 - u ** 4))
     d = d + 0.0004 * valley * np.clip((yb - P[:, 1]) / 0.002, 0.0, 1.0)
-    d = _smin(d, _ell(Pm, mo['modiolus'], S(0.0055, 0.0038, 0.0068)), 0.006)      # where the lips' muscles meet
+    d = _smin(d, _ell(Pm, mo['modiolus'], S(0.0055, 0.0038, 0.0068) * f['modiolus']), 0.006)      # where the lips' muscles meet
     if f['fold'] >= 0.5:     # the male's fold under the lower lip; the female's forms softly where lip meets chin
         d = _smax(d, -_ell(P, mo['fold'], S(0.012, 0.0016, 0.0032)), 0.005)
     # ears, from the brow down to the nose base, tilted back, tucked against the skull: rim, hollow, lobe
@@ -738,7 +771,7 @@ def marks(sex, scar=None, crooked=0.0, style='crop'):
     S, f = L.S, L.f
     out = dict(
         red=[(tuple(S(s * 0.045, -0.082, -0.026)), 0.02, 0.45) for s in (-1, 1)] +
-            [(tuple(S(0.0, -0.079 + (-0.118 + 0.079) * f['nose'], L.nz(-0.031))), 0.012, 0.5)] +
+            [(tuple(S(0.0, -0.079 + (-0.118 + 0.079) * f['nose'] * f['nose_proj'], L.nz(-0.031))), 0.012, 0.5)] +
             [(tuple(S(s * 0.078, 0.012, -0.012)), 0.016, 0.35) for s in (-1, 1)],
         sock=[(tuple(L.eye * (s, 1, 1) + S(0.0, -0.014, 0.002)), 0.016, 0.25) for s in (-1, 1)],
         bags=[(tuple(L.eye * (s, 1, 1) + S(0.0, -0.012, -0.0125)), 0.0095, 0.35) for s in (-1, 1)],
