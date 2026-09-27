@@ -23,6 +23,14 @@ the Line-Breaker concept art and briefs:
   silhouette → eyes and brow → nose → jaw and beard → scars and age; both eyes must stay shapes, never black
   sockets. Rugged human, not heroic or orcish: the brow follows the skull and fades into the temples, the cheek
   turns back into the temple without a flange, ears sit tucked, the neck is short and flows into the shoulders.
+- **Male and female are two ends of one dial** (set on revision 7, from the dimorphism guide): one skull and one
+  proportional framework (hers 5% smaller), his features larger and heavier within it. Male: rectangular, angular —
+  defined jaw corners, a squarer chin, a forehead sloping back from a firmer brow, deeper-set eyes under heavier,
+  straighter lids, lower, flatter cheekbones, a larger, longer, crisper nose, thinner, straighter lips, more mass under
+  the chin, crisper shading. Female: oval-to-heart — a jaw tapering from higher cheekbones to a rounder, narrower chin,
+  a soft cheek, an upright forehead, a light brow with a subtle arch, rounder lids, a shorter nose with a narrower
+  bridge and softer tip, fuller lips, ears closer to the head, softer shading; her neck slimmer but substantial. Every
+  setting blends along the dial, so a softer man or a stronger-jawed woman is a position on it, not a new model.
 - **Next: the face morph system.** The approved base head becomes the one every face is rolled from — face length,
   jaw, chin, cheekbones, brow, eyes, nose, lips, ears, age, hair, beard, skin and scars as bounded parameters — so
   each soldier keeps one face across battle sprite, unit card and roster.
