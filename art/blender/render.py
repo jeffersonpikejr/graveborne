@@ -114,10 +114,9 @@ def looks(mod, asset, a, out):
                 rig.render(path)
                 for ob in head_objects():
                     bpy.data.objects.remove(ob)
-                for coll in (bpy.data.meshes, bpy.data.materials):
-                    for b in list(coll):
-                        if b.users == 0:
-                            coll.remove(b)
+                for me in list(bpy.data.meshes):     # free the head's geometry (materials stay: grit caches them)
+                    if me.users == 0:
+                        bpy.data.meshes.remove(me)
                 print(f"[head] {look['id']}{' revenant' if rev else ''}: {time.time() - t:.1f}s -> {os.path.relpath(path)}",
                       flush=True)
 
