@@ -645,12 +645,13 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
         col = _mix(nt, 'MIX', col, g.col('#1e120d', 'skin'), _math(nt, 'MULTIPLY', outer, 0.9))
         corners = _math(nt, 'MAXIMUM', inner, outer)
         near = corners if near is None else _math(nt, 'MAXIMUM', near, corners)
-    if face:     # the undercut's clippered sides: a 'stubble' vertex attribute written by face.head
+    if face:     # clippered hair and a stubbled jaw: a 'stubble' vertex attribute written by face.head, in the hair's colour
         at = g.N.new('ShaderNodeAttribute')
         at.attribute_type = 'GEOMETRY'
         at.attribute_name = 'stubble'
-        sh = _math(nt, 'MULTIPLY', at.outputs['Fac'], _maprange(nt, speck, 0.3, 0.7, 0.5, 0.85))
-        col = _mix(nt, 'MIX', col, g.col('#2b221c', 'skin'), sh)
+        amt = face.get('stubble_amount', 1.0)
+        sh = _math(nt, 'MULTIPLY', at.outputs['Fac'], _maprange(nt, speck, 0.3, 0.7, 0.5 * amt, 0.85 * amt))
+        col = _mix(nt, 'MIX', col, g.col(face.get('stubble_color', '#2b221c'), 'skin'), sh)
     if face and face.get('scar'):       # an old scar: darker and desaturated, its width uneven, sunk into the skin
         wob = _math(nt, 'MULTIPLY', _math(nt, 'SUBTRACT', g.noise(260.0, detail=2.0, w=11.0), 0.5), 0.0012)
         sm = None

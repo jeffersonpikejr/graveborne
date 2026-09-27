@@ -79,7 +79,7 @@ EYE_R = 0.0125          # eyeball radius; the same for both forms, so the female
 CANTHI = ((-0.0134, -0.0009), (0.0134, 0.0009))     # the eye's inner and outer corner tissue: (x, z) off the eyeball's centre
 CANTHUS_Y = -0.0025                                  # ...set this far forward: it fills the corner, behind the lids
 GRID = 0.0012           # meshing resolution (m): fine enough for the lid margin and the mouth line
-LOWPOLY = dict(skin=9000, hair=2600, beard=1500, brow=900)     # triangles after decimation: large readable planes (the lips and nostrils need the skin's budget)
+LOWPOLY = dict(skin=9000, hair=2600, hang=3800, beard=1500, brow=900)     # triangles after decimation: large readable planes (the lips and nostrils need the skin's budget)
 
 
 # ------------------------------------------------------------------------------------------------ distance field
@@ -661,44 +661,188 @@ def clumps(P, style, L, noise):
     return np.clip((0.5 - np.abs(b - np.floor(b) - 0.5)) / 0.12, 0.0, 1.0) ** 0.7
 
 
-def hairline(P, style, L, noise):
+PULLED = ('tail', 'bun', 'braids')      # pulled back over a full hairline and tied behind the head
+HANGING = ('bob', 'long')               # falling free of the skull: built as their own field (_hang)
+CLIPPED = ('buzz', 'shaved')            # nothing to model: stubble in the skin shader
+STYLES = ('crop', 'knot') + CLIPPED + PULLED + HANGING
+BEARDS = ('full', 'short', 'stubble')   # or None: clean-shaven
+
+
+def hairline(P, style, L, noise, recede=0.0):
     """Height of the hairline over the skull at each point's angle round the head (head frame, m), broken where
-    the clumps part."""
+    the clumps part. recede (0-1) pulls a crop's front back, deepest at the temples."""
     th = _theta(P)
-    if style == 'crop':   # a man's crop: receding at the temples, down to the nape at the back
+    if style == 'crop' or style in CLIPPED:     # a man's crop: receding at the temples, down to the nape at the back
         z = np.interp(th, [0, 22, 36, 46, 58, 90, 118, 150, 180], [0.055, 0.057, 0.066, 0.058, 0.044, 0.026, 0.0, -0.036, -0.056])
-        z = z + 0.004 * (1.0 - clumps(P, style, L, noise))
-    else:                 # the undercut: sides and back shaved up to a line under the knot's mass; the front pulled
+        z = z + recede * np.interp(th, [0, 18, 34, 50, 68], [0.013, 0.018, 0.03, 0.014, 0.0])
+        if style == 'crop':
+            z = z + 0.004 * (1.0 - clumps(P, style, L, noise))
+    elif style == 'knot':   # the undercut: sides and back shaved up to a line under the knot's mass; the front pulled
         z = np.interp(th, [0, 30, 50, 75, 110, 150, 180], [0.066, 0.062, 0.053, 0.047, 0.046, 0.043, 0.038])   # back off a full forehead
+    else:                   # pulled back or falling free: a full hairline, over the ears and down to the nape
+        z = np.interp(th, [0, 25, 45, 68, 88, 112, 130, 155, 180], [0.066, 0.063, 0.05, 0.034, 0.024, 0.02, 0.0, -0.042, -0.058])
+        if style == 'bob':  # a fringe swept from the parting (on +X) across the forehead, longest over the far brow
+            z = z - 0.026 * np.clip((0.03 - P[:, 0] / L.k[0]) / 0.07, 0.0, 1.0) * np.clip((44.0 - th) / 14.0, 0.0, 1.0)
     return (z * L.k[2] + 0.0045 * (noise(P, 45.0) - 0.5) + 0.003 * (noise(P, 140.0) - 0.5)
             + 0.001 * (noise(P, 400.0) - 0.5))
 
 
-def _region_hair(style, L, noise):
+def _region_hair(style, L, noise, recede=0.0):
     def region(P):
-        return hairline(P, style, L, noise) - P[:, 2]
+        return hairline(P, style, L, noise, recede) - P[:, 2]
     return region
 
 
-def _thick_hair(style, L, noise):
+def _thick_hair(style, L, noise, recede=0.0):
     def t(P):
-        depth = np.clip((P[:, 2] - hairline(P, style, L, noise)) / 0.014, 0.3, 1.0)
+        depth = np.clip((P[:, 2] - hairline(P, style, L, noise, recede)) / 0.014, 0.3, 1.0)
         top = np.clip((P[:, 2] - 0.02) / 0.06, 0.0, 1.0)            # fuller on the crown than over the ears
         cl = clumps(P, style, L, noise)                             # grooves between the clumps
         if style == 'crop':
             return (0.0038 + 0.0034 * top) * depth * (0.15 + 0.85 * cl) + 0.0012 * (noise(P, 90.0) - 0.4)
+        if style in PULLED:     # pulled back hard: thin, in bands running front to back, fuller where it's gathered
+            gather = np.clip((P[:, 1] - 0.04 * L.k[1]) / 0.05, 0.0, 1.0)
+            return ((0.0036 + 0.0014 * gather) * depth * (0.7 + 0.3 * cl)
+                    + 0.0008 * (noise(P * (1.0, 0.25, 1.0), 150.0) - 0.3))
         edge = np.clip((P[:, 2] - hairline(P, style, L, noise)) / 0.008, 0.25, 1.0)     # thins toward the undercut
         return 0.0052 * depth * edge * (0.6 + 0.4 * cl) + 0.0008 * (noise(P * (1.0, 0.25, 1.0), 150.0) - 0.3)
     return t
 
 
-def _region_beard(L, noise):
+def _hang(g, L, style, noise):
+    """Hair falling free of the skull: a bob to the jaw with a side parting and a swept fringe, or shoulder length
+    with a centre parting, tucked behind the ears. Its own field: a cap over the skull, thinner toward the hairline,
+    and a curtain falling from the skull's widest section (a band, not a solid, so it hangs clear of the neck) that
+    thins toward ragged, clumped ends turned in a little; open over the face, grooved into strands and carved clear
+    of the skin. Sampled on every second point of the skin's grid: coarse is plenty for hair."""
+    D = g.D[::2, ::2, ::2]
+    h = g.h * 2.0
+    n = D.shape
+    axes = [g.lo[i] + np.arange(n[i], dtype=np.float32) * np.float32(h) for i in range(3)]
+    P = np.stack(np.meshgrid(*axes, indexing='ij'), -1).reshape(-1, 3)
+    d = D.ravel()
+    k = L.k
+    x, y, z = P[:, 0], P[:, 1], P[:, 2]
+    bob = style == 'bob'
+    hl = hairline(P, style, L, noise)
+    cap = np.maximum(d - (0.0075 + 0.003 * noise(P, 40.0)) * np.clip((z - hl) / 0.012, 0.45, 1.0), hl - z)
+    cy = 0.014 * k[1]
+    psi = np.arctan2(x, -(y - cy))                     # round the head: 0 at the face, +-pi at the back
+    Q = np.column_stack((np.cos(psi), np.sin(psi), np.zeros_like(psi))).astype(np.float32)
+    zt = 0.03 * k[2]                                   # where it leaves the skull
+    if bob:     # to the jaw, a touch longer toward the front
+        zb = -0.066 - 0.008 * np.clip(np.cos(psi), 0.0, 1.0)
+    else:       # to the shoulders, longest down the back
+        zb = -0.128 - 0.026 * np.clip(-np.cos(psi), 0.0, 1.0)
+    zb = (zb * k[2] + (0.007 if bob else 0.012) * (noise(Q, 9.0) - 0.5)          # ragged, in clumps
+          + 0.004 * (noise(P * (1.0, 1.0, 0.2), 60.0) - 0.5))
+    fall = np.clip((zt - z) / (zt - zb), 0.0, 1.0)
+    tuck = 1.0 - np.clip((z - zb) / 0.025, 0.0, 1.0)  # the last few centimetres turn in
+    lump = 1.0 + (0.035 if bob else 0.05) * (noise(Q, 3.0) - 0.5)          # the silhouette breaks into large clumps
+    over = 0.0     # a bob falls over the ears: it swells out round them rather than letting them through
+    if bob:
+        over = 0.008 * np.exp(-((z / k[2] + 0.013) / 0.026) ** 2 - ((y / k[1] - 0.013) / 0.028) ** 2)
+    ax = ((0.079 if bob else 0.077) + over + 0.004 * fall - (0.004 if bob else 0.008) * tuck) * k[0] * lump
+    ay = (0.106 + 0.004 * fall - 0.004 * tuck) * k[1] * lump
+    ring = (np.sqrt((x / ax) ** 2 + ((y - cy) / ay) ** 2) - 1.0) * np.minimum(ax, ay)
+    band = (0.011 if bob else 0.01) * (1.0 - 0.5 * fall)                         # thinning toward the ends
+    curtain = np.maximum(np.maximum(ring, -(ring + band)), np.maximum(z - zt, zb - z))
+    if bob:     # over the temples, then straight down beside the face, a touch longer toward the front
+        yf = (-0.045 - 0.1 * np.clip(zt - z, 0.0, None)) * k[1]
+    else:       # over the temples, then tucked behind the ears and falling behind the jaw
+        yf = np.interp(z / k[2], [-0.2, -0.05, -0.03, 0.02, 0.035], [0.01, 0.02, 0.03, 0.028, -0.045]) * k[1]
+    curtain = np.maximum(curtain, yf - y)
+    hair = _smin(cap, curtain, 0.012)
+    px = 0.022 * k[0] if bob else 0.0          # the parting: to one side on the bob, down the centre on the long
+    part = np.maximum(np.maximum(np.abs(x - px) - 0.0013, y - 0.04 * k[1]), 0.05 * k[2] - z)
+    hair = _smax(hair, -part, 0.002)
+    hair = hair + 0.0014 * fall * (0.5 + 0.5 * np.cos(psi * 22.0 + 3.0 * noise(P * (1.0, 1.0, 0.12), 20.0)))   # strands
+    hair = np.maximum(hair, -(d - 0.0012))                                            # clear of the skin
+    return _nets(hair.reshape(n).astype(np.float32), g.lo, h)
+
+
+def _placed(ob, loc, M3):
+    """Put an object at loc with its local axes as the columns of M3 (a mathutils 3x3)."""
+    ob.matrix_world = Matrix.Translation(Vector(loc)) @ M3.to_4x4()
+    return ob
+
+
+def _ponytail(name, L, hair, dark):
+    """A loose ponytail: tied low at the back of the head and hanging over the nape, full below the tie (wider than
+    it is deep, lying against the neck) and tapering to its end."""
+    S = L.S
+    pts = [Vector(S(0.0, 0.108, 0.004)), Vector(S(0.0, 0.121, -0.022)), Vector(S(0.0, 0.117, -0.058)),
+           Vector(S(0.0, 0.106, -0.095)), Vector(S(0.0, 0.1, -0.128))]
+    tail = K.skin_chain(f'{name}_tail', pts, [(0.013, 0.012), (0.017, 0.013), (0.016, 0.011), (0.012, 0.009), (0.005, 0.004)],
+                        hair)
+    tie = K.lathe(f'{name}_tie', [(0.0135, -0.0035), (0.015, 0.0), (0.0135, 0.0035)], dark, seg=12,
+                  cap_bottom=False, cap_top=False)
+    _placed(tie, pts[0] + (pts[1] - pts[0]) * 0.35, K.z_to(pts[1] - pts[0]))
+    return [tail, tie]
+
+
+def _low_bun(name, L, hair, dark):
+    """Hair gathered into a coiled bun low on the back of the head, bound with a tie."""
+    S = L.S
+    c = Vector(S(0.0, 0.116, -0.004))
+    out = []
+    for i, (dx, dz, r) in enumerate(((0.0, 0.0, 1.0), (-0.009, 0.004, 0.62), (0.008, -0.005, 0.58))):
+        lobe = K.sphere(f'{name}_bun{i}', (0.0, 0.0, 0.0), 1.0, hair, scale=(0.026 * r, 0.02 * r, 0.022 * r), seg=16,
+                        rings=10)
+        lobe.location = c + Vector((dx, 0.004 * (1 - r), dz))
+        lobe.rotation_euler = (math.radians(18.0), 0.0, math.radians(25.0 * i))
+        lobe.data.shade_flat()
+        out.append(lobe)
+    tie = K.lathe(f'{name}_tie', [(0.0165, -0.0035), (0.018, 0.0), (0.0165, 0.0035)], dark, seg=14,
+                  cap_bottom=False, cap_top=False)
+    _placed(tie, c + Vector((0.0, -0.011, 0.0)), K.z_to(Vector((0.0, 1.0, 0.1))))
+    out.append(tie)
+    return out
+
+
+def _crown_braid(name, L, hair):
+    """A braid laid over the crown from ear to ear, a few centimetres behind the hairline: two strands of lobes
+    crossing, each lobe turned against its neighbour."""
+    c0 = np.array(L.S(0.0, 0.02, 0.03), np.float32)
+    path = []
+    for phi in np.linspace(-80.0, 80.0, 27):
+        a = math.radians(phi)
+        u = np.array((math.sin(a), -0.28, math.cos(a)), np.float32)
+        u /= np.linalg.norm(u)
+        p = c0 + u * 0.2
+        for _ in range(300):
+            dd = float(field(p[None], L)[0])
+            if dd < 1e-4:
+                break
+            p = p - u * max(dd, 2e-4)
+        path.append((p + u * 0.0098, u))
+    out = []
+    for i, (p, u) in enumerate(path):
+        nb = path[min(i + 1, len(path) - 1)][0] - path[max(i - 1, 0)][0]
+        t = nb / np.linalg.norm(nb)
+        side = np.cross(u, t)
+        s = 1.0 if i % 2 else -1.0
+        ang = math.radians(34.0 * s)
+        tw = t * math.cos(ang) + side * math.sin(ang)                 # the lobe's long axis, turned across the braid
+        bw = np.cross(u, tw)
+        M3 = Matrix((tuple(tw), tuple(bw), tuple(u))).transposed()
+        lobe = K.sphere(f'{name}_braid', (0.0, 0.0, 0.0), 1.0, hair, scale=(0.0092, 0.0056, 0.0052), seg=10, rings=6)
+        lobe.data.shade_flat()
+        out.append(_placed(lobe, p + side * 0.0026 * s, M3))
+    return out
+
+
+def _region_beard(L, noise, trim=1.0):
+    """Where the beard grows: a full beard down under the jaw onto the throat; one kept short (trim < 1) is also
+    kept neat, its cheek line lower and cut off along the jaw."""
+    neat = 1.0 - trim
+
     def region(P):
         th = _theta(P)
         top = np.interp(th, [0, 18, 30, 45, 60, 72, 80, 88], [-0.042, -0.043, -0.046, -0.037, -0.024, -0.01, 0.006,
                                                               0.03])
-        top = top * L.k[2] + 0.004 * (noise(P, 120.0) - 0.5)
-        low = np.interp(th, [0, 40, 70, 95], [-0.118, -0.112, -0.088, -0.06]) * L.k[2] + 0.004 * (noise(P, 90.0) - 0.5)
+        top = (top - 0.012 * neat * np.clip((th - 25.0) / 30.0, 0.0, 1.0)) * L.k[2] + 0.004 * (noise(P, 120.0) - 0.5)
+        low = (np.interp(th, [0, 40, 70, 95], [-0.118, -0.112, -0.088, -0.06]) + 0.02 * neat) * L.k[2] + 0.004 * (noise(P, 90.0) - 0.5)
         r = np.maximum(P[:, 2] - top, low - P[:, 2])
         r = np.maximum(r, (th - 86.0) * 0.0005)                    # stops in front of the ear
         # the mouth stays clear: an almond round both lips
@@ -709,13 +853,16 @@ def _region_beard(L, noise):
     return region
 
 
-def _thick_beard(L, noise):
+def _thick_beard(L, noise, trim=1.0):
+    """A full beard (trim 1), or one cut short and close (trim 0.5): a thin, even layer that hardly changes the jaw's
+    outline, a little fuller at the chin."""
     def t(P):
         chin = np.exp(-(P[:, 0] / 0.03) ** 2) * np.clip((-0.066 * L.k[2] - P[:, 2]) / 0.03, 0.0, 1.0)
         side = np.clip((_theta(P) - 60.0) / 25.0, 0.0, 1.0)            # thinner up the sideburns
         tash = np.exp(-((P[:, 2] + 0.047 * L.k[2]) / 0.005) ** 2) * (np.abs(P[:, 0]) < 0.034)
-        base = 0.0038 + 0.0062 * chin - 0.0012 * tash - 0.0016 * side
-        return base + 0.0032 * (noise(P * (1.0, 1.0, 0.5), 75.0) - 0.4) + 0.0012 * noise(P, 210.0)
+        k = trim ** 2
+        base = (0.0016 + 0.0022 * k) + 0.0062 * chin * k - (0.0004 + 0.0008 * k) * tash - 0.0016 * side * trim
+        return base + (0.0032 * (noise(P * (1.0, 1.0, 0.5), 75.0) - 0.4) + 0.0012 * noise(P, 210.0)) * (0.25 + 0.75 * k)
     return t
 
 
@@ -752,22 +899,28 @@ def _region_brow(L, scar_side, noise):
 
 
 # ------------------------------------------------------------------------------------------------ the scar
-def scar_path(L, side, lift=0.0):
-    """The founding scar: from the forehead through the brow, past the eye's outer corner, down the cheek. Broken
-    in two places, its width uneven. Returns 3D segments (a, b, width) on the skin (or `lift` off it: the groove's
-    axis, so the cut stays broad and shallow)."""
-    xz = [(0.034, 0.052), (0.039, 0.036), (0.0445, 0.022), (0.049, 0.012), (0.0525, 0.001), (0.0535, -0.012),
-          (0.0525, -0.026), (0.051, -0.04), (0.048, -0.052)]
-    widths = [0.0024, 0.003, 0.0021, 0.0026, 0.0032, 0.0028, 0.0023, 0.0019]
-    gaps = {3, 6}                                        # skip: a break by the eye corner and one on the cheek
+SCARS = {   # (x, z) points on the face, the width of each segment, the segments skipped (breaks in the line)
+    # the founding scar, the Commander's: from the forehead through the brow, past the eye's corner, down the cheek
+    'founding': ([(0.034, 0.052), (0.039, 0.036), (0.0445, 0.022), (0.049, 0.012), (0.0525, 0.001), (0.0535, -0.012),
+                  (0.0525, -0.026), (0.051, -0.04), (0.048, -0.052)],
+                 [0.0024, 0.003, 0.0021, 0.0026, 0.0032, 0.0028, 0.0023, 0.0019], {3, 6}),
+    'cheek': ([(0.034, -0.016), (0.039, -0.027), (0.044, -0.039), (0.047, -0.049)], [0.0021, 0.0025, 0.0017], set()),
+    'chin': ([(0.004, -0.086), (0.011, -0.079), (0.017, -0.074)], [0.0019, 0.0015], set()),
+}
+
+
+def scar_path(L, side, lift=0.0, kind='founding'):
+    """A scar of one of the SCARS kinds on the given side: broken in places, its width uneven. Returns 3D segments
+    (a, b, width) on the skin (or `lift` off it: the groove's axis, so the cut stays broad and shallow)."""
+    xz, widths, gaps = SCARS[kind]
     pts = [surface(L, side * x * L.k[0], z * L.k[2], lift=lift)[0] for x, z in xz]
     return [(pts[i], pts[i + 1], widths[i]) for i in range(len(pts) - 1) if i not in gaps]
 
 
 # ------------------------------------------------------------------------------------------------ shader landmarks
-def marks(sex, scar=None, crooked=0.0, style='crop'):
+def marks(sex, scar=None, crooked=0.0, style='crop', scar_kind='founding'):
     """Where the skin shader paints: weather on the cheeks and nose, the sockets and the dark circles, the lips,
-    the scar. (The undercut's stubble is a vertex attribute the head writes: see _stubble.)"""
+    the scar. (The undercut's and a buzz cut's stubble is a vertex attribute the head writes: see _stubble.)"""
     L = Layout(sex, crooked)
     S, f = L.S, L.f
     out = dict(
@@ -790,28 +943,38 @@ def marks(sex, scar=None, crooked=0.0, style='crop'):
         canthi=[tuple(tuple(L.eye * (s, 1, 1) + np.array((s * cx, CANTHUS_Y, cz))) for cx, cz in CANTHI) for s in (-1, 1)],
         scar=None)
     if scar:
-        out['scar'] = [(tuple(a), tuple(b), w) for a, b, w in scar_path(L, scar)]
+        out['scar'] = [(tuple(a), tuple(b), w) for a, b, w in scar_path(L, scar, kind=scar_kind)]
     return out
 
 
 # ------------------------------------------------------------------------------------------------ the head
 _CACHE = {}
+_GRID = {}
+CACHE_MAX = 6       # heads' geometry kept per process (a roster render raises it to hold a whole form's pool)
 
 
-def _stubble(ob, style, L, noise):
+def _stubble(ob, style, L, noise, recede=0.0, beard=None):
     """Write the 'stubble' attribute the skin shader reads: the clippered sides and back of an undercut, from just
-    under the hairline down to the neckline, following the skull."""
+    under the hairline down to the neckline, following the skull; the whole scalp of a buzz cut; a shadow of it at
+    the sides and back of a shaved head; the beard's ground on a stubbled face."""
     me = ob.data
     co = np.empty(len(me.vertices) * 3, np.float32)
     me.vertices.foreach_get('co', co)
     P = co.reshape(-1, 3)
     w = np.zeros(len(P), np.float32)
-    if style != 'crop':
-        th = _theta(P)
+    th = _theta(P)
+    ears = np.clip((0.0745 * L.k[0] - np.abs(P[:, 0])) / 0.004, 0.0, 1.0)            # not on the ears
+    if style == 'knot':
         low = np.interp(th, [50, 80, 110, 150, 180], [0.03, 0.012, 0.0, -0.04, -0.055]) * L.k[2]
         w = np.clip((hairline(P, style, L, noise) + 0.002 - P[:, 2]) / 0.004, 0.0, 1.0)
-        w *= np.clip((P[:, 2] - low) / 0.012, 0.0, 1.0) * np.clip((th - 50.0) / 12.0, 0.0, 1.0)
-        w *= np.clip((0.0745 * L.k[0] - np.abs(P[:, 0])) / 0.004, 0.0, 1.0)      # not on the ears
+        w *= np.clip((P[:, 2] - low) / 0.012, 0.0, 1.0) * np.clip((th - 50.0) / 12.0, 0.0, 1.0) * ears
+    elif style in CLIPPED:
+        above = np.clip((P[:, 2] - hairline(P, style, L, noise, recede) + 0.002) / 0.004, 0.0, 1.0) * ears
+        w = above * (0.95 if style == 'buzz' else 0.3 * np.clip((th - 55.0) / 20.0, 0.0, 1.0))
+    if beard:     # stubble is the whole of a stubbled beard, and the ground a grown one feathers into
+        trim = 0.5 if beard == 'short' else 1.0
+        w = np.maximum(w, np.clip(-_region_beard(L, noise, trim)(P) / 0.004, 0.0, 1.0)
+                       * {'stubble': 0.8, 'short': 0.6}.get(beard, 0.4))
     at = me.attributes.new('stubble', 'FLOAT', 'POINT')
     at.data.foreach_set('value', w.astype(np.float32))
 
@@ -825,31 +988,54 @@ def _ball(name, r, mat, loc, rz=0.0, seg=24, rings=16):
 
 
 def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='crop', scar=None, crooked=0.0,
-         greying=None, seed=0, gaze=0.0):
+         greying=None, seed=0, gaze=0.0, recede=0.0, scar_kind='founding'):
     """Build a head. Returns (root_empty, info). Place the root; everything else follows it.
 
     sex: 'male' / 'female' (an anchor) or a settings dict from form(); skin: the face material (grit.skin with
     face=marks(...)); lips: unused (the lips are painted on the skin);
-    hair/eye_mat/dark: materials (dark: the knot's tie); scar: side (+1/-1) of the founding scar; crooked: a
-    once-broken nose's sideways kink (m); greying: a second hair material for the beard (a veteran); gaze: degrees
-    the eyes turn toward the viewer (+ toward the head's +X side)."""
+    hair/eye_mat/dark: materials (dark: ties); beard: one of BEARDS or None (True / False: 'full' / None);
+    hair_style: one of STYLES; recede: 0-1, how far a crop's hairline has gone back; scar: side (+1/-1) of a scar,
+    scar_kind: one of SCARS; crooked: a once-broken nose's sideways kink (m); greying: a second hair material for
+    the beard (a veteran); gaze: degrees the eyes turn toward the viewer (+ toward the head's +X side)."""
+    if isinstance(beard, bool):
+        beard = 'full' if beard else None
     L = Layout(sex, crooked)
-    sc = scar_path(L, scar, lift=0.0012) if scar else None
-    key = (tuple(sorted((k, round(v, 6)) for k, v in L.f.items())), bool(beard), hair_style, scar, round(crooked, 5), seed)
+    fk = (tuple(sorted((k, round(v, 6)) for k, v in L.f.items())), scar, scar_kind if scar else None, round(crooked, 5))
+    key = fk + (beard, hair_style, round(recede, 4), seed)
     if key not in _CACHE:
-        g = _Grid(L, sc, lo=(-0.105, -0.145, -0.24), hi=(0.105, 0.16, 0.16))
+        if _GRID.get('key') != fk:      # one skin serves every hairstyle and beard on it: keep the last one sampled
+            sc = scar_path(L, scar, lift=0.0012, kind=scar_kind) if scar else None
+            _GRID.update(key=fk, g=_Grid(L, sc, lo=(-0.105, -0.145, -0.24), hi=(0.105, 0.16, 0.16)))
+        g = _GRID['g']
         noise = _Noise(seed + 101)
         geo = {'skin': _nets(g.D, g.lo, g.h)}
-        geo['hair'] = _nets(g.shell(_thick_hair(hair_style, L, noise), _region_hair(hair_style, L, noise)), g.lo, g.h)
-        if beard:
-            geo['beard'] = _nets(g.shell(_thick_beard(L, noise), _region_beard(L, noise), feather=0.008, floor=0.12), g.lo, g.h)
-        geo['brow'] = _nets(g.shell(lambda P: 0.0013 + 0.0007 * noise(P, 300.0), _region_brow(L, scar, noise), feather=0.0016), g.lo, g.h)
+        if hair_style in HANGING:
+            geo['hair'] = _hang(g, L, hair_style, noise)
+        elif hair_style not in CLIPPED:
+            geo['hair'] = _nets(g.shell(_thick_hair(hair_style, L, noise, recede), _region_hair(hair_style, L, noise, recede)),
+                                g.lo, g.h)
+        if beard in ('full', 'short'):
+            trim = 1.0 if beard == 'full' else 0.5
+            geo['beard'] = _nets(g.shell(_thick_beard(L, noise, trim), _region_beard(L, noise, trim),
+                                         feather=0.008 * trim, floor=0.12 + 0.4 * (1.0 - trim)), g.lo, g.h)
+        brow_cut = scar if scar_kind == 'founding' else None       # only the founding scar runs through the brow
+        geo['brow'] = _nets(g.shell(lambda P: 0.0013 + 0.0007 * noise(P, 300.0), _region_brow(L, brow_cut, noise), feather=0.0016), g.lo, g.h)
+        while len(_CACHE) >= CACHE_MAX:     # a roster renders many heads in one process: keep the recent few
+            _CACHE.pop(next(iter(_CACHE)))
         _CACHE[key] = geo
     geo = _CACHE[key]
     parts = [_mesh(name, *geo['skin'], skin, LOWPOLY['skin'], smooth_angle=L.f['shade'])]     # crisper on the male
-    _stubble(parts[0], hair_style, L, _Noise(seed + 101))
-    parts.append(_mesh(f'{name}_hair', *geo['hair'], hair, LOWPOLY['hair'], smooth_angle=45))
-    if hair_style != 'crop':     # the knot: hair pulled back hard into a bun bound at the crown
+    _stubble(parts[0], hair_style, L, _Noise(seed + 101), recede=recede, beard=beard)
+    if 'hair' in geo:
+        parts.append(_mesh(f'{name}_hair', *geo['hair'], hair, LOWPOLY['hang' if hair_style in HANGING else 'hair'],
+                           smooth_angle=45))
+    if hair_style == 'tail':
+        parts += _ponytail(name, L, hair, dark)
+    elif hair_style == 'bun':
+        parts += _low_bun(name, L, hair, dark)
+    elif hair_style == 'braids':
+        parts += _crown_braid(name, L, hair)
+    elif hair_style == 'knot':     # the knot: hair pulled back hard into a bun bound at the crown
         kn = Vector(L.S(0.0, 0.056, 0.098))
         bun = K.sphere(f'{name}_knot', (0.0, 0.0, 0.0), 1.0, hair, scale=(0.02, 0.022, 0.017), seg=14, rings=9)
         bun.location = kn
