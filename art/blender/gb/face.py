@@ -128,6 +128,44 @@ class Layout:
         self.eye = self.S(0.03, -0.0685, 0.0)                       # the +x eyeball's centre, under the brow
         self.hw = 0.0148                                           # half the eye opening's width
         self.brow_chain = self._brow()
+        self.cheek = self._cheek()
+
+    def _probe(self, fn, x, z):
+        """The front surface of field `fn` at (x, z), ray-marched along +Y, and its outward normal there."""
+        p = np.array([[x, -0.2, z]], np.float32)
+        for _ in range(400):
+            dd = fn(p)[0]
+            if dd < 1e-5:
+                break
+            p[0, 1] += max(dd, 2e-5)
+        e = np.float32(1e-4)
+        g = np.array([fn(p + o)[0] - fn(p - o)[0] for o in np.eye(3, dtype=np.float32) * e])
+        return p[0], g / max(float(np.linalg.norm(g)), 1e-12)
+
+    def _cheek(self):
+        """The cheekbone as broad patches laid on the face's own surface and turned to it: the malar plane under
+        the outer eye, and the start of the arch running back to the ear. Each stands only 2-3 mm proud and
+        blends in wide, so it supports the eye socket instead of jutting out as a shelf."""
+        S, f = self.S, self.f
+        ly = f['lower_y']
+
+        def base(P):
+            d = _ell(P, S(0.0, 0.014, 0.025), S(0.072, 0.096, 0.081))
+            d = _smin(d, _ell(P, S(0.0, -0.045, 0.025), S(0.06, 0.04, 0.05)), 0.02)
+            d = _smax(d, np.abs(P[:, 0]) - 0.0695 * f['sx'], 0.016)
+            return _smin(d, _ell(P, S(0.0, -0.034 + ly, -0.032), S(0.058 * (0.9 + 0.1 * f['muzzle']), 0.058, 0.056)), 0.02)
+
+        out = []
+        #          x      z      along  across  thick  proud
+        for x, z, ra, rb, rn, up in ((0.045, -0.02, 0.017, 0.013, 0.007, 0.003), (0.057, -0.013, 0.02, 0.008, 0.006, 0.0022)):
+            p, n = self._probe(base, x * float(self.k[0]), (z + f['cheek_z']) * float(self.k[2]))
+            t1 = np.array((-n[1], n[0], 0.0), np.float32)
+            t1 /= np.linalg.norm(t1)
+            t2 = np.cross(n, t1).astype(np.float32)
+            M = np.column_stack((t1, n, t2)).astype(np.float32)
+            c = (p - n * (rn - up)).astype(np.float32)
+            out.append((c, M, np.array((ra, rn, rb), np.float32)))
+        return out
 
     def _brow(self):
         """The brow ridge as a chain of capsules laid along the forehead: (centre, radius) pairs, strongest above
@@ -193,11 +231,12 @@ def field(P, L, scar=None):
     for a, b, k in L.brow_chain:
         d = _smin(d, _both(lambda Q: _cap(Q, a[0], b[0], a[1], b[1]), P, 0.006) if a[0][0] == 0 else _cap(Pm, a[0], b[0], a[1], b[1]),
                   k)
-    # cheekbones: a broad plane under the outer eye that turns back gradually into the temple; the gaunt plane below
-    d = _smin(d, _ell(Pm, S(0.047, -0.066, -0.02 + f['cheek_z']), S(0.021, 0.014, 0.013), M=_R(rz=35)), 0.016)
-    d = _smin(d, _ell(Pm, S(0.053, -0.03, -0.016), S(0.0065, 0.028, 0.0075), M=_R(rz=-12)), 0.018)
-    d = _smax(d, -_ell(Pm, S(0.051, -0.086 + 0.006 * (1 - f['gaunt']), -0.052), S(0.016, 0.011, 0.017) * f['gaunt'] ** 0.5),
-              0.016)
+    # cheekbones: subtle planes laid on the face (see Layout._cheek) that support the eye socket and turn back
+    # gradually into the side of the face and the temple; a soft gaunt plane below them
+    for cc_, M_, r_ in L.cheek:     # a tight blend: a wide one would swell the whole cheek between the masses
+        d = _smin(d, _ell(Pm, cc_, r_, M=M_), 0.007)
+    d = _smax(d, -_ell(Pm, S(0.051, -0.086 + 0.006 * (1 - f['gaunt']), -0.052), S(0.015, 0.01, 0.016) * f['gaunt'] ** 0.5),
+              0.02)
     # the muzzle the lips sit on
     d = _smin(d, _ell(P, S(0.0, -0.071 + ly + 0.025 * (1 - f['muzzle']), -0.056), S(0.036, 0.025 * f['muzzle'], 0.021)),
               0.012)
@@ -218,7 +257,7 @@ def field(P, L, scar=None):
     # eye sockets, carved under the brow but shallow enough that the eye stays a shape; the under-eye plane
     c = L.eye
     d = _smax(d, -_ell(Pm, S(0.03, c[1] - 0.0155, -0.001), S(0.019, 0.011, 0.0135)), 0.006)
-    d = _smin(d, _ell(Pm, S(0.03, c[1] - 0.011, -0.013), S(0.015, 0.0055, 0.005)), 0.004)
+    d = _smin(d, _ell(Pm, S(0.029, c[1] - 0.0095, -0.013), S(0.0115, 0.0045, 0.0048)), 0.007)
     # nose in three masses: a bridge that tapers up to the root (nasal bone, then a wider cartilage midsection with
     # a slight hump where they meet), a wedge-shaped tip projecting forward, the alar base spread wide; nostrils cut
     # under it. A once-broken nose kinks sideways.
