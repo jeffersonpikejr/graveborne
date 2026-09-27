@@ -435,9 +435,10 @@ def field(P, L, scar=None):
     u = np.clip(ax / mo['w'], 0.0, 1.0)
     zl = mo['zs'] - 0.0007 * np.exp(-(x / 0.006) ** 2) - 0.0005 * u * u      # the tubercle presses the line down
     yb = mo['yb0'] + mo['arch'] * x * x
-    half = 0.0003 * np.sqrt(np.maximum(0.0, 1.0 - u ** 4)) * np.sqrt(np.clip((yb - P[:, 1]) / 0.0035, 0.0, 1.0))
-    slit = np.maximum(np.maximum(np.abs(z - zl) - half, P[:, 1] - yb), ax - mo['w'])     # a V: no lit back wall
-    d = _smax(d, -slit, 0.0004)
+    # the line itself: a soft valley where the lips meet, not a cut (a cut this thin opens into a slot wherever the
+    # grid happens to sample inside it); the skin shader draws the dark line along its floor
+    valley = np.exp(-((z - zl) / 0.001) ** 2) * np.sqrt(np.maximum(0.0, 1.0 - u ** 4))
+    d = d + 0.0004 * valley * np.clip((yb - P[:, 1]) / 0.002, 0.0, 1.0)
     d = _smin(d, _ell(Pm, mo['modiolus'], S(0.0055, 0.0038, 0.0068)), 0.006)      # where the lips' muscles meet
     if f['fold'] >= 0.5:     # the male's fold under the lower lip; the female's forms softly where lip meets chin
         d = _smax(d, -_ell(P, mo['fold'], S(0.012, 0.0016, 0.0032)), 0.005)

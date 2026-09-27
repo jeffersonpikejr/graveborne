@@ -53,7 +53,8 @@ campaign leaves, in order: scratches and pitting → worn-bright edges → grime
 tarnish → oxblood smears → mud climbing from the ground (in world space, so it rises from the same ground line
 on every part). Library: `steel`, `paint_over_steel` (the bone-white shield), `maille`, `brass` (tarnished),
 `cloth` (with an optional painted device), `leather`, `skin` (windburn, dirt, stubble; with `face=face.marks(...)`:
-lips, sockets, dark circles, the undercut's stubble, a sunken scar), `hair`, `wood`.
+lips, sockets, dark circles, shadowed lid margins and eye corners, the undercut's stubble, a sunken scar), `hair`,
+`wood`.
 
 **Revenant mode** (`mat.set_mode`) re-renders any asset corrupted: palette drained toward grave-grey, skin gone
 pale, sparse blight-violet fissures, violet back-light and glowing eyes. (`gb/mat.py` also keeps the first,
@@ -70,7 +71,7 @@ painted-miniature materials.)
     blender/gb/face.py      heads carved from one skull: a signed-distance field of anatomical masses about
                             one centreline, meshed (numpy surface nets) and decimated to readable planes;
                             eyes in carved sockets, hair/beard/brows as shells of the same field; marks()
-                            gives the skin shader its landmarks (lips, sockets, scar)
+                            gives the skin shader its landmarks (lips, sockets, lids and eye corners, scar)
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer
     tools/post.py           review sheets at real display sizes; WebP export
