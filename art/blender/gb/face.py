@@ -222,8 +222,8 @@ def field(P, L, scar=None):
     d = _smin(d, _ell(P, S(0.0, 0.012, -0.215), S(0.125, 0.07, 0.05)), 0.03)
     d = _smax(d, -0.21 * L.k[2] - z, 0.004)
     d = _smax(d, np.abs(x) - 0.1, 0.006)
-    if f['adam']:
-        d = _smin(d, _ell(P, S(0.0, -0.041, -0.098), S(0.0075, 0.0075, 0.011)), 0.008)
+    if f['adam']:     # the larynx: low on the throat, a soft swelling rather than a lump
+        d = _smin(d, _ell(P, S(0.0, -0.033, -0.128), S(0.0055, 0.0045, 0.011)), 0.014)
     # the face's mass (maxilla, the volume of the cheeks)
     ly = f['lower_y']        # how far the lower face (maxilla, mouth, chin) sits back under the brow
     d = _smin(d, _ell(P, S(0.0, -0.034 + ly, -0.032), S(0.058 * (0.9 + 0.1 * f['muzzle']), 0.058, 0.056)), 0.02)
@@ -238,22 +238,22 @@ def field(P, L, scar=None):
     d = _smax(d, -_ell(Pm, S(0.051, -0.086 + 0.006 * (1 - f['gaunt']), -0.052), S(0.015, 0.01, 0.016) * f['gaunt'] ** 0.5),
               0.02)
     # the muzzle the lips sit on
-    d = _smin(d, _ell(P, S(0.0, -0.071 + ly + 0.025 * (1 - f['muzzle']), -0.056), S(0.036, 0.025 * f['muzzle'], 0.021)),
-              0.012)
+    d = _smin(d, _ell(P, S(0.0, -0.071 + ly + 0.025 * (1 - f['muzzle']), -0.058), S(0.036, 0.025 * f['muzzle'], 0.025)),
+              0.014)
     # mandible: ramus under the ear, a clear angle below it, the body along the jaw line; a chin with a flat lower
     # plane that projects a little
     jw, ch = f['jaw'], f['chin']
-    A, C, Rm = S(0.056 * jw, 0.022, -0.062), S(0.017 * ch, -0.0785 + ly, -0.092), S(0.061 * jw, 0.02, -0.022)
-    rj = 0.011 * jw ** 1.2
-    d = _smin(d, _both(lambda Q: _cap(Q, A, C, rj, rj * 0.9), P, 0.012), 0.011)
-    d = _smin(d, _cap(Pm, Rm, A, rj * 0.9, rj), 0.009)
-    d = _smin(d, _ell(Pm, A + S(0.001, 0.002, -0.002), S(0.006, 0.009, 0.006)), 0.008)      # the gonial angle
+    A, C, Rm = S(0.053 * jw, 0.02, -0.062), S(0.017 * ch, -0.0785 + ly, -0.0905), S(0.056 * jw, 0.017, -0.024)
+    rj = 0.0102 * jw ** 1.2
+    d = _smin(d, _both(lambda Q: _cap(Q, A, C, rj, rj * 0.9), P, 0.012), 0.016)
+    d = _smin(d, _cap(Pm, Rm, A, rj * 0.9, rj), 0.016)
+    d = _smin(d, _ell(Pm, S(0.049 * jw, -0.003, -0.041), S(0.0095, 0.016, 0.028), M=_R(rx=27)), 0.016)   # masseter
     cz = 0.0105 * (0.8 + 0.2 * ch)
-    cc = S(0.0, -0.0812 + ly + f['chin_y'], -0.091 + f['chin_z'])
-    chin = _rbox(P, cc, S(0.02 * ch ** 1.5 + 0.002, 0.011, cz), 0.006)
+    cc = S(0.0, -0.0812 + ly + f['chin_y'], -0.0895 + f['chin_z'])
+    chin = _rbox(P, cc, S(0.02 * ch ** 1.5 + 0.002, 0.011, cz), 0.0085)
     if f['chin_round']:
         chin = chin + (_ell(P, cc, S(0.0125, 0.0100, cz + 0.001)) - chin) * f['chin_round']
-    d = _smin(d, chin, 0.016)
+    d = _smin(d, chin, 0.02)
     # eye sockets, carved under the brow but shallow enough that the eye stays a shape; the under-eye plane
     c = L.eye
     d = _smax(d, -_ell(Pm, S(0.03, c[1] - 0.0155, -0.001), S(0.019, 0.011, 0.0135)), 0.006)
@@ -285,9 +285,9 @@ def field(P, L, scar=None):
     slit = np.minimum(_cap(Pm, S(0.0, -0.0975 + lb, -0.0572 + mz), S(0.014, -0.0955 + lb, -0.0572 + mz), 0.0009),
                       _cap(Pm, S(0.014, -0.0955 + lb, -0.0572 + mz), S(0.0285, -0.0882 + lb, -0.0576 + mz), 0.0009, 0.0007))
     d = _smax(d, -slit, 0.0008)
-    d = _smax(d, -_ell(Pm, S(0.0285, -0.0882 + lb, -0.0577 + mz), np.full(3, 0.002, np.float32)), 0.0012)
-    d = _smax(d, -_ell(P, S(0.0, -0.0952 + lb + 0.003 * (1 - f['fold']), -0.0695 + mz), S(0.013, 0.003, 0.003) * f['fold'] ** 0.5),
-              0.006)
+    d = _smax(d, -_ell(Pm, S(0.0285, -0.0874 + lb, -0.0577 + mz), np.full(3, 0.0014, np.float32)), 0.002)
+    d = _smax(d, -_ell(P, S(0.0, -0.0938 + lb + 0.003 * (1 - f['fold']), -0.07 + mz), S(0.012, 0.0022, 0.0042) * f['fold'] ** 0.5),
+              0.01)
     # ears, from the brow down to the nose base, tilted back, tucked against the skull: rim, hollow, lobe
     E = _R(rx=-15, rz=-5)
     er = f['ear']
@@ -357,13 +357,13 @@ class _Grid:
         self.D = D
         self.exact = exact
 
-    def shell(self, t, region, inner=0.006, feather=0.005):
+    def shell(self, t, region, inner=0.006, feather=0.005, floor=0.3):
         """A shell from `inner` under the skin out to thickness t(P), kept where region(P) < 0; region is a rough
         distance (m), and the shell thins toward its edge so hair and beard feather into the skin."""
         H = np.ones(self.shape, np.float32)
         d = self.exact
         r = region(self.P)
-        th = t(self.P) * np.clip(-r / feather, 0.3, 1.0)
+        th = t(self.P) * np.clip(-r / feather, floor, 1.0)
         s = _smax(_smax(d - th, -(d + inner), 0.001), r, 0.0015)
         H[self.idx] = s
         return H
@@ -622,7 +622,7 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
         geo = {'skin': _nets(g.D, g.lo, g.h)}
         geo['hair'] = _nets(g.shell(_thick_hair(hair_style, L, noise), _region_hair(hair_style, L, noise)), g.lo, g.h)
         if beard:
-            geo['beard'] = _nets(g.shell(_thick_beard(L, noise), _region_beard(L, noise)), g.lo, g.h)
+            geo['beard'] = _nets(g.shell(_thick_beard(L, noise), _region_beard(L, noise), feather=0.008, floor=0.12), g.lo, g.h)
         geo['brow'] = _nets(g.shell(lambda P: 0.0013 + 0.0007 * noise(P, 300.0), _region_brow(L, scar, noise), feather=0.0016), g.lo, g.h)
         _CACHE[key] = geo
     geo = _CACHE[key]
