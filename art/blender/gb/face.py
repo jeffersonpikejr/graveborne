@@ -43,7 +43,7 @@ ANCHORS = {
                    glabella=1.15, brow_arch=0.0, brow_lift=0.0, eye_depth=0.0008, lid_h=0.93, lid_round=0.72, lid_t=0.0004,
                    nose_len=1.02, bridge=1.0, tip_round=0.85, submental=1.15, ear_t=1.12, ear_yaw=-12.0, shade=32.0,
                    lash=0.0, lip_tint=0.45, nose_proj=0.92, muzzle_w=1.0, muzzle_y=0.0, muzzle_k=0.014, modiolus=1.0,
-                   trap_z=0.0),
+                   trap_z=0.0, menton_z=0.0),
     'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.75, chin=0.52, chin_round=0.75, nose=0.78,
                    lip=1.3, eye=1.12, gaunt=0.4, ear=0.8, neck=0.84, scm=0.85, adam=0.0, muzzle=0.82,
                    cheek_z=0.004, brow_w=0.75, fold=0.25, chin_y=-0.003, chin_z=0.0065, lower_y=0.006, neck_d=1.12,
@@ -53,7 +53,7 @@ ANCHORS = {
                    glabella=1.0, brow_arch=1.0, brow_lift=0.0015, eye_depth=0.0, lid_h=1.04, lid_round=0.48, lid_t=0.0,
                    nose_len=0.93, bridge=0.85, tip_round=1.35, submental=0.85, ear_t=0.9, ear_yaw=-7.0, shade=44.0,
                    lash=1.0, lip_tint=0.6, nose_proj=1.0, muzzle_w=0.8, muzzle_y=0.0035, muzzle_k=0.024, modiolus=0.75,
-                   trap_z=-0.016),
+                   trap_z=-0.016, menton_z=0.0035),
 }
 
 
@@ -407,7 +407,8 @@ def field(P, L, scar=None):
     # the jaw's corner: crisp on the male, set higher and further forward and softened on the female, so her jawline
     # tapers from the cheekbones to the chin
     A = S(0.053 * jw, 0.02 + f['jaw_y'], -0.062 + f['jaw_z'])
-    C, Rm = S(0.017 * ch, -0.0785 + ly, -0.0905), S(0.056 * jw, 0.017, -0.024)
+    mz = f['menton_z']       # the front of the jaw (chin, jawline's end, the floor under it) lifted as one: a shorter chin
+    C, Rm = S(0.017 * ch, -0.0785 + ly, -0.0905 + mz), S(0.056 * jw, 0.017, -0.024)
     rj = 0.0102 * jw ** 1.2
     d = _smin(d, _both(lambda Q: _cap(Q, A, C, rj, rj * 0.9), P, 0.012), f['jaw_k'])
     d = _smin(d, _cap(Pm, Rm, A, rj * 0.9, rj), f['jaw_k'])
@@ -415,14 +416,14 @@ def field(P, L, scar=None):
     d = _smin(d, _ell(Pm, S(0.049 * jw, -0.003, -0.041), S(0.0095 * ms, 0.016 * (0.7 + 0.3 * ms), 0.028 * (0.8 + 0.2 * ms)),
                       M=_R(rx=27)), 0.016)   # masseter
     cz = 0.0105 * (0.8 + 0.2 * ch)
-    cc = S(0.0, -0.0812 + ly + f['chin_y'], -0.0895 + f['chin_z'])
+    cc = S(0.0, -0.0812 + ly + f['chin_y'], -0.0895 + f['chin_z'] + mz)
     chin = _rbox(P, cc, S(0.02 * ch ** 1.5 + 0.002, 0.011, cz), 0.0085)
     if f['chin_round']:
         chin = chin + (_ell(P, cc, S(0.0125, 0.0100, cz + 0.001)) - chin) * f['chin_round']
     d = _smin(d, chin, 0.02)
     # the floor under the jaw: a clean plane from the chin back into the throat, no pinch before the neck
     sm = f['submental']             # fuller on the male
-    d = _smin(d, _ell(P, S(0.0, -0.046 + 0.5 * ly, -0.1), S(0.021 * jw, 0.034 * (0.7 + 0.3 * sm), 0.0105 * sm), M=_R(rx=-16)), 0.012)
+    d = _smin(d, _ell(P, S(0.0, -0.046 + 0.5 * ly, -0.1 + mz), S(0.021 * jw, 0.034 * (0.7 + 0.3 * sm), 0.0105 * sm), M=_R(rx=-16)), 0.012)
     # eye sockets, carved under the brow but shallow enough that the eye stays a shape; the under-eye plane
     c = L.eye
     d = _smax(d, -_ell(Pm, S(0.03, c[1] - 0.0155, -0.001), S(0.019, 0.011, 0.0135)), 0.006)
@@ -667,8 +668,8 @@ def hairline(P, style, L, noise):
     if style == 'crop':   # a man's crop: receding at the temples, down to the nape at the back
         z = np.interp(th, [0, 22, 36, 46, 58, 90, 118, 150, 180], [0.055, 0.057, 0.066, 0.058, 0.044, 0.026, 0.0, -0.036, -0.056])
         z = z + 0.004 * (1.0 - clumps(P, style, L, noise))
-    else:                 # the undercut: sides and back shaved up to a line under the knot's mass
-        z = np.interp(th, [0, 30, 50, 75, 110, 150, 180], [0.057, 0.055, 0.05, 0.047, 0.046, 0.043, 0.038])
+    else:                 # the undercut: sides and back shaved up to a line under the knot's mass; the front pulled
+        z = np.interp(th, [0, 30, 50, 75, 110, 150, 180], [0.066, 0.062, 0.053, 0.047, 0.046, 0.043, 0.038])   # back off a full forehead
     return (z * L.k[2] + 0.0045 * (noise(P, 45.0) - 0.5) + 0.003 * (noise(P, 140.0) - 0.5)
             + 0.001 * (noise(P, 400.0) - 0.5))
 

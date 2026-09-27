@@ -31,6 +31,14 @@ the Line-Breaker concept art and briefs:
   a soft cheek, an upright forehead, a light brow with a subtle arch, rounder lids, a shorter nose with a narrower
   bridge and softer tip, fuller lips, ears closer to the head, softer shading; her neck slimmer but substantial. Every
   setting blends along the dial, so a softer man or a stronger-jawed woman is a position on it, not a new model.
+- **The nose is one attached structure; the female lower face reads oval** (set on revision 8). Sidewalls run from
+  the dorsum back into the cheeks along the nose's whole length, into the tip and the alae: never a bridge over a
+  see-through gap. The alae grow out of the sidewalls, not off them like a crossbar; the nostrils are small ovals in
+  the base's underside. An average male nose, not a heroic one. On the female, the neck rises clear of the jaw (the
+  trapezius starts below mid-neck, so nothing flares wider than the jaw just under it); the muzzle under the lips is
+  narrow and blended so the cheek runs into the mouth with no bar; the chin sits about 1 mm behind the lower lip.
+  Calibrated to the female average-head reference: a full forehead (hairline about 45 mm above the brow, not 36),
+  a shorter chin (about 45 mm from the mouth line to the chin, not 48), her upper lip no longer than his.
 - **Next: the face morph system.** The approved base head becomes the one every face is rolled from — face length,
   jaw, chin, cheekbones, brow, eyes, nose, lips, ears, age, hair, beard, skin and scars as bounded parameters — so
   each soldier keeps one face across battle sprite, unit card and roster.
