@@ -15,8 +15,12 @@ the Line-Breaker concept art and briefs:
 - **Weight.** Figures are broad and planted; gear is heavy, practical, inherited from dead campaigns.
 - **Every humanoid model has a male and a female form.**
 - **Faces at the RuneScape / Project Zomboid level at minimum** (set on revision 3): every feature is its own
-  shape — lidded eyes with whites and irises, heavy brows, a nose with nostrils, lips, ears, hair and beards with
-  volume — slightly exaggerated so it reads on the board. Heads run 8% large and tilt chin-up toward the camera.
+  shape — lidded eyes with whites and irises, brows, a nose with nostrils, lips, ears, hair and beards with
+  volume. Heads run 8% large and tilt chin-up toward the camera in battle; portraits hold them level.
+- **Face proportions follow the portrait reference sheet** (set on revision 4): long, gaunt faces with hollow
+  cheeks; narrow, heavy-lidded eyes at mid-head with dim whites and dark circles; thin, low, straight brows; a
+  long nose rising from between the brows; a small thin-lipped mouth; pale, sallow, mottled skin; red scars.
+  Portraits are three-quarter busts; a pixel-art finish (64px, 28 colours, no dither) is available.
 - **Commander** (any class): company banner strapped to the back, one tarnished mark of rank, a founding scar,
   fewer loose pieces. **Veteran** (level 5, the game's veterancy capstone): gear assembled from dead men's
   armour — a foreign gilt pauldron, a mismatched greave, a patched cuirass.
@@ -56,7 +60,7 @@ Status: ✅ approved · 🔍 in review · ⏳ queued
 ### Wave 1 — The Company (style anchor + every unit you control)
 | # | Asset | Variants | Score | Status |
 |---|---|---|---|---|
-| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded with a built face (rev. 3) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | 🔍 |
+| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded with a built face (rev. 4) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | 🔍 |
 | 2 | Ranger — hood & cloak, longbow, quiver | same matrix | 3×2×3 = 18 | ⏳ |
 | 3 | Cleric — white tabard with red cross, mail coif, flanged mace | same matrix | 3×2×3 = 18 | ⏳ |
 | 4 | Ash Acolyte — hooded ash-robe, blight veins, floating ashfire | same matrix | 3×2×3 = 18 | ⏳ |
