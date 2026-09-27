@@ -22,15 +22,15 @@ from gb import rig  # noqa: E402
 REV_RIM = (0.72, 0.45, 1.0)   # a revenant is back-lit in blight violet
 
 
-def portrait_camera(elev=6.0, azimuth=28.0, scale=0.2, res=512):
-    """Re-aim the house camera for a portrait: a three-quarter bust, nearly level, the face turned toward the
-    image's left (the convention of the portrait reference sheet)."""
+def portrait_camera(elev=6.0, azimuth=28.0, scale=0.235, res=512):
+    """Re-aim the house camera for a portrait: a three-quarter bust (head, neck and the top of the shoulders),
+    nearly level, the face turned toward the image's left (the convention of the portrait reference sheet)."""
     import math
     from mathutils import Vector
     sc = bpy.context.scene
     head = bpy.data.objects.get('head_root')
     bpy.context.view_layer.update()
-    target = head.matrix_world.translation.copy() + Vector((0.0, 0.0, -0.014)) if head else Vector((0, 0, 0.9))
+    target = head.matrix_world.translation.copy() + Vector((0.0, 0.0, -0.024)) if head else Vector((0, 0, 0.9))
     th, az = math.radians(elev), math.radians(azimuth)
     d = Vector((-math.sin(az) * math.cos(th), math.cos(az) * math.cos(th), -math.sin(th)))
     cam = sc.camera

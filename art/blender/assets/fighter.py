@@ -40,9 +40,9 @@ VARIANTS = {
 
 BODY = {   # a siege wedge: broad through the shoulders and chest, heavy in the legs, planted wide
     'male':   dict(hf=1.0, sh=0.272, chest=0.25, waist=0.206, sy=0.64, neck=0.08, bust=0.0, bulk=1.0,
-                   tone='#94796a', lips='#7b5550', hair='#1e1711', iris='#3b2c20', beard=True, style='crop'),
+                   tone='#94796a', lips='#62403b', hair='#2b2118', iris='#3b2c20', beard=True, style='crop'),
     'female': dict(hf=0.965, sh=0.25, chest=0.233, waist=0.188, sy=0.66, neck=0.066, bust=0.03, bulk=0.94,
-                   tone='#9e8476', lips='#855a54', hair='#2a1c13', iris='#4a5358', beard=False, style='knot'),
+                   tone='#9e8476', lips='#8a4f47', hair='#2a1c13', iris='#4a5358', beard=False, style='knot'),
 }
 
 
@@ -72,9 +72,11 @@ def build(v, seed=7, turn=-4.0):
     hose = G.cloth('hose', color='#2a2622', blood=0.1, seed=10)
     ox = G.cloth('oxblood', blood=0.5, seed=9)
     skin = G.skin('skin', Bd['tone'])
-    face_skin = G.skin('face', Bd['tone'], face=True, dirt=0.72, stubble=0.3 if Bd['beard'] else 0.0,
-                       creases=G.CREASES_HARD if Bd['beard'] else G.CREASES_LIGHT)
-    lips = G.skin('lips', Bd['lips'], windburn=0.1, dirt=0.3)
+    crooked = 0.003 if (vet and Bd['beard']) else 0.0          # a veteran's once-broken nose
+    marks = F.marks(sex, scar=1 if cmd else None, crooked=crooked, style=Bd['style'])
+    marks['lip_color'] = Bd['lips']
+    face_skin = G.skin('face', Bd['tone'], face=marks, dirt=0.72, stubble=0.3 if Bd['beard'] else 0.0,
+                       creases=marks['creases'] + (marks['forehead'] if Bd['beard'] else []))
     hair = G.hair('hair', Bd['hair'], flow='down' if Bd['beard'] else 'back')
     grey = G.hair('greying', '#77716a', seed=18) if vet else None
     eye_m = G.eye('eye', Bd['iris'])
@@ -242,12 +244,12 @@ def build(v, seed=7, turn=-4.0):
     parts.append(panel(-42.0, -18.0, 4, 0.5, tatter, 0, seed + 2))
 
     # ---------------------------------------------------------------- collar, scarf, rank
-    parts.append(A.shell('collar', V(0.0, 0.0, 1.47), V(0.0, -0.005, 1.585), [(0.13, 0.0), (0.108, 0.5), (0.095, 1.0)],
+    parts.append(A.shell('collar', V(0.0, 0.0, 1.47), V(0.0, -0.005, 1.555), [(0.13, 0.0), (0.108, 0.5), (0.095, 1.0)],
                          plate, seg=32, lip=0.004, thick=0.005))
-    # the scarf: oxblood wool wound high around the neck like a cowl, bunched at the throat
-    parts.append(A.torus('scarf', V(0.0, -0.004, 1.585), 0.088, 0.02, ox, sy=0.95, lumpy=0.4, rz=0.034, folds=0.006,
+    # the scarf: oxblood wool wound round the neck like a cowl, bunched at the throat, clear of the jaw
+    parts.append(A.torus('scarf', V(0.0, -0.004, 1.575), 0.088, 0.023, ox, sy=0.95, lumpy=0.4, rz=0.034, folds=0.006,
                          seed=seed, rseg=14))
-    parts.append(A.torus('scarf2', V(0.002, -0.01, 1.545), 0.108, 0.021, ox, sy=0.9, lumpy=0.45, rz=0.036,
+    parts.append(A.torus('scarf2', V(0.002, -0.01, 1.54), 0.108, 0.024, ox, sy=0.9, lumpy=0.45, rz=0.036,
                          folds=0.006, seed=seed + 3, rseg=14))
     parts.append(A.torus('scarf3', V(0.004, -0.014, 1.508), 0.124, 0.018, ox, sy=0.84, lumpy=0.45, rz=0.03,
                          folds=0.006, seed=seed + 5, rseg=14))
@@ -294,9 +296,10 @@ def build(v, seed=7, turn=-4.0):
             parts.append(K.sphere('lion_ear', boss_at + Vector((-0.012, dy + 0.02, dz)), 0.018, old_gilt, seg=10, rings=6))
 
     # ---------------------------------------------------------------- neck & head
-    parts.append(K.tube('neck', V(0.0, 0.0, 1.5), V(0.0, -0.008, 1.665), Bd['neck'], Bd['neck'] * 0.95, skin, seg=18))
-    hroot, _ = F.head('head', sex, face_skin, lips, hair, eye_m, dark, beard=Bd['beard'], hair_style=Bd['style'],
-                      scar=1 if cmd else None, crooked=0.003 if (vet and Bd['beard']) else 0.0, greying=grey, seed=seed)
+    # the head carries its own neck (sternomastoids, trapezius), rising from under the back of the skull
+    hroot, _ = F.head('head', sex, face_skin, None, hair, eye_m, dark, beard=Bd['beard'], hair_style=Bd['style'],
+                      scar=1 if cmd else None, crooked=crooked, greying=grey, seed=seed,
+                      gaze=16.0 if v.get('portrait') else 0.0)
     tilt = 0.0 if v.get('portrait') else HEAD_TILT       # portraits hold the head level, like the reference sheet
     hroot.matrix_world = (Matrix.Translation(head_c) @ Matrix.Rotation(math.radians(tilt), 4, 'X')
                           @ Matrix.Scale(HEAD_SCALE, 4))

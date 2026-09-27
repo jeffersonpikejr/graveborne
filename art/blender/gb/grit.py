@@ -427,6 +427,52 @@ def _blob(g, center, sigma):
     return _math(nt, 'EXPONENT', _math(nt, 'MULTIPLY', dd, -1.0 / (sigma * sigma)))
 
 
+def _eblob(g, center, radii):
+    """exp(-|(p - c) / r|^2) in object space: an elliptical soft spot (lips, a shaved patch)."""
+    nt = g.nt
+    sub = g.N.new('ShaderNodeVectorMath')
+    sub.operation = 'SUBTRACT'
+    g.L.new(g.obj, sub.inputs[0])
+    sub.inputs[1].default_value = center
+    div = g.N.new('ShaderNodeVectorMath')
+    div.operation = 'DIVIDE'
+    g.L.new(sub.outputs['Vector'], div.inputs[0])
+    div.inputs[1].default_value = radii
+    dot = g.N.new('ShaderNodeVectorMath')
+    dot.operation = 'DOT_PRODUCT'
+    g.L.new(div.outputs['Vector'], dot.inputs[0])
+    g.L.new(div.outputs['Vector'], dot.inputs[1])
+    return _math(nt, 'EXPONENT', _math(nt, 'MULTIPLY', dot.outputs['Value'], -1.0))
+
+
+def _segment_dist3(g, a, b):
+    """Distance in object space from the shading point to the 3D segment a-b (a scar lying on the skin)."""
+    nt = g.nt
+    A, AB = Vector(a), Vector(b) - Vector(a)
+    pa = g.N.new('ShaderNodeVectorMath')
+    pa.operation = 'SUBTRACT'
+    g.L.new(g.obj, pa.inputs[0])
+    pa.inputs[1].default_value = A
+    dot = g.N.new('ShaderNodeVectorMath')
+    dot.operation = 'DOT_PRODUCT'
+    g.L.new(pa.outputs['Vector'], dot.inputs[0])
+    dot.inputs[1].default_value = AB
+    t = _maprange(nt, _math(nt, 'MULTIPLY', dot.outputs['Value'], 1.0 / max(1e-12, AB.length_squared)), 0.0, 1.0)
+    sc = g.N.new('ShaderNodeVectorMath')
+    sc.operation = 'SCALE'
+    sc.inputs[0].default_value = AB
+    g.L.new(t, sc.inputs['Scale'])
+    cp = g.N.new('ShaderNodeVectorMath')
+    cp.operation = 'ADD'
+    g.L.new(sc.outputs['Vector'], cp.inputs[0])
+    cp.inputs[1].default_value = A
+    dd = g.N.new('ShaderNodeVectorMath')
+    dd.operation = 'DISTANCE'
+    g.L.new(g.obj, dd.inputs[0])
+    g.L.new(cp.outputs['Vector'], dd.inputs[1])
+    return dd.outputs['Value']
+
+
 def _segment_dist(g, a, b):
     """Distance in the object's X-Z plane from the shading point to the segment a-b (a face-front line)."""
     nt = g.nt
@@ -461,15 +507,10 @@ def _segment_dist(g, a, b):
     return dd.outputs['Value']
 
 
-# face creases in the head frame (x, z): forehead furrows and the folds from nose to mouth. Soft, never drawn on.
-CREASES_HARD = [[(-0.03, 0.052), (0.0, 0.056), (0.03, 0.052)], [(-0.026, 0.065), (0.0, 0.068), (0.026, 0.065)],
-                [(0.014, -0.047), (0.022, -0.06), (0.027, -0.077)], [(-0.014, -0.047), (-0.022, -0.06), (-0.027, -0.077)]]
-CREASES_LIGHT = [CREASES_HARD[2], CREASES_HARD[3]]
-
-
-def skin(name, tone, scar=None, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=False, creases=None):
-    """Windburned, dirty skin. scar=(ax, az, c, width): a pale seam along ax*x + az*z = c (object space).
-    face=True paints the head's own frame (face.py): weather-red cheeks, nose and ears, shadowed eye sockets."""
+def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, creases=None):
+    """Windburned, dirty skin. face = face.marks(...): paints the head's own frame — weather-red cheeks, nose and
+    ears; shadowed sockets and dark circles; the lips; the stubble of a shaved undercut; the founding scar, darker
+    and desaturated, uneven and broken, sunk into the skin. creases: (x, z) polylines of soft folds."""
     hit, key = _cached(('skin', name))
     if hit:
         return hit
@@ -477,42 +518,61 @@ def skin(name, tone, scar=None, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, 
     nt = g.nt
     col = g.col(tone, 'skin')
     col = _mix(nt, 'MIX', col, g.col('#9a4a36', 'skin'), _maprange(nt, g.noise(6.0, w=1.0), 0.4, 0.75, 0.0, windburn))
-    if face:
-        red = None
-        for c, s, a in (((0.043, -0.074, -0.03), 0.02, 0.45), ((-0.043, -0.074, -0.03), 0.02, 0.45),
-                        ((0.0, -0.12, -0.038), 0.012, 0.5)):
+
+    def spots(items):
+        out = None
+        for c, s, a in items:
             b = _math(nt, 'MULTIPLY', _blob(g, c, s), a)
-            red = b if red is None else _math(nt, 'MAXIMUM', red, b)
-        col = _mix(nt, 'MIX', col, g.col('#94412f', 'skin'), red)
-        sock = _math(nt, 'MAXIMUM', _blob(g, (0.029, -0.08, 0.004), 0.016), _blob(g, (-0.029, -0.08, 0.004), 0.016))
-        col = _mix(nt, 'MIX', col, g.col('#3b2319', 'skin'), _math(nt, 'MULTIPLY', sock, 0.5))
+            out = b if out is None else _math(nt, 'MAXIMUM', out, b)
+        return out
+
+    def eblobs(items):
+        out = None
+        for c, r in items:
+            b = _eblob(g, c, r)
+            out = b if out is None else _math(nt, 'MAXIMUM', out, b)
+        return out
+
+    if face:
+        col = _mix(nt, 'MIX', col, g.col('#94412f', 'skin'), spots(face['red']))
+        col = _mix(nt, 'MIX', col, g.col('#3b2319', 'skin'), spots(face['sock']))
         # dark circles: the sleepless, haunted look every face in the company carries
-        bags = _math(nt, 'MAXIMUM', _blob(g, (0.029, -0.086, -0.011), 0.0095), _blob(g, (-0.029, -0.086, -0.011), 0.0095))
-        col = _mix(nt, 'MIX', col, g.col('#3a2420', 'skin'), _math(nt, 'MULTIPLY', bags, 0.62))
+        col = _mix(nt, 'MIX', col, g.col('#3a2420', 'skin'), spots(face['bags']))
+        col = _mix(nt, 'MIX', col, g.col(face.get('lip_color', '#7b5550'), 'skin'),
+                   _math(nt, 'MULTIPLY', eblobs(face['lips']), face.get('lip_amount', 0.45)))
+        if face.get('lash'):     # a dark lash line along the upper lid
+            col = _mix(nt, 'MIX', col, g.col('#1d1311', 'skin'), _math(nt, 'MULTIPLY', eblobs(face['lash']), 0.8))
     if creases:
         lines = None
         for poly in creases:
             for a, b in zip(poly, poly[1:]):
                 m = _maprange(nt, _segment_dist(g, a, b), 0.0007, 0.0028, 1.0, 0.0)
                 lines = m if lines is None else _math(nt, 'MAXIMUM', lines, m)
-        col = _mix(nt, 'MIX', col, g.col('#3a2218', 'skin'), _math(nt, 'MULTIPLY', lines, 0.34))
-        g.bump(lines, -0.35)
+        col = _mix(nt, 'MIX', col, g.col('#3a2218', 'skin'), _math(nt, 'MULTIPLY', lines, 0.16))
+        g.bump(lines, -0.08)
     col = _mix(nt, 'MIX', col, g.col(COL['grime'], 'earth'), _maprange(nt, g.noise(9.0, detail=8.0, w=3.0), 0.45, 0.75, 0.0, dirt))
     col = _mix(nt, 'MIX', col, g.col('#6e5a4c', 'skin'), _maprange(nt, g.noise(3.0, w=4.0), 0.3, 0.7, 0.35, 0.0))   # sallow
     mottle = _maprange(nt, g.noise(22.0, detail=6.0, rough=0.7, w=5.0), 0.3, 0.7, 0.0, 1.0)             # painterly blotching
     col = _mix(nt, 'MIX', col, g.col('#b89a86', 'skin'), _math(nt, 'MULTIPLY', mottle, 0.22))
     col = _mix(nt, 'MIX', col, g.col('#5e4336', 'skin'), _math(nt, 'MULTIPLY', _math(nt, 'SUBTRACT', 1.0, mottle), 0.18))
+    speck = g.noise(400.0, detail=1.0, w=5.0)
     if stubble > 0:
-        col = _mix(nt, 'MIX', col, g.col('#2a2019', 'skin'), _math(nt, 'MULTIPLY', g.noise(400.0, detail=1.0, w=5.0), stubble))
-    if scar:
-        ax, az, c, w = scar
-        sep = g.N.new('ShaderNodeSeparateXYZ')
-        g.L.new(g.obj, sep.inputs[0])
-        d = _math(nt, 'ABSOLUTE', _math(nt, 'SUBTRACT', _math(nt, 'ADD', _math(nt, 'MULTIPLY', sep.outputs['X'], ax),
-                                                                 _math(nt, 'MULTIPLY', sep.outputs['Z'], az)), c))
-        sm = _maprange(nt, d, w * 0.4, w, 1.0, 0.0)
-        col = _mix(nt, 'MIX', col, g.col('#d9b7a4', 'skin'), _math(nt, 'MULTIPLY', sm, 0.85))
-        g.bump(sm, 0.4)
+        col = _mix(nt, 'MIX', col, g.col('#2a2019', 'skin'), _math(nt, 'MULTIPLY', speck, stubble))
+    if face:     # the undercut's clippered sides: a 'stubble' vertex attribute written by face.head
+        at = g.N.new('ShaderNodeAttribute')
+        at.attribute_type = 'GEOMETRY'
+        at.attribute_name = 'stubble'
+        sh = _math(nt, 'MULTIPLY', at.outputs['Fac'], _maprange(nt, speck, 0.3, 0.7, 0.5, 0.85))
+        col = _mix(nt, 'MIX', col, g.col('#2b221c', 'skin'), sh)
+    if face and face.get('scar'):       # an old scar: darker and desaturated, its width uneven, sunk into the skin
+        wob = _math(nt, 'MULTIPLY', _math(nt, 'SUBTRACT', g.noise(260.0, detail=2.0, w=11.0), 0.5), 0.0012)
+        sm = None
+        for a, b, w in face['scar']:
+            d = _math(nt, 'ADD', _segment_dist3(g, a, b), wob)
+            m = _maprange(nt, d, w * 0.3, w * 0.95, 1.0, 0.0)
+            sm = m if sm is None else _math(nt, 'MAXIMUM', sm, m)
+        col = _mix(nt, 'MIX', col, g.col('#5c4440', 'skin'), _math(nt, 'MULTIPLY', sm, 0.75))
+        g.bump(sm, -0.3)
     col = _mix(nt, 'MIX', col, g.col('#2a1a12', 'skin'), _math(nt, 'MULTIPLY', g.cavity, 0.85))
     b = g.bsdf
     b.inputs['Subsurface Weight'].default_value = 0.12
@@ -587,7 +647,7 @@ def eye(name, iris='#3b2c20'):
         white = hexlin('#26222b')
         ir = hexlin('#c69cf0')
     else:
-        white = hexlin('#aa9f8b')         # dim, dirty whites: the eyes read as tired, not startled
+        white = hexlin('#b3a893')         # dirty whites, bright enough to read against the socket
         ir = hexlin(iris)
     col = _mix(nt, 'MIX', white, hexlin('#9c6a5c'), _maprange(nt, fwd, 0.2, 0.6, 0.55, 0.0))   # bloodshot at the edges
     col = _mix(nt, 'MIX', col, ir, iris_m)
