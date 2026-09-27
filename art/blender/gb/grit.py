@@ -305,15 +305,45 @@ def brass(name, color=None, tarnish=0.95, blood=0.1, mud=1.0, seed=7, film=0.55)
         return hit
     g = _G(name, seed)
     nt = g.nt
-    col = _mix(nt, 'MULTIPLY', g.col(color or COL['brass']), _maprange(nt, g.noise(9.0, w=3.0), 0.3, 0.7, 0.75, 1.05))
-    cover = _maprange(nt, g.noise(6.0, detail=8.0, rough=0.62, w=12.0), 0.3, 0.62, 0.0, film)
+    gold = _mix(nt, 'MULTIPLY', g.col(color or COL['brass']), _maprange(nt, g.noise(9.0, w=3.0), 0.3, 0.7, 0.8, 1.15))
+    # the film is a crust in hard-edged patches, and every recess is full of it. A soft blend of gold and tarnish
+    # reads as one clean mustard, so the mask is binary. Patches are noise-warped Voronoi cells, each with a uniform
+    # random value: `film` is then the true share crusted even on a part only a few cells wide, where a noise
+    # threshold would land wherever the noise happens to sit.
+    warp = g.N.new('ShaderNodeTexNoise')
+    warp.noise_dimensions = '4D'
+    warp.inputs['Scale'].default_value = 30.0
+    warp.inputs['W'].default_value = g.seed * 3.7
+    g.L.new(g.obj, warp.inputs['Vector'])
+    wv = g.N.new('ShaderNodeVectorMath')
+    wv.operation = 'MULTIPLY_ADD'
+    wv.inputs[1].default_value = (0.02, 0.02, 0.02)
+    g.L.new(warp.outputs['Color'], wv.inputs[0])
+    g.L.new(g.obj, wv.inputs[2])
+    cells = g.N.new('ShaderNodeTexVoronoi')
+    cells.voronoi_dimensions = '4D'
+    cells.inputs['Scale'].default_value = 45.0
+    cells.inputs['W'].default_value = g.seed * 1.9
+    g.L.new(wv.outputs[0], cells.inputs['Vector'])
+    rnd = g.N.new('ShaderNodeSeparateColor')
+    g.L.new(cells.outputs['Color'], rnd.inputs[0])
+    cover = _math(nt, 'LESS_THAN', rnd.outputs[0], film)
     tm = _math(nt, 'MINIMUM', _math(nt, 'ADD', _math(nt, 'MULTIPLY', g.cavity, tarnish * 1.2), cover), 1.0)
-    col = _mix(nt, 'MIX', col, g.col(COL['tarnish'], 'earth'), tm)
-    rgh = _lerp(nt, 0.45, 0.8, tm)
-    met = _lerp(nt, 1.0, 0.45, tm)
-    col = _mix(nt, 'MIX', col, g.col('#b39550'), _math(nt, 'MULTIPLY', g.edge, 0.4))
+    crust = _mix(nt, 'MIX', g.col(COL['tarnish'], 'earth'), g.col('#1d1a12', 'earth'), g.noise(30.0, w=16.0))
+    col = _mix(nt, 'MIX', gold, crust, tm)
+    rgh = _lerp(nt, 0.45, 0.9, tm)
+    met = _lerp(nt, 1.0, 0.1, tm)
+    # polished back to the gold only where hands and blows wore it: scores, and a little on the edges. Small parts
+    # are curved all over, so pointiness is high everywhere on them and edge wear has to stay light.
+    sc = g.scratches(1.0, scale=26.0)
+    wear = _math(nt, 'MAXIMUM', _math(nt, 'MULTIPLY', g.edge, 0.15), _math(nt, 'MULTIPLY', sc, 0.8))
+    col = _mix(nt, 'MIX', col, gold, wear)
+    rgh = _lerp(nt, rgh, 0.35, wear)
+    met = _lerp(nt, met, 1.0, wear)
     col, rgh, met = _metal_damage(g, col, rgh, met, 0.0, blood, 0.5, mud)
-    g.bump(g.pits(0.6, 200.0), -0.4)
+    g.bump(tm, 0.15)        # the tarnish is a crust, standing a little proud of the metal
+    g.bump(sc, -0.25)
+    g.bump(g.pits(0.8, 200.0), -0.5)
     g.cracks(0.3)
     m = g.finish(col, rgh, met, bevel=0.0015)
     _CACHE[key] = m

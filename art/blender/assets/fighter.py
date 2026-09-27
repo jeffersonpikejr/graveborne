@@ -66,7 +66,7 @@ def build(v, seed=7, turn=-4.0):
     blade = G.steel('blade', color='#8f9295', rough=0.24, rust=0.1, blood=0.8, grime=0.45, seed=8, dents=0.05)
     mail = G.maille('maille')
     brass = G.brass('brass')
-    old_gilt = G.brass('old_gilt', color='#4c3b1c', tarnish=1.0, blood=0.25, seed=14)   # dead men's gold: dark, worn
+    old_gilt = G.brass('old_gilt', color='#4c3b1c', tarnish=1.0, blood=0.25, seed=14, film=0.6)   # dead men's gold: dark, worn
     leather = G.leather('leather')
     boots = G.leather('boots', color='#2b2017', mud=2.4, seed=12)
     hose = G.cloth('hose', color='#2a2622', blood=0.1, seed=10)
