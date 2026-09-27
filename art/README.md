@@ -52,7 +52,8 @@ Battle-worn realism, per the art direction in `ASSETS.md`. Every surface is a ba
 campaign leaves, in order: scratches and pitting → worn-bright edges → grime packed in recesses → rust or
 tarnish → oxblood smears → mud climbing from the ground (in world space, so it rises from the same ground line
 on every part). Library: `steel`, `paint_over_steel` (the bone-white shield), `maille`, `brass` (tarnished),
-`cloth` (with an optional painted device), `leather`, `skin` (windburn, dirt, stubble, scars), `hair`, `wood`.
+`cloth` (with an optional painted device), `leather`, `skin` (windburn, dirt, stubble; with `face=face.marks(...)`:
+lips, sockets, dark circles, the undercut's stubble, a sunken scar), `hair`, `wood`.
 
 **Revenant mode** (`mat.set_mode`) re-renders any asset corrupted: palette drained toward grave-grey, skin gone
 pale, sparse blight-violet fissures, violet back-light and glowing eyes. (`gb/mat.py` also keeps the first,
@@ -66,9 +67,10 @@ painted-miniature materials.)
     blender/gb/kit.py       primitives: skin-modifier limbs, lathes, tubes, blades, hafted weapons
     blender/gb/armor.py     humanoid kit: plate shells, pauldrons, cops, gauntlets, straps, torn cloth,
                             the great shield, the broadsword
-    blender/gb/face.py      heads: a sculpted skull plus every feature as its own shape, placed by ray-cast —
-                            lidded eyes (white, iris, pupil), brows, nose, lips, ears, tufted hair and beards,
-                            loose strands, scars
+    blender/gb/face.py      heads carved from one skull: a signed-distance field of anatomical masses about
+                            one centreline, meshed (numpy surface nets) and decimated to readable planes;
+                            eyes in carved sockets, hair/beard/brows as shells of the same field; marks()
+                            gives the skin shader its landmarks (lips, sockets, scar)
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer
     tools/post.py           review sheets at real display sizes; WebP export
