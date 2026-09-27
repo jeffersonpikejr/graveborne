@@ -164,5 +164,7 @@ Ordered by how often each appears across contract pools and pod doctrines, with 
   missing file never breaks a battle.
 - Units stop being coloured chips; a team ring drawn in CSS under the feet carries friend/foe and the live
   states (gold = the soldier you're commanding, violet = revenant, red = target).
-- Soldiers have no sex field today (the game calls every soldier "her"). Male/female sprites need a `form`
-  field rolled at hire, plus a save migration that assigns one to existing soldiers and graves.
+- A soldier's form comes from their look (v0.69): the game deals every soldier, sword and grave a head of their
+  own at creation (`LOOKS` in `index.html`, rolled by `art/blender/gb/looks.py`), and the v0.69 migration deals
+  existing records heads that match the faces they already wear. The text still calls every soldier "her":
+  whether pronouns follow the form is an open call.

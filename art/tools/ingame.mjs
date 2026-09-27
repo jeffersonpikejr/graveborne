@@ -4,11 +4,12 @@
 //   python3 -m http.server 8931 --directory .            # serve the repo root
 //   node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review [--mode ring|mini|both]
 //
-// Sprite files follow <class>[_commander|_veteran][_revenant]_<m|f>.webp (see art/README.md): the Commander look
-// wins, then the Veteran look from level 5 (the game's own veterancy capstone), then the base look; the form
-// comes from the soldier's `form` field (the game has none yet — the preview stages one). The override is the
-// integration contract in miniature: a 1.5-tile sprite anchored at 50%/74% on the tile centre, and a team ring
-// drawn in CSS under the feet.
+// Sprite files follow <class>[_commander|_veteran][_revenant]_<m|f>.webp (see art/README.md): the Commander kit
+// wins, then the Veteran kit from level 5 (the game's own veterancy capstone), then the base kit. A soldier with a
+// look (s.look, 'f07': dealt at creation, see LOOKS in index.html) is drawn in layers: the kit's body
+// (body/<variant>.webp) under their own head (heads/<class>_<look>[_revenant].webp), the form from the look;
+// without one, the whole sprite of the form the preview stages. The override is the integration contract in
+// miniature: a 1.5-tile sprite anchored at 50%/74% on the tile centre, and a team ring drawn in CSS under the feet.
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -20,8 +21,12 @@ const BASE = process.env.GB_URL || 'http://localhost:8931/';
 const { chromium } = await import(process.env.PW_MODULE || 'playwright');   // PW_MODULE=/path/to/playwright/index.mjs if not installed locally
 fs.mkdirSync(OUT, { recursive: true });
 
-const sprites = {};
-for (const f of fs.readdirSync(SPR)) if (f.endsWith('.webp')) sprites[f.slice(0, -5)] = 'data:image/webp;base64,' + fs.readFileSync(path.join(SPR, f)).toString('base64');
+const load = (dir) => {
+  const out = {};
+  if (fs.existsSync(dir)) for (const f of fs.readdirSync(dir)) if (f.endsWith('.webp')) out[f.slice(0, -5)] = 'data:image/webp;base64,' + fs.readFileSync(path.join(dir, f)).toString('base64');
+  return out;
+};
+const sprites = load(SPR), bodies = load(path.join(SPR, 'body')), heads = load(path.join(SPR, 'heads'));
 
 const CSS = `
 #grid .unit:has(> img.spr){background:none!important;box-shadow:none!important;border-color:transparent!important;z-index:5;overflow:visible}
@@ -37,7 +42,7 @@ const CSS = `
 `;
 
 function inject(page, mode) {
-  return page.evaluate(({ sprites, CSS, mode }) => {
+  return page.evaluate(({ sprites, bodies, heads, CSS, mode }) => {
     if (!window.__origPc) window.__origPc = window.pcTopDown;
     let st = document.getElementById('sprcss');
     if (!st) { st = document.createElement('style'); st.id = 'sprcss'; document.head.appendChild(st); }
@@ -48,8 +53,15 @@ function inject(page, mode) {
       if (!window.__sprMode) return window.__origPc(s, size, o);
       s = s || {};
       const cls = s.cls || 'fighter', rev = o.revenant ? '_revenant' : '';
-      const form = s.form || (s.commander ? 'f' : 'm');
+      const form = s.look ? s.look[0] : (s.form || (s.commander ? 'f' : 'm'));
       const tiers = s.commander ? ['_commander', ''] : ((s.level || 1) >= 5 ? ['_veteran', ''] : ['']);
+      const head = s.look && heads[`${cls}_${s.look}${rev}`];
+      let body = null;
+      for (const t of tiers) body = body || bodies[`${cls}${t}${rev}_${form}`];
+      if (head && body) {       // the kit's body under the soldier's own head
+        if (size >= 44) return `<div class="spr-card" style="width:${size}px;height:${size}px;background-image:url(${head}),url(${body});background-size:175%;background-position:50% 64%"></div>`;
+        return `<img class="spr" src="${body}" alt=""><img class="spr" src="${head}" alt="">`;
+      }
       let src = null;
       for (const t of tiers) for (const f of [form, form === 'm' ? 'f' : 'm']) src = src || sprites[`${cls}${t}${rev}_${f}`];
       if (!src) return window.__origPc(s, size, o);
@@ -59,7 +71,7 @@ function inject(page, mode) {
     render();
     const g = document.getElementById('grid');
     if (g) { g.classList.toggle('ringmode', mode === 'ring'); g.classList.toggle('minimode', mode === 'mini'); }
-  }, { sprites, CSS, mode });
+  }, { sprites, bodies, heads, CSS, mode });
 }
 async function unhook(page) { await page.evaluate(() => { window.__sprMode = null; render(); }); }
 // render() rebuilds #grid, so the mode class has to be re-applied after any re-render
@@ -86,10 +98,10 @@ async function stage(page) {
   await page.waitForTimeout(250); await dismiss(page);
   await page.evaluate(() => {
     const S = G.state, c = S.contracts.find(c => c.type === 'patrol') || S.contracts[0];
-    // staged: the Commander (female form) and a second Fighter at veterancy (male form) — the game has no
-    // form field yet, so the preview sets one
-    S.roster[0].form = 'f';
-    Object.assign(S.roster[1], { cls: 'fighter', level: 5, form: 'm', weapon: 'shortsword' });
+    // staged: a squad of four Fighters, each in the head the game dealt them: the Commander (a founder's head),
+    // one at veterancy, two in the base kit. Only the Fighter has rendered sprites so far.
+    Object.assign(S.roster[1], { cls: 'fighter', level: 5, weapon: 'shortsword' });
+    for (const s of S.roster.slice(2, 4)) Object.assign(s, { cls: 'fighter', weapon: 'shortsword' });
     startBattle(c, S.roster.slice(0, 4).map(s => s.id));
   });
   await page.waitForTimeout(400); await dismiss(page);

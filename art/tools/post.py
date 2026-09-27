@@ -3,12 +3,14 @@
     python art/tools/post.py ship  art/renders/fighter/*.png   --out art/sprites
     python art/tools/post.py sheet art/renders/fighter/*.png   --out review.png [--labels a b c]
 
-ship:  master (1.5 tiles square, tile centre at 50%/74%) -> <name>.webp at 384px, alpha kept.
+ship:  master (1.5 tiles square, tile centre at 50%/74%) -> <name>.webp at 384px, alpha kept; a .json (the looks
+       manifest) is copied as it is.
 sheet: each master at the game's real on-screen sizes, over the battle map's own ground colour — a sprite is
        judged at 45px (phone, 1x zoom) and 60px (desktop, 1x), not at the size it was rendered.
 """
 import argparse
 import os
+import shutil
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -26,6 +28,10 @@ def load(path):
 def ship(paths, out, px=SHIP_PX, quality=90):
     os.makedirs(out, exist_ok=True)
     for p in paths:
+        if p.endswith('.json'):     # a manifest travels with its sprites (heads/looks.json)
+            shutil.copy(p, os.path.join(out, os.path.basename(p)))
+            print(os.path.join(out, os.path.basename(p)))
+            continue
         im = load(p).resize((px, px), Image.LANCZOS)
         name = os.path.splitext(os.path.basename(p))[0]
         dst = os.path.join(out, name + '.webp')

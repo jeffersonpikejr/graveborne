@@ -28,6 +28,28 @@ Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 
 phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/path/to/playwright/index.mjs`).
 `index.html` is not modified until an asset is approved.
 
+## Every soldier's own face (`blender/gb/looks.py`)
+
+A soldier is dealt a **look** when the game creates them: one of `looks.POOL` heads per form, rolled from a seeded
+genome (face shape on the male-female dial moved by build, length, lean and age; hair and beard; skin, hair and eye
+colour; greying, a receding hairline, scars, a broken nose). `looks.roll(form, n)` is deterministic, so the save
+stores only the id (`'f07'`) and the pipeline re-renders exactly that head. The game deals from `LOOKS` in
+`index.html`, which must equal `sprites/heads/looks.json` (`test/spine.mjs` checks).
+
+A soldier's sprite is two layers on the same canvas, so each kit is rendered once and each face once:
+
+    .bvenv/bin/python art/blender/render.py fighter --looks      # layers/<variant>.png + heads/<asset>_<id>[_revenant].png
+    .bvenv/bin/python art/tools/post.py ship art/renders/fighter/layers/*.png --out art/sprites/body
+    .bvenv/bin/python art/tools/post.py ship art/renders/fighter/heads/*.png art/renders/fighter/heads/looks.json --out art/sprites/heads
+
+The body layer is the variant with its head hidden from the camera (still casting its shadow); the head layer is a
+look's head on the base kit held out, so the scarf and collar still cut it, rendered in a border round the head.
+The head goes over the body. To review faces rather than sprites:
+
+    .bvenv/bin/python art/blender/review_heads.py views    # both anchors: front, both three-quarters, profile, perspective neck
+    .bvenv/bin/python art/blender/review_heads.py styles   # every hairstyle and beard on each anchor
+    .bvenv/bin/python art/blender/review_heads.py looks    # the pool, one three-quarter each, labelled with its genes
+
 Master renders (`art/renders/`) are not committed: they are reproducible from the scripts. The shippable
 `art/sprites/*.webp` are.
 
@@ -72,9 +94,13 @@ painted-miniature materials.)
                             one centreline, meshed (numpy surface nets) and decimated to readable planes;
                             eyes in carved sockets, hair/beard/brows as shells of the same field; marks()
                             gives the skin shader its landmarks (lips, sockets, lids and eye corners, scar)
+    blender/gb/looks.py     the appearance genome: roll(form, n) -> a soldier's look; build_head(look)
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
-    blender/render.py       CLI renderer
+    blender/render.py       CLI renderer (--looks: body and head layers)
+    blender/review_heads.py head review sheets: views, hairstyles, the look pool
     tools/post.py           review sheets at real display sizes; WebP export
     tools/ingame.mjs        before/after screenshots inside the running game
     renders/                master renders (768px PNG, 1.5 tiles square) — gitignored, reproducible
     sprites/                shippable 384px WebP, named <class>[_commander|_veteran][_revenant]_<m|f>.webp
+    sprites/body/           the same variants with the head left off (the looks' bodies)
+    sprites/heads/          <class>_<look>[_revenant].webp, one per look, and looks.json (the pool the game deals)

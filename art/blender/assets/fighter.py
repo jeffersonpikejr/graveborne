@@ -16,9 +16,9 @@ import math
 from mathutils import Matrix, Vector
 
 from gb import armor as A
-from gb import face as F
 from gb import grit as G
 from gb import kit as K
+from gb import looks as LK
 from gb import mat as M
 
 FIG_SCALE = 0.6          # 1 m = 0.6 tile: a 1.85 m mercenary stands ~1.1 tiles tall
@@ -38,15 +38,30 @@ VARIANTS = {
     'fighter_commander_revenant_f': {'sex': 'female', 'commander': True, 'revenant': True},
 }
 
-BODY = {   # a siege wedge: broad through the shoulders and chest, heavy in the legs, planted wide
-    'male':   dict(hf=1.0, sh=0.272, chest=0.25, waist=0.206, sy=0.64, neck=0.08, bust=0.0, bulk=1.0,
-                   tone='#94796a', lips='#62403b', hair='#2b2118', iris='#3b2c20', beard=True, style='crop'),
-    'female': dict(hf=0.965, sh=0.25, chest=0.233, waist=0.188, sy=0.66, neck=0.066, bust=0.03, bulk=0.94,
-                   tone='#9e8476', lips='#7f4a4a', hair='#2a1c13', iris='#4a5358', beard=False, style='knot'),
+BODY = {   # a siege wedge: broad through the shoulders and chest, heavy in the legs, planted wide (the faces: gb/looks.py)
+    'male':   dict(hf=1.0, sh=0.272, chest=0.25, waist=0.206, sy=0.64, neck=0.08, bust=0.0, bulk=1.0),
+    'female': dict(hf=0.965, sh=0.25, chest=0.233, waist=0.188, sy=0.66, neck=0.066, bust=0.03, bulk=0.94),
 }
 
 
-def build(v, seed=7, turn=-4.0):
+def head_frame(sex, portrait=False):
+    """Where the head sits on the figure (figure space): on the neck, chin a touch up in battle, level in portraits."""
+    return (Matrix.Translation(Vector((0.0, -0.012, 1.715 * BODY[sex]['hf'])))
+            @ Matrix.Rotation(math.radians(0.0 if portrait else HEAD_TILT), 4, 'X') @ Matrix.Scale(HEAD_SCALE, 4))
+
+
+def add_head(fig, look, sex, portrait=False):
+    """Seat a look's head (gb/looks.py) on a figure built with head=False; returns the head's root."""
+    hroot, _ = LK.build_head(look, gaze=16.0 if portrait else 0.0, tag=None if look.get('anchor') else look['id'])
+    hroot.matrix_basis = head_frame(sex, portrait)
+    hroot.parent = fig
+    return hroot
+
+
+def build(v, seed=7, turn=-4.0, look=None, head=True):
+    """One variant (VARIANTS). look: a soldier's own face from gb/looks.py; by default the variant's anchor face (the
+    Commander's founding scar, the Veteran's broken nose and greying beard). head=False leaves the head off, for the
+    look pipeline to seat each look's head on one built body (render.py --looks)."""
     sex = v.get('sex', 'male')
     rev, cmd, vet = v.get('revenant', False), v.get('commander', False), v.get('veteran', False)
     M.set_mode(revenant=rev)
@@ -71,16 +86,6 @@ def build(v, seed=7, turn=-4.0):
     boots = G.leather('boots', color='#2b2017', mud=2.4, seed=12)
     hose = G.cloth('hose', color='#2a2622', blood=0.1, seed=10)
     ox = G.cloth('oxblood', blood=0.5, seed=9)
-    skin = G.skin('skin', Bd['tone'])
-    crooked = 0.003 if (vet and Bd['beard']) else 0.0          # a veteran's once-broken nose
-    marks = F.marks(sex, scar=1 if cmd else None, crooked=crooked, style=Bd['style'])
-    marks['lip_color'] = Bd['lips']
-    face_skin = G.skin('face', Bd['tone'], face=marks, dirt=0.72, stubble=0.3 if Bd['beard'] else 0.0,
-                       creases=marks['creases'] + (marks['forehead'] if Bd['beard'] else []))
-    hair = G.hair('hair', Bd['hair'], flow='down' if Bd['beard'] else 'back')
-    grey = G.hair('greying', '#77716a', seed=18) if vet else None
-    eye_m = G.eye('eye', Bd['iris'])
-    dark = G.flat('dark', '#140d0a')
     shield_face = G.paint_over_steel('shield_face', chip=0.6, blood=0.85)
     wood = G.wood('wood')
 
@@ -297,13 +302,13 @@ def build(v, seed=7, turn=-4.0):
 
     # ---------------------------------------------------------------- neck & head
     # the head carries its own neck (sternomastoids, trapezius), rising from under the back of the skull
-    hroot, _ = F.head('head', sex, face_skin, None, hair, eye_m, dark, beard=Bd['beard'], hair_style=Bd['style'],
-                      scar=1 if cmd else None, crooked=crooked, greying=grey, seed=seed,
-                      gaze=16.0 if v.get('portrait') else 0.0)
-    tilt = 0.0 if v.get('portrait') else HEAD_TILT       # portraits hold the head level, like the reference sheet
-    hroot.matrix_world = (Matrix.Translation(head_c) @ Matrix.Rotation(math.radians(tilt), 4, 'X')
-                          @ Matrix.Scale(HEAD_SCALE, 4))
-    parts.append(hroot)
+    if head:     # portraits hold the head level, like the reference sheet
+        if look is None:
+            look = dict(LK.anchor(sex, commander=cmd, veteran=vet), seed=seed)
+        hroot, _ = LK.build_head(look, gaze=16.0 if v.get('portrait') else 0.0,
+                                 tag=None if look.get('anchor') else look['id'])
+        hroot.matrix_world = head_frame(sex, v.get('portrait'))
+        parts.append(hroot)
     if rev:   # blight light spilling from the eyes onto the face
         parts.append(K.glow('face_glow', head_c + Vector((0.0, -0.105, 0.012)), '#b98cf0', 0.18, radius=0.012))
 
