@@ -427,6 +427,15 @@ def _blob(g, center, sigma):
     return _math(nt, 'EXPONENT', _math(nt, 'MULTIPLY', dd, -1.0 / (sigma * sigma)))
 
 
+def _blob_dist(g, center):
+    """Distance in object space from the shading point to a point."""
+    d = g.N.new('ShaderNodeVectorMath')
+    d.operation = 'DISTANCE'
+    g.L.new(g.obj, d.inputs[0])
+    d.inputs[1].default_value = center
+    return d.outputs['Value']
+
+
 def _eblob(g, center, radii):
     """exp(-|(p - c) / r|^2) in object space: an elliptical soft spot (lips, a shaved patch)."""
     nt = g.nt
@@ -470,6 +479,28 @@ def _vermilion(g, v):
     line = _math(nt, 'MULTIPLY', _maprange(nt, _math(nt, 'ABSOLUTE', _math(nt, 'SUBTRACT', Z, zl)), 0.0003, 0.0009, 1.0, 0.0),
                  _maprange(nt, u, 0.85, 1.0, 1.0, 0.0))
     return _math(nt, 'MULTIPLY', _math(nt, 'MAXIMUM', upper, lower), front), _math(nt, 'MULTIPLY', line, front)
+
+
+def _almond_walls(g, a):
+    """1 on the walls of the eye opening (face.field's almond, cut straight back) toward its corners, 0 elsewhere:
+    the part of the cut that runs through the thick tissue beside the nose and would otherwise catch the light."""
+    nt = g.nt
+    sep = g.N.new('ShaderNodeSeparateXYZ')
+    g.L.new(g.obj, sep.inputs[0])
+    cx, cy, cz = a['c']
+    qx = _math(nt, 'SUBTRACT', _math(nt, 'ABSOLUTE', sep.outputs['X']), cx)
+    qy = _math(nt, 'SUBTRACT', sep.outputs['Y'], cy)
+    qz = _math(nt, 'SUBTRACT', sep.outputs['Z'], cz)
+    t = _maprange(nt, qx, -a['hw'], a['hw'], -1.0, 1.0)
+    w = _math(nt, 'MAXIMUM', _math(nt, 'SUBTRACT', 1.0, _math(nt, 'MULTIPLY', t, t)), 0.0)
+    tilt = _math(nt, 'MULTIPLY', t, 0.0008)
+    up = _math(nt, 'ADD', _math(nt, 'MULTIPLY', _math(nt, 'POWER', w, a['rnd']), a['up']), tilt)
+    lo = _math(nt, 'SUBTRACT', tilt, _math(nt, 'MULTIPLY', _math(nt, 'POWER', w, 0.8), a['lo']))
+    dz = _math(nt, 'MAXIMUM', _math(nt, 'SUBTRACT', qz, up), _math(nt, 'SUBTRACT', lo, qz))
+    m = _maprange(nt, dz, 0.00025, 0.0009, 1.0, 0.0)
+    m = _math(nt, 'MULTIPLY', m, _maprange(nt, _math(nt, 'ABSOLUTE', t), 0.6, 0.78))                 # toward the corners
+    m = _math(nt, 'MULTIPLY', m, _maprange(nt, _math(nt, 'ABSOLUTE', qx), a['hw'], a['hw'] + 0.0008, 1.0, 0.0))
+    return _math(nt, 'MULTIPLY', m, _maprange(nt, qy, 0.004, 0.008, 1.0, 0.0))                      # not the skull behind
 
 
 def _segment_dist3(g, a, b):
@@ -589,6 +620,31 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
     speck = g.noise(400.0, detail=1.0, w=5.0)
     if stubble > 0:
         col = _mix(nt, 'MIX', col, g.col('#2a2019', 'skin'), _math(nt, 'MULTIPLY', speck, stubble))
+    near = None
+    if face and face.get('lids'):     # the lids' inner margin, against the eyeball: always in shadow, never a lit fringe
+        wall = None                   # everything inside the lid's sphere is margin: shadowed flesh out to the rim
+        for c in face['lids']:
+            d = _blob_dist(g, c)
+            m = _maprange(nt, d, face['eye_r'] + 0.0006, face['eye_r'] + 0.0022, 1.0, 0.0)
+            w = _maprange(nt, d, face['lid_r'] - 0.0009, face['lid_r'] - 0.00025, 1.0, 0.0)
+            near = m if near is None else _math(nt, 'MAXIMUM', near, m)
+            wall = w if wall is None else _math(nt, 'MAXIMUM', wall, w)
+        if face.get('almond'):        # and the opening's walls toward its corners, where they cut deep into the face
+            wall = _math(nt, 'MAXIMUM', wall, _almond_walls(g, face['almond']))
+        col = _mix(nt, 'MIX', col, g.col('#4a2820', 'skin'), _math(nt, 'MULTIPLY', wall, 0.8))
+        col = _mix(nt, 'MIX', col, g.col('#24150f', 'skin'), _math(nt, 'MULTIPLY', near, 0.9))
+        near = _math(nt, 'MAXIMUM', near, wall)
+    if face and face.get('canthi'):   # the eye's corners: the caruncle's muted pink inside, the outer corner in shadow
+        inner = outer = None
+        for ci, co in face['canthi']:
+            mi = _maprange(nt, _blob_dist(g, ci), 0.0014, 0.0028, 1.0, 0.0)
+            mo = _maprange(nt, _blob_dist(g, co), 0.0012, 0.0026, 1.0, 0.0)
+            inner = mi if inner is None else _math(nt, 'MAXIMUM', inner, mi)
+            outer = mo if outer is None else _math(nt, 'MAXIMUM', outer, mo)
+        col = _mix(nt, 'MIX', col, g.col('#6e3833', 'skin'), _math(nt, 'MULTIPLY', inner, 0.85))
+        col = _mix(nt, 'MIX', col, g.col('#1e120d', 'skin'), _math(nt, 'MULTIPLY', outer, 0.9))
+        corners = _math(nt, 'MAXIMUM', inner, outer)
+        near = corners if near is None else _math(nt, 'MAXIMUM', near, corners)
     if face:     # the undercut's clippered sides: a 'stubble' vertex attribute written by face.head
         at = g.N.new('ShaderNodeAttribute')
         at.attribute_type = 'GEOMETRY'
@@ -616,6 +672,8 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
     if lipm is not None:     # the lips carry a faint sheen
         rgh = _lerp(nt, rgh, 0.5, _math(nt, 'MULTIPLY', lipm, 0.6))
         rgh = _lerp(nt, rgh, 0.95, stomion)          # but the mouth line is matte: no glint inside it
+    if near is not None:     # nor in the lid margins and the eye's corners
+        rgh = _lerp(nt, rgh, 0.95, near)
     m = g.finish(col, rgh, 0.0)
     _CACHE[key] = m
     return m

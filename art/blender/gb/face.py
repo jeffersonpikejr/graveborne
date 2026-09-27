@@ -73,8 +73,10 @@ def _settings(sex_or_form):
 
 
 EYE_R = 0.0125          # eyeball radius; the same for both forms, so the female eye reads a touch larger
-GRID = 0.0014           # meshing resolution (m): fine enough for the lid margin and the mouth line
-LOWPOLY = dict(skin=9000, hair=2600, beard=1500, brow=400)     # the lips and nostrils need the skin's budget     # triangles after decimation: large readable planes
+CANTHI = ((-0.0134, -0.0009), (0.0134, 0.0009))     # the eye's inner and outer corner tissue: (x, z) off the eyeball's centre
+CANTHUS_Y = -0.0025                                  # ...set this far forward: it fills the corner, behind the lids
+GRID = 0.0012           # meshing resolution (m): fine enough for the lid margin and the mouth line
+LOWPOLY = dict(skin=9000, hair=2600, beard=1500, brow=900)     # triangles after decimation: large readable planes (the lips and nostrils need the skin's budget)
 
 
 # ------------------------------------------------------------------------------------------------ distance field
@@ -449,23 +451,30 @@ def field(P, L, scar=None):
     e = _smin(e, _ell(Pm, S(0.0726, 0.0015, -0.017), S(0.0028, 0.0032, 0.0042)), 0.002)      # the tragus
     d = _smin(d, _ell(Pm, S(0.0665, 0.007, -0.016), S(0.0055, 0.0085, 0.019)), 0.008)          # the ear's root
     d = _smin(d, e, 0.0045)
-    # the founding scar: a shallow, uneven groove
+    # the founding scar: a shallow, uneven groove (its path lifted off the skin, so the cut is broad and soft)
     if scar:
         for a, b, w in scar:
-            d = _smax(d, -_cap(P, a, b, w * 0.5), 0.0006)
+            d = _smax(d, -_cap(P, a, b, w * 0.8), 0.0012)
     # eyes: a shell of lid around each eyeball, the eyeball's own room, and the almond opening cut through: hooded,
     # but open enough to read
-    lid = _ell(Pm, c, np.full(3, EYE_R + 0.0026 + f['lid_t'], np.float32))
+    lid = _ell(Pm, c, np.full(3, EYE_R + 0.003 + f['lid_t'], np.float32))       # thick enough for the grid to hold
     lid = _smax(lid, Pm[:, 1] - (c[1] + 0.003), 0.001)
     d = _smin(d, lid, 0.003)
     d = _smax(d, -_ell(Pm, c, np.full(3, EYE_R + 0.0002, np.float32)), 0.0005)
+    for dx in (-0.0125, 0.0128):     # the socket behind the eye's corners: closed, never a void
+        d = _smin(d, _ell(Pm, c + np.array((dx, 0.0045, 0.0), np.float32), np.array((0.0032, 0.0042, 0.0032), np.float32)), 0.0015)
     q = Pm - c
     t = np.clip(q[:, 0] / L.hw, -1.0, 1.0)
     w = np.maximum(0.0, 1.0 - t * t)
     up = 0.0049 * f['eye'] * f['lid_h'] * w ** f['lid_round'] + 0.0008 * t      # male heavier and flatter
     lo = -0.0051 * f['eye'] * w ** 0.8 + 0.0008 * t
     ap = np.maximum(np.maximum(q[:, 2] - up, lo - q[:, 2]), np.maximum(np.abs(q[:, 0]) - L.hw, q[:, 1]))
-    return _smax(d, -ap, 0.0006)
+    d = _smax(d, -ap, 0.001)             # a slightly rounded lid margin: the mesh holds it without fraying
+    # the opening runs past the eyeball at both ends: the caruncle's mound fills the inner corner and the lateral
+    # canthus the outer, set back behind the lids (tissue in shadow, never a lit wall)
+    for cx, cz in CANTHI:
+        d = _smin(d, _ell(Pm, c + np.array((cx, CANTHUS_Y, cz), np.float32), np.array((0.0024, 0.0028, 0.0024), np.float32)), 0.0008)
+    return d
 
 
 def surface(L, x, z, scar=None, lift=0.0):
@@ -701,22 +710,22 @@ def _region_brow(L, scar_side, noise):
             s0 += seg_len[i]
         r = best - (0.0032 - 0.0017 * along) * f['brow_w'] + 0.0012 * (noise(P, 520.0) - 0.5)
         r = np.maximum(r, P[:, 1] + 0.05)
-        if scar_side:   # the scar cuts the brow in two
-            gap = 0.0024 - np.abs(P[:, 0] - scar_side * 0.0438 * L.k[0])
-            r = np.maximum(r, gap)
+        if scar_side:   # the scar ends the brow on its side: nothing left beyond the cut to fray at small sizes
+            r = np.maximum(r, np.where(P[:, 0] * scar_side > 0, P[:, 0] * scar_side - (0.0438 * L.k[0] - 0.0024), -1.0))
         return r
     return region
 
 
 # ------------------------------------------------------------------------------------------------ the scar
-def scar_path(L, side):
+def scar_path(L, side, lift=0.0):
     """The founding scar: from the forehead through the brow, past the eye's outer corner, down the cheek. Broken
-    in two places, its width uneven. Returns 3D segments (a, b, width) on the skin."""
+    in two places, its width uneven. Returns 3D segments (a, b, width) on the skin (or `lift` off it: the groove's
+    axis, so the cut stays broad and shallow)."""
     xz = [(0.034, 0.052), (0.039, 0.036), (0.0445, 0.022), (0.049, 0.012), (0.0525, 0.001), (0.0535, -0.012),
           (0.0525, -0.026), (0.051, -0.04), (0.048, -0.052)]
     widths = [0.0024, 0.003, 0.0021, 0.0026, 0.0032, 0.0028, 0.0023, 0.0019]
     gaps = {3, 6}                                        # skip: a break by the eye corner and one on the cheek
-    pts = [surface(L, side * x * L.k[0], z * L.k[2])[0] for x, z in xz]
+    pts = [surface(L, side * x * L.k[0], z * L.k[2], lift=lift)[0] for x, z in xz]
     return [(pts[i], pts[i + 1], widths[i]) for i in range(len(pts) - 1) if i not in gaps]
 
 
@@ -741,6 +750,9 @@ def marks(sex, scar=None, crooked=0.0, style='crop'):
                  for s in (-1, 1)],
         forehead=[[tuple(np.array(S(x, 0, z))[[0, 2]]) for x, z in ((-0.028, zz - 0.003), (0.0, zz), (0.028, zz - 0.003))]
                   for zz in (0.036, 0.046)],
+        lids=[tuple(L.eye * (s, 1, 1)) for s in (-1, 1)], eye_r=EYE_R, lid_r=EYE_R + 0.003 + f['lid_t'],
+        almond=dict(c=tuple(float(v) for v in L.eye), hw=L.hw, up=0.0049 * f['eye'] * f['lid_h'], lo=0.0051 * f['eye'], rnd=f['lid_round']),
+        canthi=[tuple(tuple(L.eye * (s, 1, 1) + np.array((s * cx, CANTHUS_Y, cz))) for cx, cz in CANTHI) for s in (-1, 1)],
         scar=None)
     if scar:
         out['scar'] = [(tuple(a), tuple(b), w) for a, b, w in scar_path(L, scar)]
@@ -787,7 +799,7 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
     once-broken nose's sideways kink (m); greying: a second hair material for the beard (a veteran); gaze: degrees
     the eyes turn toward the viewer (+ toward the head's +X side)."""
     L = Layout(sex, crooked)
-    sc = scar_path(L, scar) if scar else None
+    sc = scar_path(L, scar, lift=0.0012) if scar else None
     key = (tuple(sorted((k, round(v, 6)) for k, v in L.f.items())), bool(beard), hair_style, scar, round(crooked, 5), seed)
     if key not in _CACHE:
         g = _Grid(L, sc, lo=(-0.105, -0.145, -0.24), hi=(0.105, 0.16, 0.16))
