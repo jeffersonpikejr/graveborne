@@ -42,7 +42,7 @@ BODY = {   # a siege wedge: broad through the shoulders and chest, heavy in the 
     'male':   dict(hf=1.0, sh=0.272, chest=0.25, waist=0.206, sy=0.64, neck=0.08, bust=0.0, bulk=1.0,
                    tone='#94796a', lips='#62403b', hair='#2b2118', iris='#3b2c20', beard=True, style='crop'),
     'female': dict(hf=0.965, sh=0.25, chest=0.233, waist=0.188, sy=0.66, neck=0.066, bust=0.03, bulk=0.94,
-                   tone='#9e8476', lips='#8a4f47', hair='#2a1c13', iris='#4a5358', beard=False, style='knot'),
+                   tone='#9e8476', lips='#845049', hair='#2a1c13', iris='#4a5358', beard=False, style='knot'),
 }
 
 

@@ -538,10 +538,6 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
         col = _mix(nt, 'MIX', col, g.col('#3b2319', 'skin'), spots(face['sock']))
         # dark circles: the sleepless, haunted look every face in the company carries
         col = _mix(nt, 'MIX', col, g.col('#3a2420', 'skin'), spots(face['bags']))
-        col = _mix(nt, 'MIX', col, g.col(face.get('lip_color', '#7b5550'), 'skin'),
-                   _math(nt, 'MULTIPLY', eblobs(face['lips']), face.get('lip_amount', 0.45)))
-        if face.get('lash'):     # a dark lash line along the upper lid
-            col = _mix(nt, 'MIX', col, g.col('#1d1311', 'skin'), _math(nt, 'MULTIPLY', eblobs(face['lash']), 0.8))
     if creases:
         lines = None
         for poly in creases:
@@ -555,6 +551,11 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
     mottle = _maprange(nt, g.noise(22.0, detail=6.0, rough=0.7, w=5.0), 0.3, 0.7, 0.0, 1.0)             # painterly blotching
     col = _mix(nt, 'MIX', col, g.col('#b89a86', 'skin'), _math(nt, 'MULTIPLY', mottle, 0.22))
     col = _mix(nt, 'MIX', col, g.col('#5e4336', 'skin'), _math(nt, 'MULTIPLY', _math(nt, 'SUBTRACT', 1.0, mottle), 0.18))
+    if face:     # lips and lash line after the grime and mottling, so they keep their colour
+        col = _mix(nt, 'MIX', col, g.col(face.get('lip_color', '#7b5550'), 'skin'),
+                   _math(nt, 'MULTIPLY', eblobs(face['lips']), face.get('lip_amount', 0.45)))
+        if face.get('lash'):     # a dark lash line along the upper lid
+            col = _mix(nt, 'MIX', col, g.col('#1d1311', 'skin'), _math(nt, 'MULTIPLY', eblobs(face['lash']), 0.8))
     speck = g.noise(400.0, detail=1.0, w=5.0)
     if stubble > 0:
         col = _mix(nt, 'MIX', col, g.col('#2a2019', 'skin'), _math(nt, 'MULTIPLY', speck, stubble))

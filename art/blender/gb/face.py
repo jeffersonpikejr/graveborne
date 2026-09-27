@@ -25,14 +25,17 @@ from mathutils import Matrix, Vector
 from . import kit as K
 
 # per-form scales on one construction. Female: a narrower, slightly smaller skull, a softer brow, a narrower jaw
-# and chin, a smaller nose, fuller lips, a slimmer neck, no larynx.
+# and chin, a smaller nose, fuller lips, lighter trapezius and shoulders, no larynx. Her neck is slimmer than his
+# but not delicate: sex reads through jaw, chin, brow, lips and cheeks, not through a stalk of a neck.
 FORMS = {
     'male':   dict(sx=1.0, sy=1.0, sz=1.0, brow=1.0, brow_y=0.0, jaw=1.0, chin=1.0, chin_round=0.0, nose=1.0, lip=1.0,
                    eye=1.0, gaunt=1.0, ear=0.88, neck=1.0, scm=1.0, adam=1.0, muzzle=1.0, cheek_z=0.0, brow_w=1.0,
-                   fold=1.0, chin_y=0.0, chin_z=0.0, lower_y=0.0),
+                   fold=1.0, chin_y=0.0, chin_z=0.0, lower_y=0.0, neck_d=0.92, neck_back=0.0, trap=0.8, shoulder=1.0,
+                   lip_y=1.0, lip_lo=1.0, bow=1.0),
     'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.8, chin=0.62, chin_round=0.35, nose=0.78,
-                   lip=1.3, eye=1.12, gaunt=0.55, ear=0.8, neck=0.78, scm=0.8, adam=0.0, muzzle=0.82,
-                   cheek_z=0.002, brow_w=0.75, fold=0.25, chin_y=0.004, chin_z=0.004, lower_y=0.006),
+                   lip=1.3, eye=1.12, gaunt=0.55, ear=0.8, neck=0.88, scm=0.9, adam=0.0, muzzle=0.82,
+                   cheek_z=0.002, brow_w=0.75, fold=0.25, chin_y=0.002, chin_z=0.004, lower_y=0.006, neck_d=1.0,
+                   neck_back=0.004, trap=0.45, shoulder=0.9, lip_y=1.25, lip_lo=1.5, bow=1.6),
 }
 EYE_R = 0.0125          # eyeball radius; the same for both forms, so the female eye reads a touch larger
 GRID = 0.0014           # meshing resolution (m): fine enough for the lid margin and the mouth line
@@ -210,16 +213,20 @@ def field(P, L, scar=None):
     d = _smin(d, _ell(P, S(0.0, 0.06, 0.0), S(0.056, 0.05, 0.052)), 0.02)
     d = _smin(d, _ell(P, S(0.0, -0.045, 0.025), S(0.06, 0.04, 0.05)), 0.02)
     d = _smax(d, np.abs(x) - 0.0695 * f['sx'], 0.016)
-    # the neck: a short column from under the back of the skull into the shoulders. Sternomastoids from behind the
-    # ears to the notch give it a front plane and side planes; the trapezius slopes from the nape to the shoulders;
+    # the neck: a column rising from under the back of the skull, nearly as deep front-to-back as it is wide. The
+    # posterior cervical mass carries the back of the skull down into it; broad, soft sternomastoids run from behind
+    # the ears toward the collarbones; the trapezius sits low and soft, sloping from the nape to the shoulders;
     # collarbones and the top of the chest close it off (the armour hides the rest)
-    nk = f['neck']
-    sq = np.array((1.0, 1.0 / 0.9, 1.0), np.float32)
-    d = _smin(d, _cap(P * sq, S(0.0, 0.022, -0.04) * sq, S(0.0, 0.01, -0.175) * sq, 0.047 * nk, 0.054 * nk), 0.018)
-    d = _smin(d, _cap(Pm, S(0.051, 0.032, -0.038), S(0.016, -0.03, -0.168), 0.0105 * nk * f['scm']), 0.014)
-    d = _smin(d, _both(lambda Q: _cap(Q, S(0.02, 0.058, -0.07), S(0.11, 0.022, -0.17), 0.026 * nk), P, 0.02), 0.022)
+    nk, nb = f['neck'], f['neck_back']
+    sq = np.array((1.0, 1.0 / f['neck_d'], 1.0), np.float32)
+    d = _smin(d, _cap(P * sq, S(0.0, 0.022 + nb, -0.04) * sq, S(0.0, 0.01 + nb, -0.175) * sq, 0.048 * nk, 0.055 * nk), 0.018)
+    d = _smin(d, _ell(P, S(0.0, 0.05 + nb, -0.068), S(0.036 * nk, 0.03, 0.055)), 0.022)
+    d = _smin(d, _cap(Pm, S(0.051, 0.032, -0.038), S(0.017, -0.027, -0.168), 0.0105 * nk * f['scm']), 0.018)
+    tr = f['trap']
+    d = _smin(d, _both(lambda Q: _cap(Q, S(0.02, 0.054, -0.088 - 0.014 * (1 - tr)), S(0.11, 0.02, -0.184), 0.004 + 0.02 * tr),
+                       P, 0.02), 0.03)
     d = _smin(d, _both(lambda Q: _cap(Q, S(0.014, -0.036, -0.176), S(0.1, -0.012, -0.172), 0.011 * nk), P, 0.01), 0.016)
-    d = _smin(d, _ell(P, S(0.0, 0.012, -0.215), S(0.125, 0.07, 0.05)), 0.03)
+    d = _smin(d, _ell(P, S(0.0, 0.012, -0.215), S(0.125 * f['shoulder'], 0.07, 0.05)), 0.03)
     d = _smax(d, -0.21 * L.k[2] - z, 0.004)
     d = _smax(d, np.abs(x) - 0.1, 0.006)
     if f['adam']:     # the larynx: low on the throat, a soft swelling rather than a lump
@@ -238,8 +245,7 @@ def field(P, L, scar=None):
     d = _smax(d, -_ell(Pm, S(0.051, -0.086 + 0.006 * (1 - f['gaunt']), -0.052), S(0.015, 0.01, 0.016) * f['gaunt'] ** 0.5),
               0.02)
     # the muzzle the lips sit on
-    d = _smin(d, _ell(P, S(0.0, -0.071 + ly + 0.025 * (1 - f['muzzle']), -0.058), S(0.036, 0.025 * f['muzzle'], 0.025)),
-              0.014)
+    d = _smin(d, _ell(P, S(0.0, -0.071 + ly, -0.058), S(0.036 * (0.9 + 0.1 * f['muzzle']), 0.025, 0.025)), 0.014)
     # mandible: ramus under the ear, a clear angle below it, the body along the jaw line; a chin with a flat lower
     # plane that projects a little
     jw, ch = f['jaw'], f['chin']
@@ -276,18 +282,19 @@ def field(P, L, scar=None):
               0.0015)
     # lips: thin, emerging from the muzzle rather than laid on it, the upper with a slight bow; the mouth line level
     # (a neutral mouth), the corners dimpled, the fold under the lower lip. Set a little higher: a shorter philtrum.
-    lp = f['lip']
-    lb = 0.04 * (1 - f['muzzle']) + ly          # lips stay on the muzzle's surface when it is set back
+    lp, lyp, llo, bw = f['lip'], f['lip_y'], f['lip_lo'], f['bow']
+    lb = ly          # the lips, the muzzle and the chin set back together: no hollow between them
     mz = 0.0018
-    d = _smin(d, _ell(P, S(0.0, -0.092 + lb, -0.0532 + mz), S(0.025, 0.0045, 0.0038 * lp)), 0.006)
-    d = _smax(d, -_ell(P, S(0.0, -0.0968 + lb, -0.0492 + mz), S(0.0022, 0.0022, 0.0016)), 0.0012)       # the bow
-    d = _smin(d, _ell(P, S(0.0, -0.0912 + lb, -0.0616 + mz), S(0.021, 0.0036 * f['muzzle'], 0.0042 * lp ** 0.7)), 0.006)
-    slit = np.minimum(_cap(Pm, S(0.0, -0.0975 + lb, -0.0572 + mz), S(0.014, -0.0955 + lb, -0.0572 + mz), 0.0009),
-                      _cap(Pm, S(0.014, -0.0955 + lb, -0.0572 + mz), S(0.0285, -0.0882 + lb, -0.0576 + mz), 0.0009, 0.0007))
+    kl = 0.006 - 0.0025 * (lyp - 1.0) / 0.25          # fuller lips join the muzzle more crisply: two distinct planes
+    d = _smin(d, _ell(P, S(0.0, -0.092 + lb, -0.0532 + mz), S(0.025, 0.0045 * lyp, 0.0038 * lp)), kl)
+    d = _smax(d, -_ell(P, S(0.0, -0.0968 + lb, -0.0492 + mz), S(0.0022, 0.0022, 0.0016) * bw ** 0.5), 0.0012)   # the bow
+    d = _smin(d, _ell(P, S(0.0, -0.0912 + lb, -0.0616 + mz), S(0.021, 0.0036 * llo, 0.0042 * lp ** 0.7 * llo ** 0.2)), kl)
+    slit = np.minimum(_cap(Pm, S(0.0, -0.0975 + lb, -0.0572 + mz), S(0.014, -0.0955 + lb, -0.0572 + mz), 0.0012),
+                      _cap(Pm, S(0.014, -0.0955 + lb, -0.0572 + mz), S(0.0285, -0.0882 + lb, -0.0576 + mz), 0.0012, 0.0008))
     d = _smax(d, -slit, 0.0008)
     d = _smax(d, -_ell(Pm, S(0.0285, -0.0874 + lb, -0.0577 + mz), np.full(3, 0.0014, np.float32)), 0.002)
-    d = _smax(d, -_ell(P, S(0.0, -0.0938 + lb + 0.003 * (1 - f['fold']), -0.07 + mz), S(0.012, 0.0022, 0.0042) * f['fold'] ** 0.5),
-              0.01)
+    if f['fold'] >= 0.5:     # the fold under the lower lip: a soft hollow on the male; the female's stays full
+        d = _smax(d, -_ell(P, S(0.0, -0.0938 + lb, -0.07 + mz), S(0.012, 0.0022, 0.0042) * f['fold'] ** 0.5), 0.01)
     # ears, from the brow down to the nose base, tilted back, tucked against the skull: rim, hollow, lobe
     E = _R(rx=-15, rz=-5)
     er = f['ear']
@@ -549,6 +556,18 @@ def scar_path(L, side):
 
 
 # ------------------------------------------------------------------------------------------------ shader landmarks
+def _lip_marks(sex, S):
+    """The lips' colour: the upper lip in two lobes either side of a dip (the bow), the lower one fuller."""
+    f = FORMS[sex]
+    y = -0.095 + f['lower_y']
+    lp = f['lip']
+    if f['bow'] > 1.0:
+        upper = [(tuple(S(s * 0.0085, y, -0.0512)), tuple(S(0.018, 0.012, 0.0046 * lp))) for s in (-1, 1)]
+    else:
+        upper = [(tuple(S(0.0, y, -0.0514)), tuple(S(0.029, 0.012, 0.0045 * lp)))]
+    return upper + [(tuple(S(0.0, y, -0.06)), tuple(S(0.025, 0.012, 0.0052 * lp * f['lip_lo'] ** 0.3)))]
+
+
 def marks(sex, scar=None, crooked=0.0, style='crop'):
     """Where the skin shader paints: weather on the cheeks and nose, the sockets and the dark circles, the lips,
     the scar. (The undercut's stubble is a vertex attribute the head writes: see _stubble.)"""
@@ -563,8 +582,7 @@ def marks(sex, scar=None, crooked=0.0, style='crop'):
         lip_amount=0.45 if sex == 'male' else 0.72,
         lash=[] if sex == 'male' else [(tuple(L.eye * (s, 1, 1) + S(0.0, -EYE_R - 0.0015, 0.005)),
                                         tuple(S(0.0125, 0.004, 0.0013))) for s in (-1, 1)],
-        lips=[(tuple(S(0.0, -0.095 + 0.04 * (1 - FORMS[sex]['muzzle']) + FORMS[sex]['lower_y'], -0.0514)), tuple(S(0.029, 0.012, 0.0045 * FORMS[sex]['lip']))),
-              (tuple(S(0.0, -0.095 + 0.04 * (1 - FORMS[sex]['muzzle']) + FORMS[sex]['lower_y'], -0.06)), tuple(S(0.025, 0.012, 0.0052 * FORMS[sex]['lip'])))],
+        lips=_lip_marks(sex, S),
         creases=[[tuple(np.array(S(s * x, 0, z))[[0, 2]]) for x, z in ((0.0175, -0.034), (0.025, -0.046), (0.0305, -0.061))]
                  for s in (-1, 1)],
         forehead=[[tuple(np.array(S(x, 0, z))[[0, 2]]) for x, z in ((-0.028, zz - 0.003), (0.0, zz), (0.028, zz - 0.003))]
