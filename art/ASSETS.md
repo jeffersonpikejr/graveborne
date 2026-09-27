@@ -19,6 +19,13 @@ the Line-Breaker concept art and briefs:
   sockets, cheekbone planes running back to the ear, a three-part nose (bridge, wedge tip, alar base), muzzle and
   lips, a mandible with a flat-bottomed chin, a neck that rises behind the jaw — about one facial centreline, and
   decimated to large planes that stay legible at 64–128 px. Not handsome, not grotesque: structurally believable.
+- **Readability at portrait scale** (set on revision 6): test every head at 64×64 and 96×96. The read runs hair
+  silhouette → eyes and brow → nose → jaw and beard → scars and age; both eyes must stay shapes, never black
+  sockets. Rugged human, not heroic or orcish: the brow follows the skull and fades into the temples, the cheek
+  turns back into the temple without a flange, ears sit tucked, the neck is short and flows into the shoulders.
+- **Next: the face morph system.** The approved base head becomes the one every face is rolled from — face length,
+  jaw, chin, cheekbones, brow, eyes, nose, lips, ears, age, hair, beard, skin and scars as bounded parameters — so
+  each soldier keeps one face across battle sprite, unit card and roster.
 - **Proportions** (revisions 4–5): eyes at mid-head, hooded but open, one eye-width apart; the midface short;
   the nose about as wide at its base as the gap between the eyes; a mouth about as wide as the pupils are apart,
   thin-lipped and neutral; ears from the brow to the nose base. Exhaustion comes from the brow, the sockets, the
@@ -65,7 +72,7 @@ Status: ✅ approved · 🔍 in review · ⏳ queued
 ### Wave 1 — The Company (style anchor + every unit you control)
 | # | Asset | Variants | Score | Status |
 |---|---|---|---|---|
-| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded, the head carved from one skull (rev. 5) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | 🔍 |
+| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded, the head carved from one skull (rev. 6) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | 🔍 |
 | 2 | Ranger — hood & cloak, longbow, quiver | same matrix | 3×2×3 = 18 | ⏳ |
 | 3 | Cleric — white tabard with red cross, mail coif, flanged mace | same matrix | 3×2×3 = 18 | ⏳ |
 | 4 | Ash Acolyte — hooded ash-robe, blight veins, floating ashfire | same matrix | 3×2×3 = 18 | ⏳ |
