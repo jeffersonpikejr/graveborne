@@ -35,19 +35,19 @@ from . import kit as K
 # cheeks, not through a stalk of a neck. Both share one proportional framework (hers 5% smaller).
 ANCHORS = {
     'male':   dict(sx=1.0, sy=1.0, sz=1.0, brow=1.0, brow_y=0.0, jaw=1.0, chin=1.06, chin_round=0.0, nose=1.0, lip=1.0,
-                   eye=1.0, gaunt=1.0, ear=0.88, neck=1.0, scm=1.1, adam=1.0, muzzle=1.0, cheek_z=-0.002, brow_w=1.0,
+                   eye=1.0, gaunt=0.85, ear=0.88, neck=1.0, scm=1.1, adam=1.0, muzzle=1.0, cheek_z=-0.002, brow_w=1.0,
                    fold=1.0, chin_y=0.0, chin_z=0.0, lower_y=0.0, neck_d=1.06, neck_back=0.0, trap=0.8, shoulder=1.0,
                    lip_hu=0.0042, lip_hl=0.0062, lip_pu=0.0024, lip_pl=0.0021, bow=0.14,
-                   masseter=1.0, jaw_y=0.0, jaw_z=0.0, jaw_k=0.012, cheek_up=0.85, cheek_pad=0.0, forehead=0.0,
+                   masseter=0.8, jaw_y=0.0, jaw_z=0.0, jaw_k=0.013, taper=0.0, mouth_z=0.0, cheek_up=0.85, cheek_pad=0.0, forehead=0.0,
                    glabella=1.15, brow_arch=0.0, brow_lift=0.0, eye_depth=0.0008, lid_h=0.93, lid_round=0.72, lid_t=0.0004,
                    nose_len=1.02, bridge=1.0, tip_round=0.85, submental=1.15, ear_t=1.12, ear_yaw=-12.0, shade=32.0,
                    lash=0.0, lip_tint=0.45),
-    'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.78, chin=0.58, chin_round=0.75, nose=0.78,
+    'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.78, chin=0.52, chin_round=0.75, nose=0.78,
                    lip=1.3, eye=1.12, gaunt=0.4, ear=0.8, neck=0.88, scm=0.9, adam=0.0, muzzle=0.82,
-                   cheek_z=0.004, brow_w=0.75, fold=0.25, chin_y=0.002, chin_z=0.004, lower_y=0.006, neck_d=1.12,
+                   cheek_z=0.004, brow_w=0.75, fold=0.25, chin_y=0.002, chin_z=0.0065, lower_y=0.006, neck_d=1.12,
                    neck_back=0.004, trap=0.45, shoulder=0.9, lip_hu=0.0064, lip_hl=0.0100, lip_pu=0.004, lip_pl=0.0042,
                    bow=0.32,
-                   masseter=0.6, jaw_y=-0.004, jaw_z=0.006, jaw_k=0.02, cheek_up=1.15, cheek_pad=1.0, forehead=1.0,
+                   masseter=0.6, jaw_y=-0.004, jaw_z=0.006, jaw_k=0.02, taper=0.13, mouth_z=0.0025, cheek_up=1.15, cheek_pad=1.0, forehead=1.0,
                    glabella=1.0, brow_arch=1.0, brow_lift=0.0015, eye_depth=0.0, lid_h=1.04, lid_round=0.48, lid_t=0.0,
                    nose_len=0.93, bridge=0.85, tip_round=1.35, submental=0.85, ear_t=0.9, ear_yaw=-7.0, shade=44.0,
                    lash=1.0, lip_tint=0.6),
@@ -174,6 +174,15 @@ class Layout:
         return _ell(P, self.S(0.0, -0.043 - 0.0075 * fh, 0.025 + 0.011 * fh), self.S(0.06, 0.04, 0.05 + 0.006 * fh),
                     M=_R(rx=10.0 - 24.0 * fh))
 
+    def facemass(self, P):
+        """The face's mass (maxilla, the volume of the cheeks). taper narrows it toward the chin: the female's heart."""
+        f, S = self.f, self.S
+        c, r = S(0.0, -0.034 + f['lower_y'], -0.032), S(0.058 * (0.9 + 0.1 * f['muzzle']), 0.058, 0.056)
+        if f['taper'] > 0.0:
+            t = np.clip((-0.01 * self.k[2] - P[:, 2]) / (0.07 * self.k[2]), 0.0, 1.0)
+            P = np.column_stack((P[:, 0] / (1.0 - f['taper'] * t), P[:, 1], P[:, 2]))
+        return _ell(P, c, r)
+
     def nz(self, z):
         """A height on the nose, measured from its root: a shorter nose (nose_len < 1) lifts its tip and base."""
         return 0.004 + (z - 0.004) * self.f['nose_len']
@@ -201,7 +210,7 @@ class Layout:
             d = _ell(P, S(0.0, 0.014, 0.025), S(0.072, 0.096, 0.081))
             d = _smin(d, self.frontal(P), 0.02)
             d = _smax(d, np.abs(P[:, 0]) - 0.0695 * f['sx'], 0.016)
-            return _smin(d, _ell(P, S(0.0, -0.034 + ly, -0.032), S(0.058 * (0.9 + 0.1 * f['muzzle']), 0.058, 0.056)), 0.02)
+            return _smin(d, self.facemass(P), 0.02)
 
         def patch(x, z, ra, rb, rn, up):
             p, n = self._probe(base, x * float(self.k[0]), z * float(self.k[2]))
@@ -216,7 +225,7 @@ class Layout:
         for x, z, ra, rb, rn, up in ((0.045, -0.02, 0.017, 0.013, 0.007, 0.003), (0.057, -0.013, 0.02, 0.008, 0.006, 0.0022)):
             out.append(patch(x, z + f['cheek_z'], ra, rb, rn, up * f['cheek_up']))
         # the cheek's soft tissue in front of and under the cheekbone: what rounds a face toward an oval or a heart
-        self.pad = patch(0.035, -0.033 + f['cheek_z'], 0.017, 0.015, 0.009, 0.0022 * f['cheek_pad']) if f['cheek_pad'] > 0.05 else None
+        self.pad = patch(0.036, -0.026 + f['cheek_z'], 0.016, 0.014, 0.009, 0.0022 * f['cheek_pad']) if f['cheek_pad'] > 0.05 else None
         return out
 
     def _mouth(self):
@@ -226,13 +235,13 @@ class Layout:
         they taper soft into the corners. Philtral columns run from under the nose to the bow's peaks."""
         S, f, k = self.S, self.f, self.k
         ly = f['lower_y']
-        fc, fr = S(0.0, -0.034 + ly, -0.032), S(0.058 * (0.9 + 0.1 * f['muzzle']), 0.058, 0.056)
         mc, mr = S(0.0, -0.071 + ly, -0.058), S(0.036 * (0.9 + 0.1 * f['muzzle']), 0.025, 0.025)
 
         def base(P):
-            return _smin(_ell(P, fc, fr), _ell(P, mc, mr), 0.014)
+            return _smin(self.facemass(P), _ell(P, mc, mr), 0.014)
 
-        zs = float(-0.0554 * k[2])                     # the mouth line at the centre
+        zs = float((-0.0554 + f['mouth_z']) * k[2])    # the mouth line at the centre (the philtrum keeps its length
+                                                        # when a shorter nose lifts the nose's base)
         w = float(0.0285 * k[0])                       # half the mouth's width: unchanged, the lips gain mass
         hu, hl, pu, pl = f['lip_hu'], f['lip_hl'], f['lip_pu'], f['lip_pl']
         kx = float(k[0])
@@ -344,7 +353,7 @@ def field(P, L, scar=None):
         d = _smin(d, _ell(P, S(0.0, -0.033, -0.128), S(0.0055, 0.0045, 0.011)), 0.014)
     # the face's mass (maxilla, the volume of the cheeks)
     ly = f['lower_y']        # how far the lower face (maxilla, mouth, chin) sits back under the brow
-    d = _smin(d, _ell(P, S(0.0, -0.034 + ly, -0.032), S(0.058 * (0.9 + 0.1 * f['muzzle']), 0.058, 0.056)), 0.02)
+    d = _smin(d, L.facemass(P), 0.02)
     # brow ridge: strongest above the nose, following the skull round and fading into the temples; no shelf
     for a, b, k in L.brow_chain:
         d = _smin(d, _both(lambda Q: _cap(Q, a[0], b[0], a[1], b[1]), P, 0.006) if a[0][0] == 0 else _cap(Pm, a[0], b[0], a[1], b[1]),
