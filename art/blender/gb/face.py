@@ -30,11 +30,11 @@ from . import kit as K
 FORMS = {
     'male':   dict(sx=1.0, sy=1.0, sz=1.0, brow=1.0, brow_y=0.0, jaw=1.0, chin=1.0, chin_round=0.0, nose=1.0, lip=1.0,
                    eye=1.0, gaunt=1.0, ear=0.88, neck=1.0, scm=1.0, adam=1.0, muzzle=1.0, cheek_z=0.0, brow_w=1.0,
-                   fold=1.0, chin_y=0.0, chin_z=0.0, lower_y=0.0, neck_d=0.92, neck_back=0.0, trap=0.8, shoulder=1.0,
+                   fold=1.0, chin_y=0.0, chin_z=0.0, lower_y=0.0, neck_d=1.06, neck_back=0.0, trap=0.8, shoulder=1.0,
                    lip_hu=0.0042, lip_hl=0.0062, lip_pu=0.0024, lip_pl=0.0021, bow=0.24),
     'female': dict(sx=0.94, sy=0.965, sz=0.95, brow=0.15, brow_y=0.0025, jaw=0.8, chin=0.62, chin_round=0.35, nose=0.78,
                    lip=1.3, eye=1.12, gaunt=0.55, ear=0.8, neck=0.88, scm=0.9, adam=0.0, muzzle=0.82,
-                   cheek_z=0.002, brow_w=0.75, fold=0.25, chin_y=0.002, chin_z=0.004, lower_y=0.006, neck_d=1.0,
+                   cheek_z=0.002, brow_w=0.75, fold=0.25, chin_y=0.002, chin_z=0.004, lower_y=0.006, neck_d=1.12,
                    neck_back=0.004, trap=0.45, shoulder=0.9, lip_hu=0.0064, lip_hl=0.0100, lip_pu=0.004, lip_pl=0.0042,
                    bow=0.32),
 }
@@ -217,9 +217,10 @@ class Layout:
         c0, n0 = self._probe(base, 0.0, zs)
         cw, nw = self._probe(base, w, zs)
         fp, fn = self._probe(base, 0.0, zs - hl - 0.0042)
+        mp, mn = self._probe(base, w + 0.0022 * kx, zs - 0.0006)
         return dict(zs=zs, w=w, hu=hu, hl=hl, pk=pk, upper=upper, lower=lower, phil=phil,
                     yb0=float(c0[1] + 0.0035), arch=float((cw[1] - c0[1]) / (w * w)),
-                    fold=(fp - fn * 0.0008).astype(np.float32))
+                    fold=(fp - fn * 0.0008).astype(np.float32), modiolus=(mp - mn * 0.0026).astype(np.float32))
 
     def bow(self, x):
         """Height of the upper lip's vermilion border (the Cupid's bow) at x: peaks under the philtral columns, a dip
@@ -272,23 +273,25 @@ def field(P, L, scar=None):
     # so the forehead stays flat across and curves back above
     d = _ell(P, S(0.0, 0.014, 0.025), S(0.072, 0.096, 0.081))
     d = _smin(d, _ell(P, S(0.0, 0.06, 0.0), S(0.056, 0.05, 0.052)), 0.02)
+    d = _smin(d, _ell(P, S(0.0, 0.066, -0.024), S(0.05, 0.047, 0.036)), 0.02)    # the lower occiput behind the ear
     d = _smin(d, _ell(P, S(0.0, -0.045, 0.025), S(0.06, 0.04, 0.05)), 0.02)
     d = _smax(d, np.abs(x) - 0.0695 * f['sx'], 0.016)
-    # the neck: a column rising from under the back of the skull, nearly as deep front-to-back as it is wide. The
-    # posterior cervical mass carries the back of the skull down into it; broad, soft sternomastoids run from behind
-    # the ears toward the collarbones; the trapezius sits low and soft, sloping from the nape to the shoulders;
-    # collarbones and the top of the chest close it off (the armour hides the rest)
+    # the neck carries the head: a column leaning forward from the shoulders up to the skull, as deep front-to-back
+    # as it is wide. A posterior cervical mass carries the back of the skull straight down into the trapezius, which
+    # meets the shoulders early; broad, soft sternomastoids run from behind the ears to the notch between the
+    # collarbones; the shoulders and the top of the chest (the armour's business below that) sit high enough that
+    # the neck reads short and strong
     nk, nb = f['neck'], f['neck_back']
     sq = np.array((1.0, 1.0 / f['neck_d'], 1.0), np.float32)
-    d = _smin(d, _cap(P * sq, S(0.0, 0.022 + nb, -0.04) * sq, S(0.0, 0.01 + nb, -0.175) * sq, 0.048 * nk, 0.055 * nk), 0.018)
-    d = _smin(d, _ell(P, S(0.0, 0.05 + nb, -0.068), S(0.036 * nk, 0.03, 0.055)), 0.022)
-    d = _smin(d, _cap(Pm, S(0.051, 0.032, -0.038), S(0.017, -0.027, -0.168), 0.0105 * nk * f['scm']), 0.018)
+    d = _smin(d, _cap(P * sq, S(0.0, 0.024 + nb, -0.04) * sq, S(0.0, -0.002 + nb, -0.235) * sq, 0.049 * nk, 0.06 * nk), 0.018)
+    d = _smin(d, _cap(P, S(0.0, 0.054 + nb, -0.05), S(0.0, 0.062 + nb, -0.13), 0.034 * nk, 0.036 * nk), 0.022)
+    d = _smin(d, _ell(P, S(0.0, 0.046 + nb, -0.186), S(0.09, 0.058, 0.05)), 0.03)      # the upper back, under the traps
+    d = _smin(d, _cap(Pm, S(0.051, 0.032, -0.038), S(0.016, -0.034, -0.158), 0.0108 * nk * f['scm']), 0.018)
     tr = f['trap']
-    d = _smin(d, _both(lambda Q: _cap(Q, S(0.02, 0.054, -0.088 - 0.014 * (1 - tr)), S(0.11, 0.02, -0.184), 0.004 + 0.02 * tr),
+    d = _smin(d, _both(lambda Q: _cap(Q, S(0.018, 0.06, -0.08 - 0.012 * (1 - tr)), S(0.15, 0.018, -0.2), 0.005 + 0.02 * tr),
                        P, 0.02), 0.03)
-    d = _smin(d, _both(lambda Q: _cap(Q, S(0.014, -0.036, -0.176), S(0.1, -0.012, -0.172), 0.011 * nk), P, 0.01), 0.016)
-    d = _smin(d, _ell(P, S(0.0, 0.012, -0.215), S(0.125 * f['shoulder'], 0.07, 0.05)), 0.03)
-    d = _smax(d, -0.21 * L.k[2] - z, 0.004)
+    d = _smin(d, _ell(P, S(0.0, 0.018, -0.2), S(0.125 * f['shoulder'], 0.066, 0.045)), 0.03)
+    d = _smax(d, -0.195 * L.k[2] - z, 0.004)
     d = _smax(d, np.abs(x) - 0.1, 0.006)
     if f['adam']:     # the larynx: low on the throat, a soft swelling rather than a lump
         d = _smin(d, _ell(P, S(0.0, -0.033, -0.128), S(0.0055, 0.0045, 0.011)), 0.014)
@@ -321,6 +324,8 @@ def field(P, L, scar=None):
     if f['chin_round']:
         chin = chin + (_ell(P, cc, S(0.0125, 0.0100, cz + 0.001)) - chin) * f['chin_round']
     d = _smin(d, chin, 0.02)
+    # the floor under the jaw: a clean plane from the chin back into the throat, no pinch before the neck
+    d = _smin(d, _ell(P, S(0.0, -0.046 + 0.5 * ly, -0.1), S(0.021 * jw, 0.034, 0.0105), M=_R(rx=-16)), 0.012)
     # eye sockets, carved under the brow but shallow enough that the eye stays a shape; the under-eye plane
     c = L.eye
     d = _smax(d, -_ell(Pm, S(0.03, c[1] - 0.0155, -0.001), S(0.019, 0.011, 0.0135)), 0.006)
@@ -337,16 +342,20 @@ def field(P, L, scar=None):
     d = _smin(d, _cap(P, mid, low, 0.0058 * ns, 0.0074 * ns), 0.004)
     d = _smin(d, _rbox(P, S(kx * 0.8, ny(-0.1115), -0.0305), S(0.0088, 0.0082, 0.0078) * ns, 0.0042 * ns,
                        M=_R(rx=-28 + 14 * (1 - ns) / 0.22)), 0.004)
-    d = _smin(d, _ell(Pm, S(0.0122 * ns, ny(-0.1005) + 0.5 * ly, -0.0352), S(0.0076, 0.0084, 0.0064) * ns), 0.005)
-    d = _smin(d, _ell(P, S(kx * 0.6, ny(-0.1045) + 0.5 * ly, -0.0378), S(0.0055, 0.008, 0.0042) * ns), 0.004)
-    d = _smax(d, -_both(lambda Q: _ell(Q, S(0.0064 * ns, ny(-0.1058), -0.0405), S(0.0036, 0.0048, 0.0026) * ns), P, 0.002),
-              0.0015)
+    # the nasal base as one form: alar wings swept from the tip's sides back onto the cheek (their bases sit on the
+    # face: nothing behind them), a floor under the tip that ties tip, wings and columella into one underside, and
+    # small, shallow nostrils facing down, sheltered by the tip and the alar rims
+    d = _smin(d, _ell(Pm, S(0.0118 * ns, ny(-0.0982) + 0.5 * ly, -0.0352), S(0.0066, 0.0122, 0.0062) * ns, M=_R(rz=-16)), 0.006)
+    d = _smin(d, _ell(P, S(kx * 0.5, ny(-0.1) + 0.5 * ly, -0.0366), S(0.0118, 0.0118, 0.0044) * ns), 0.005)
+    d = _smin(d, _ell(P, S(kx * 0.6, ny(-0.1045) + 0.5 * ly, -0.0376), S(0.0042, 0.0078, 0.0042) * ns), 0.004)
+    d = _smax(d, -_both(lambda Q: _ell(Q, S(0.0062 * ns, ny(-0.1032) + 0.5 * ly, -0.0414), S(0.0027, 0.0043, 0.0018) * ns,
+                                       M=_R(rz=-28)), P, 0.002), 0.001)
     # lips (see Layout._mouth): philtral columns, the upper lip's three lobes, the lower lip's; the mouth line a thin
     # cut that fades out at soft corners; a soft fold under the lower lip
     mo = L.mouth
     for a_, b_, r_ in mo['phil']:
         d = _smin(d, _cap(Pm, a_, b_, r_), 0.002)
-    for lobes, kk, top in ((mo['upper'], 0.0035, True), (mo['lower'], 0.003, False)):
+    for lobes, kk, top in ((mo['upper'], 0.004, True), (mo['lower'], 0.0042, False)):
         lip = None
         for c_, M_, r_ in lobes:
             e = _ell(Pm, c_, r_, M=M_)
@@ -361,16 +370,19 @@ def field(P, L, scar=None):
     half = 0.0003 * np.sqrt(np.maximum(0.0, 1.0 - u ** 4)) * np.sqrt(np.clip((yb - P[:, 1]) / 0.0035, 0.0, 1.0))
     slit = np.maximum(np.maximum(np.abs(z - zl) - half, P[:, 1] - yb), ax - mo['w'])     # a V: no lit back wall
     d = _smax(d, -slit, 0.0004)
+    d = _smin(d, _ell(Pm, mo['modiolus'], S(0.0055, 0.0038, 0.0068)), 0.006)      # where the lips' muscles meet
     if f['fold'] >= 0.5:     # the male's fold under the lower lip; the female's forms softly where lip meets chin
-        d = _smax(d, -_ell(P, mo['fold'], S(0.012, 0.0022, 0.0035)), 0.006)
+        d = _smax(d, -_ell(P, mo['fold'], S(0.012, 0.0016, 0.0032)), 0.005)
     # ears, from the brow down to the nose base, tilted back, tucked against the skull: rim, hollow, lobe
-    E = _R(rx=-15, rz=-5)
+    E = _R(rx=-15, rz=-12)
     er = f['ear']
-    e = _ell(Pm, S(0.0705, 0.014, -0.013), S(0.0064, 0.0172 * er, 0.0305 * er), M=E)
+    e = _ell(Pm, S(0.0708, 0.015, -0.013), S(0.0062, 0.0172 * er, 0.0305 * er), M=E)
     e = _smin(e, _ell(Pm, S(0.0695, 0.009, -0.013 - 0.027 * er), S(0.0054, 0.0078 * er, 0.009 * er)), 0.004)
     e = _smax(e, -_ell(Pm, S(0.0758, 0.01, -0.015), S(0.0048, 0.009 * er, 0.013 * er), M=E), 0.002)
     e = _smax(e, -_ell(Pm, S(0.0772, 0.019, -0.003), S(0.0035, 0.011 * er, 0.02 * er), M=E), 0.0015)
-    d = _smin(d, e, 0.007)
+    e = _smin(e, _ell(Pm, S(0.0726, 0.0015, -0.017), S(0.0028, 0.0032, 0.0042)), 0.002)      # the tragus
+    d = _smin(d, _ell(Pm, S(0.0665, 0.007, -0.016), S(0.0055, 0.0085, 0.019)), 0.008)          # the ear's root
+    d = _smin(d, e, 0.0045)
     # the founding scar: a shallow, uneven groove
     if scar:
         for a, b, w in scar:
@@ -548,7 +560,8 @@ def hairline(P, style, L, noise):
         z = z + 0.004 * (1.0 - clumps(P, style, L, noise))
     else:                 # the undercut: sides and back shaved up to a line under the knot's mass
         z = np.interp(th, [0, 30, 50, 75, 110, 150, 180], [0.057, 0.055, 0.05, 0.047, 0.046, 0.043, 0.038])
-    return z * L.k[2] + 0.003 * (noise(P, 140.0) - 0.5) + 0.001 * (noise(P, 400.0) - 0.5)
+    return (z * L.k[2] + 0.0045 * (noise(P, 45.0) - 0.5) + 0.003 * (noise(P, 140.0) - 0.5)
+            + 0.001 * (noise(P, 400.0) - 0.5))
 
 
 def _region_hair(style, L, noise):
@@ -564,7 +577,8 @@ def _thick_hair(style, L, noise):
         cl = clumps(P, style, L, noise)                             # grooves between the clumps
         if style == 'crop':
             return (0.0038 + 0.0034 * top) * depth * (0.15 + 0.85 * cl) + 0.0012 * (noise(P, 90.0) - 0.4)
-        return 0.0052 * depth * (0.6 + 0.4 * cl) + 0.0008 * (noise(P * (1.0, 0.25, 1.0), 150.0) - 0.3)   # pulled back
+        edge = np.clip((P[:, 2] - hairline(P, style, L, noise)) / 0.008, 0.25, 1.0)     # thins toward the undercut
+        return 0.0052 * depth * edge * (0.6 + 0.4 * cl) + 0.0008 * (noise(P * (1.0, 0.25, 1.0), 150.0) - 0.3)
     return t
 
 
