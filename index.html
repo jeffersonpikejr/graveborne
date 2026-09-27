@@ -1217,9 +1217,10 @@ function save(){ if(!S||S.battle) return; try{ localStorage.setItem('graveborne_
    hand-synced migration lists (and drifted once: a version bump landing while a battle was stashed resumed into
    a save with no deeds). To change the save shape: bump SAVE_VER and append {to:SAVE_VER, run}. Never edit a
    shipped entry — it has already run on someone's record. ---- */
-const SAVE_VER=67;
+const SAVE_VER=68;
 const MIGRATIONS=[
   {to:67, run:migrateLegacy},   // everything from v0.1 to v0.66, as it always ran
+  {to:68, run:migrateReleasedStubs},   // v0.68: oath-crisis releases left stub records among the deserters
 ];
 // Snapshot the on-disk record ONCE per migration target, before that migration first runs for this player — the
 // restore point recoveryModal() offers if the walk throws. Called from both paths (load, and resume, where the
@@ -1292,6 +1293,22 @@ function migrateV063(){
   if(S.crossTried===undefined)S.crossTried={};
   if(S.actOneClosed===undefined)S.actOneClosed=!!(S.story&&S.story.stage>=10);
   return true;
+}
+// v0.68: releasing a soldier in an oath crisis used to push a stub {name,level,town,released:true} into S.deserters.
+// It was never a soldier: with no weekGone it never expired and showed "NaN wk to find them"; it kept a dead run
+// alive at the game-over check; and buying it back put it on the roster, where its card threw on the missing
+// bonds. A release is final (the chronicle keeps it), so the stubs go, from the deserters and from any roster a
+// buy-back already carried one into. The v0.67 walk may have stamped a class and oath fields onto them; the
+// `released` flag survives that, and nothing else ever set it.
+function migrateReleasedStubs(){
+  let touched=false;
+  const stub=p=>!!p&&p.released===true;
+  for(const key of ['deserters','roster']){
+    if(!Array.isArray(S[key]))continue;
+    const kept=S[key].filter(p=>!stub(p));
+    if(kept.length!==S[key].length){ S[key]=kept; touched=true; }
+  }
+  return touched;
 }
 function migrateV060(){
   let touched=false;
@@ -3838,8 +3855,7 @@ function oathCrisisModal(s){
     {label:'Release her — she goes with the oath intact',cls:'pick',fn:()=>{
       log(`${s.name} is released from the company. She keeps her oath, and her word about you.`,'wk');
       S.chronicle.push(`Week ${S.week}: ${s.name} was released to ${OATHS[s.oath.to].patron}.`);
-      S.deserters=S.deserters||[]; S.deserters.push({name:s.name,level:s.level,town:atSettlement()||0,released:true});
-      removeFromRoster(s); closeModal(); }},
+      removeFromRoster(s); closeModal(); }},   // a release is final: she is not a deserter, and there is nobody to buy back
     {label:'Refuse her — the oath breaks on your word',cls:'danger',fn:()=>{
       s.oath.state='broken'; s.oath.strain=3; s.res=Math.max(10,s.res-5);
       repAdd(s.oath.to==='folk'?'folk':'karsk',-10);
