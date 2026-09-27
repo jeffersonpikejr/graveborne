@@ -662,13 +662,14 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
         g.bump(sm, -0.3)
     col = _mix(nt, 'MIX', col, g.col('#2a1a12', 'skin'), _math(nt, 'MULTIPLY', g.cavity, 0.6))
     b = g.bsdf
+    b.inputs['Specular IOR Level'].default_value = 0.35     # weathered skin, not wet: no rim-light streaks on the nose's planes
     b.inputs['Subsurface Weight'].default_value = 0.12
     b.inputs['Subsurface Radius'].default_value = (0.9, 0.35, 0.2)
     b.inputs['Subsurface Scale'].default_value = 0.004
     g.bump(g.noise(180.0, detail=3.0, w=7.0), 0.25)
     g.bump(g.noise(900.0, detail=2.0, w=8.0), 0.12)          # pores: kills the plastic sheen
     g.cracks(1.0)
-    rgh = _maprange(nt, g.noise(12.0, w=9.0), 0.3, 0.7, 0.55, 0.75)
+    rgh = _maprange(nt, g.noise(12.0, w=9.0), 0.3, 0.7, 0.7, 0.88)
     if lipm is not None:     # the lips carry a faint sheen
         rgh = _lerp(nt, rgh, 0.5, _math(nt, 'MULTIPLY', lipm, 0.6))
         rgh = _lerp(nt, rgh, 0.95, stomion)          # but the mouth line is matte: no glint inside it
