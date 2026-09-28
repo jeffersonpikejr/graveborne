@@ -98,10 +98,12 @@ async function stage(page) {
   await page.waitForTimeout(250); await dismiss(page);
   await page.evaluate(() => {
     const S = G.state, c = S.contracts.find(c => c.type === 'patrol') || S.contracts[0];
-    // staged: a squad of four Fighters, each in the head the game dealt them: the Commander (a founder's head),
-    // one at veterancy, two in the base kit. Only the Fighter has rendered sprites so far.
-    Object.assign(S.roster[1], { cls: 'fighter', level: 5, weapon: 'shortsword' });
-    for (const s of S.roster.slice(2, 4)) Object.assign(s, { cls: 'fighter', weapon: 'shortsword' });
+    // staged: a squad of four Fighters, two men and two women, so every review compares the same people: the
+    // Commander (a founder's head), one at veterancy, two in the base kit. Only the Fighter has rendered sprites so far.
+    Object.assign(S.roster[0], { look: 'f00' });
+    Object.assign(S.roster[1], { cls: 'fighter', level: 5, weapon: 'shortsword', look: 'm06' });
+    Object.assign(S.roster[2], { cls: 'fighter', weapon: 'shortsword', look: 'f07' });
+    Object.assign(S.roster[3], { cls: 'fighter', weapon: 'shortsword', look: 'm13' });
     startBattle(c, S.roster.slice(0, 4).map(s => s.id));
   });
   await page.waitForTimeout(400); await dismiss(page);
@@ -124,7 +126,7 @@ async function stage(page) {
     for (const u of others) if (best && u.x >= best.x - 1 && u.x <= best.x + 6 && u.y >= best.y - 1 && u.y <= best.y + 3) {
       const p = nearOpen(B, Math.max(0, best.x - 5), u.y, 8); if (p) { u.x = p.x; u.y = p.y; }
     }
-    g.snap.cls = 'fighter'; g.snap.commander = false;
+    g.snap.cls = 'fighter'; g.snap.commander = false; g.look = 'f05';
     spawnRevenant(B, g);
     const rv = B.units.find(u => u.graveId === g.id), cmd = pcs[0];
     for (const [dx, dy] of [[3, 0], [3, 1], [4, 0], [3, -1], [2, 1]]) {
