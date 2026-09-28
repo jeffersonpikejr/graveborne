@@ -239,9 +239,10 @@ def game_face(look):
     return [look['skin'], look['hc'], hair]
 
 
-def build_head(look, name='head', gaze=0.0, tag=None):
+def build_head(look, name='head', gaze=0.0, tag=None, bust=-0.195, yoke=True):
     """Materials and head for a look: face.head's (root, info). tag names the look's materials (None: the anchor's
-    own names, so the Fighter's variants render exactly as before)."""
+    own names, so the Fighter's variants render exactly as before); bust, yoke: how much neck comes with it
+    (face.field)."""
     from . import grit as G
     f = settings(look) if not look.get('anchor') else FORMS[look['form']]
     scar = look['scar']
@@ -264,7 +265,7 @@ def build_head(look, name='head', gaze=0.0, tag=None):
     dark = G.flat('dark', '#140d0a')
     return F.head(name, f, skin, None, hair, eye, dark, beard=beard, hair_style=style,
                   scar=scar[1] if scar else None, scar_kind=scar[0] if scar else 'founding', crooked=look['crooked'],
-                  greying=grey, seed=look['seed'], gaze=gaze, recede=look['recede'])
+                  greying=grey, seed=look['seed'], gaze=gaze, recede=look['recede'], bust=bust, yoke=yoke)
 
 
 def manifest(count=POOL):

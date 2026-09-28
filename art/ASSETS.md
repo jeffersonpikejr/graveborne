@@ -39,9 +39,17 @@ the Line-Breaker concept art and briefs:
   narrow and blended so the cheek runs into the mouth with no bar; the chin sits about 1 mm behind the lower lip.
   Calibrated to the female average-head reference: a full forehead (hairline about 45 mm above the brow, not 36),
   a shorter chin (about 45 mm from the mouth line to the chin, not 48), her upper lip no longer than his.
-- **Next: the face morph system.** The approved base head becomes the one every face is rolled from — face length,
-  jaw, chin, cheekbones, brow, eyes, nose, lips, ears, age, hair, beard, skin and scars as bounded parameters — so
-  each soldier keeps one face across battle sprite, unit card and roster.
+- **Every soldier has a face of their own** (revision 9, `gb/looks.py`): a seeded genome rolls each head from the
+  base (build, length, lean and age, hair, beard, colouring, scars) into a pool the game deals from, never doubled
+  among the living.
+- **Bodies are the two ends of one construction too** (revision 10, from the body dimorphism guide; `gb/body.py`).
+  Him: shoulders significantly wider with more trapezius, a deeper and wider rib cage, a waist that tapers less,
+  narrower hips and a flatter seat, a larger upper back, heavier limbs, larger hands and feet. Her: narrower, sloping
+  shoulders, a shallower and narrower rib cage, a defined waist, a wider pelvis with mass at the hip, more lumbar
+  curve and a fuller seat, slimmer limbs, knees a touch closer together, smaller hands and feet; 92% of his height,
+  her head a shade larger for her body (7.6 of her heads to his 8). **Armour is laid on the body**: every plate
+  dimension is his plus the difference her body makes at that point, so his kit never moves and hers closes in at
+  her waist, is cinched there by the belt, flares over her hips, and carries pauldrons sized to her deltoids.
 - **Proportions** (revisions 4–5): eyes at mid-head, hooded but open, one eye-width apart; the midface short;
   the nose about as wide at its base as the gap between the eyes; a mouth about as wide as the pupils are apart,
   thin-lipped and neutral; ears from the brow to the nose base. Exhaustion comes from the brow, the sockets, the

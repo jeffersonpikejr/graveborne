@@ -49,6 +49,7 @@ The head goes over the body. To review faces rather than sprites:
     .bvenv/bin/python art/blender/review_heads.py views    # both anchors: front, both three-quarters, profile, perspective neck
     .bvenv/bin/python art/blender/review_heads.py styles   # every hairstyle and beard on each anchor
     .bvenv/bin/python art/blender/review_heads.py looks    # the pool, one three-quarter each, labelled with its genes
+    .bvenv/bin/python art/blender/review_bodies.py         # bare bodies (head counts), the kit on them, silhouettes
 
 Master renders (`art/renders/`) are not committed: they are reproducible from the scripts. The shippable
 `art/sprites/*.webp` are.
@@ -95,9 +96,12 @@ painted-miniature materials.)
                             eyes in carved sockets, hair/beard/brows as shells of the same field; marks()
                             gives the skin shader its landmarks (lips, sockets, lids and eye corners, scar)
     blender/gb/looks.py     the appearance genome: roll(form, n) -> a soldier's look; build_head(look)
+    blender/gb/body.py      bodies: male and female anchors on one dial, Frame (the dimensions kits are laid on),
+                            and a bare review body (a field of anatomical masses, like the heads)
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer (--looks: body and head layers)
     blender/review_heads.py head review sheets: views, hairstyles, the look pool
+    blender/review_bodies.py body review sheets: bare bodies with head counts, the kit on them, silhouettes
     tools/post.py           review sheets at real display sizes; WebP export
     tools/ingame.mjs        before/after screenshots inside the running game
     renders/                master renders (768px PNG, 1.5 tiles square) — gitignored, reproducible

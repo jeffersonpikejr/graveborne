@@ -353,8 +353,10 @@ class Layout:
         return [self.eye * (s, 1, 1) for s in (-1, 1)]
 
 
-def field(P, L, scar=None):
-    """Signed distance to the skin (m, negative inside) at points P (N, 3)."""
+def field(P, L, scar=None, bust=-0.195, yoke=True):
+    """Signed distance to the skin (m, negative inside) at points P (N, 3). bust: where the neck is cut off below the
+    head; yoke: False leaves off the upper back, the traps and the tops of the shoulders, so the neck alone plugs into
+    a body that has its own (body.bare)."""
     f, S = L.f, L.S
     x, z = P[:, 0], P[:, 2]
     Pm = np.column_stack((np.abs(x), P[:, 1], z))                 # mirrored: one side built, both sides agree
@@ -374,13 +376,15 @@ def field(P, L, scar=None):
     sq = np.array((1.0, 1.0 / f['neck_d'], 1.0), np.float32)
     d = _smin(d, _cap(P * sq, S(0.0, 0.024 + nb, -0.04) * sq, S(0.0, -0.002 + nb, -0.235) * sq, 0.049 * nk, 0.06 * nk), 0.018)
     d = _smin(d, _cap(P, S(0.0, 0.054 + nb, -0.05), S(0.0, 0.062 + nb, -0.13), 0.034 * nk, 0.036 * nk), 0.022)
-    d = _smin(d, _ell(P, S(0.0, 0.046 + nb, -0.186), S(0.09, 0.058, 0.05)), 0.03)      # the upper back, under the traps
+    if yoke:
+        d = _smin(d, _ell(P, S(0.0, 0.046 + nb, -0.186), S(0.09, 0.058, 0.05)), 0.03)      # the upper back, under the traps
     d = _smin(d, _cap(Pm, S(0.051, 0.032, -0.038), S(0.016, -0.034, -0.158), 0.0108 * nk * f['scm']), 0.018)
     tr = f['trap']
-    d = _smin(d, _both(lambda Q: _cap(Q, S(0.018, 0.06, -0.08 - 0.012 * (1 - tr) + f['trap_z']), S(0.15, 0.018, -0.2),
-                                      0.005 + 0.02 * tr), P, 0.02), 0.03)
-    d = _smin(d, _ell(P, S(0.0, 0.018, -0.2), S(0.125 * f['shoulder'], 0.066, 0.045)), 0.03)
-    d = _smax(d, -0.195 * L.k[2] - z, 0.004)
+    if yoke:
+        d = _smin(d, _both(lambda Q: _cap(Q, S(0.018, 0.06, -0.08 - 0.012 * (1 - tr) + f['trap_z']), S(0.15, 0.018, -0.2),
+                                          0.005 + 0.02 * tr), P, 0.02), 0.03)
+        d = _smin(d, _ell(P, S(0.0, 0.018, -0.2), S(0.125 * f['shoulder'], 0.066, 0.045)), 0.03)
+    d = _smax(d, bust * L.k[2] - z, 0.004)
     d = _smax(d, np.abs(x) - 0.1, 0.006)
     if f['adam']:     # the larynx: low on the throat, a soft swelling rather than a lump
         d = _smin(d, _ell(P, S(0.0, -0.033, -0.128), S(0.0055, 0.0045, 0.011)), 0.014)
@@ -531,14 +535,15 @@ class _Grid:
     """The field sampled on a regular grid: exact within a band around the skin (where the skin and the shells
     offset from it lie), interpolated from a coarse pass elsewhere."""
 
-    def __init__(self, L, scar, lo, hi, band=(-0.0075, 0.0125), h=GRID, m=4, chunk=250_000):
+    def __init__(self, L, scar, lo, hi, band=(-0.0075, 0.0125), h=GRID, m=4, chunk=250_000, fn=None):
         self.lo, self.h = np.asarray(lo, np.float32), h
+        fn = fn or (lambda Q: field(Q, L, scar))            # any signed-distance field (body.py meshes bodies this way)
         n = np.ceil((np.asarray(hi) - np.asarray(lo)) / h).astype(int) + 1
         self.shape = tuple(n)
         nc = (n - 1) // m + 2
         axes = [np.float32(lo[i]) + np.arange(nc[i], dtype=np.float32) * np.float32(h * m) for i in range(3)]
         C = np.stack(np.meshgrid(*axes, indexing='ij'), -1).reshape(-1, 3)
-        Dc = np.concatenate([field(C[i:i + chunk], L, scar) for i in range(0, len(C), chunk)]).reshape(nc)
+        Dc = np.concatenate([fn(C[i:i + chunk]) for i in range(0, len(C), chunk)]).reshape(nc)
         D = Dc.astype(np.float32)
         for ax in range(3):                                   # trilinear, one axis at a time
             u = np.arange(n[ax], dtype=np.float32) / m
@@ -549,7 +554,7 @@ class _Grid:
         idx = np.nonzero((D > band[0] - slack) & (D < band[1] + slack))
         self.idx = idx
         self.P = self.lo + np.column_stack(idx).astype(np.float32) * np.float32(h)
-        exact = np.concatenate([field(self.P[i:i + chunk], L, scar) for i in range(0, len(self.P), chunk)])
+        exact = np.concatenate([fn(self.P[i:i + chunk]) for i in range(0, len(self.P), chunk)])
         D[idx] = exact
         self.D = D
         self.exact = exact
@@ -988,7 +993,7 @@ def _ball(name, r, mat, loc, rz=0.0, seg=24, rings=16):
 
 
 def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='crop', scar=None, crooked=0.0,
-         greying=None, seed=0, gaze=0.0, recede=0.0, scar_kind='founding'):
+         greying=None, seed=0, gaze=0.0, recede=0.0, scar_kind='founding', bust=-0.195, yoke=True):
     """Build a head. Returns (root_empty, info). Place the root; everything else follows it.
 
     sex: 'male' / 'female' (an anchor) or a settings dict from form(); skin: the face material (grit.skin with
@@ -996,16 +1001,19 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
     hair/eye_mat/dark: materials (dark: ties); beard: one of BEARDS or None (True / False: 'full' / None);
     hair_style: one of STYLES; recede: 0-1, how far a crop's hairline has gone back; scar: side (+1/-1) of a scar,
     scar_kind: one of SCARS; crooked: a once-broken nose's sideways kink (m); greying: a second hair material for
-    the beard (a veteran); gaze: degrees the eyes turn toward the viewer (+ toward the head's +X side)."""
+    the beard (a veteran); gaze: degrees the eyes turn toward the viewer (+ toward the head's +X side); bust, yoke:
+    how much of the neck and shoulders come with the head (see field)."""
     if isinstance(beard, bool):
         beard = 'full' if beard else None
     L = Layout(sex, crooked)
-    fk = (tuple(sorted((k, round(v, 6)) for k, v in L.f.items())), scar, scar_kind if scar else None, round(crooked, 5))
+    fk = (tuple(sorted((k, round(v, 6)) for k, v in L.f.items())), scar, scar_kind if scar else None, round(crooked, 5),
+          round(bust, 4), yoke)
     key = fk + (beard, hair_style, round(recede, 4), seed)
     if key not in _CACHE:
         if _GRID.get('key') != fk:      # one skin serves every hairstyle and beard on it: keep the last one sampled
             sc = scar_path(L, scar, lift=0.0012, kind=scar_kind) if scar else None
-            _GRID.update(key=fk, g=_Grid(L, sc, lo=(-0.105, -0.145, -0.24), hi=(0.105, 0.16, 0.16)))
+            _GRID.update(key=fk, g=_Grid(L, sc, lo=(-0.105, -0.145, -0.24), hi=(0.105, 0.16, 0.16),
+                                         fn=lambda Q: field(Q, L, sc, bust, yoke)))
         g = _GRID['g']
         noise = _Noise(seed + 101)
         geo = {'skin': _nets(g.D, g.lo, g.h)}
