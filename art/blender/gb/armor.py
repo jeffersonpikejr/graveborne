@@ -296,18 +296,20 @@ def broadsword(name, hand, direction, blade_mat, guard_mat, grip_mat, pommel_mat
     return [bl, gd, gr, pm]
 
 
-def gauntlet(name, wrist, knuckle_dir, steel, leather, fist=True):
-    """A mitten gauntlet: flared cuff, back-of-hand plate, knuckle ridge. Built around the fist centre."""
+def gauntlet(name, wrist, knuckle_dir, steel, leather, fist=True, size=1.0):
+    """A mitten gauntlet: flared cuff, back-of-hand plate, knuckle ridge. Built around the fist centre; size follows
+    the hand inside it (a woman's is smaller)."""
+    s = size
     w = Vector(wrist)
     d = Vector(knuckle_dir).normalized()
-    parts = [shell(name + '_cuff', w - d * 0.06, w + d * 0.015, [(0.052, 0.0), (0.043, 1.0)], steel, seg=18,
-                   lip=0.004, thick=0.004)]
-    c = w + d * 0.06
-    hand = K.rbox(name + '_hand', (0.085, 0.07, 0.1), (0, 0, 0), leather, bev=0.02, segs=3)
+    parts = [shell(name + '_cuff', w - d * 0.06 * s, w + d * 0.015 * s, [(0.052 * s, 0.0), (0.043 * s, 1.0)], steel,
+                   seg=18, lip=0.004, thick=0.004)]
+    c = w + d * 0.06 * s
+    hand = K.rbox(name + '_hand', (0.085 * s, 0.07 * s, 0.1 * s), (0, 0, 0), leather, bev=0.02 * s, segs=3)
     place(hand, c, frame(d, back=(0.0, 0.0, 1.0)))
     parts.append(hand)
-    plate = K.rbox(name + '_plate', (0.09, 0.04, 0.075), (0, 0, 0), steel, bev=0.012, segs=2)
-    place(plate, c + d * -0.008 + Vector((0, 0, 0.0)), frame(d, back=(0.0, 0.0, 1.0)) @ Matrix.Translation((0, 0.028, 0)))
+    plate = K.rbox(name + '_plate', (0.09 * s, 0.04 * s, 0.075 * s), (0, 0, 0), steel, bev=0.012 * s, segs=2)
+    place(plate, c + d * -0.008 * s, frame(d, back=(0.0, 0.0, 1.0)) @ Matrix.Translation((0, 0.028 * s, 0)))
     parts.append(plate)
     return parts
 
