@@ -38,13 +38,10 @@ def stage(res, samples):
 
 
 def head(look, tag, bare=False):
-    """Build a look's head at HEAD_Z (bare: scalp hair, beard, knot and ties off; brows kept)."""
-    root, _ = LK.build_head(look, tag=tag)
+    """Build a look's head at HEAD_Z (bare: shaved and clean-shaven, brows kept, so the skull reads)."""
     if bare:
-        for o in list(bpy.data.objects):
-            if o.name.startswith(('head_hair', 'head_knot', 'head_tie', 'head_beard', 'head_tail', 'head_bun',
-                                  'head_braid')):
-                bpy.data.objects.remove(o)
+        look = dict(look, style='shaved', beard=None)
+    root, _ = LK.build_head(look, tag=tag)
     root.location = (0.0, 0.0, HEAD_Z)
     bpy.context.view_layer.update()
     return root
@@ -55,11 +52,12 @@ def shoot(path, az, el, scale, target=(0.0, 0.0, HEAD_Z - 0.03)):
     cam = bpy.context.scene.camera
     th, a = math.radians(el), math.radians(az)
     d = Vector((-math.sin(a) * math.cos(th), math.cos(a) * math.cos(th), -math.sin(th)))
-    if scale is None:
+    if scale is None:       # a 50 mm lens at arm's length: the head, the neck and the top of the shoulders
         cam.data.type = 'PERSP'
-        cam.data.lens = 50.0
-        t = Vector(target) + Vector((0.0, 0.0, -0.07))
-        cam.location = t - d * 0.95
+        cam.data.sensor_fit, cam.data.sensor_width, cam.data.lens = 'AUTO', 36.0, 50.0
+        cam.data.shift_x = cam.data.shift_y = 0.0
+        t = Vector(target) + Vector((0.0, 0.0, -0.035))
+        cam.location = t - d * 0.56
     else:
         cam.data.type = 'ORTHO'
         cam.data.ortho_scale = scale
@@ -99,7 +97,7 @@ def views(a):
     for form in ('m', 'f'):
         for bare in (True, False):
             stage(a.res, a.samples)
-            head(LK.anchor(form), tag=None, bare=bare)
+            head(LK.anchor(form), tag=f'{form}_bare' if bare else None, bare=bare)
             for name, (az, el, scale) in VIEWS.items():
                 if bare and name == 'neck':
                     continue
