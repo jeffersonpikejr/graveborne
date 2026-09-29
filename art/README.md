@@ -24,6 +24,7 @@ Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 
     python3 -m http.server 8931 --directory . &
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review    # the real game, before/after
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad ranger   # Rangers beside the Commander
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad cleric   # Clerics beside the Commander
 
 `ingame.mjs` swaps sprites in at runtime and screenshots the same board state before and after, on desktop and
 phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/path/to/playwright/index.mjs`).
@@ -101,7 +102,8 @@ painted-miniature materials.)
                             reach() poses an arm, a gripping hand closes into a fist), and the body's field
     blender/gb/garb.py      light kit laid on the body: garments as layers offset from the posed body (Dressed),
                             capes and cloaks draped over it (Drape), a hood pulled back off the brow (the head
-                            fits its hair under face.HOOD_*); a longbow, arrows, a quiver, a boar spear, a knife
+                            fits its hair under face.HOOD_*); a longbow, arrows, a quiver, a boar spear, a knife,
+                            a chapel lantern, a cord, a girdle book
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer (--looks: body and head layers)
     blender/review_heads.py head review sheets: views, hairstyles, the look pool

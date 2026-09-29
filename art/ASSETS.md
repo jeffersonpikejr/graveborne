@@ -59,7 +59,8 @@ the Line-Breaker concept art and briefs:
   28 colours, no dither).
 - **Light kit is laid on the body too** (the Ranger, `gb/garb.py`): garments are layers offset from the posed body's
   own surface, so a jack, a jerkin or breeches show his barrel chest and her waist, hips and seat with nothing redrawn;
-  capes and cloaks drape from their top edge over whatever of the body stands out and flare toward a ragged hem. A
+  capes and cloaks drape from their top edge over whatever of the body stands out and flare toward a ragged hem; a
+  surcoat or a robe is belted, pulled in to the waist and hanging afresh below it (so hers flares over her hips). A
   hood is worn up but **pulled back off the brow**, so the face, the hairline and the beard read and every soldier
   stays their own: hair that gathers on the crown or the nape flattens under it, hanging hair keeps what falls out
   through the opening, and a ponytail is brought forward over the shoulder. A class that rolls more than one weapon
@@ -105,7 +106,7 @@ Status: ✅ approved · 🔍 in review · ⏳ queued
 |---|---|---|---|---|
 | 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded, the head carved from one skull (rev. 6) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | ✅ |
 | 2 | **Ranger — the Harrier**: hood pulled back over a capelet, a rain-dark cloak, quilted jack and laced jerkin laid on the body, a yew longbow held upright, a back quiver (or a boar spear) | same matrix, × bow / spear | 3×2×3 = 18 | 🔍 |
-| 3 | Cleric — white tabard with red cross, mail coif, flanged mace | same matrix | 3×2×3 = 18 | ⏳ |
+| 3 | **Cleric — the Chirurgeon**: a mail hauberk under a belted bone-white surcoat with an oxblood cross, the coif pushed back into a collar, a flanged mace held low, a chapel lantern | same matrix, × mace / spear / shortsword | 3×2×3 = 18 | 🔍 |
 | 4 | Ash Acolyte — hooded ash-robe, blight veins, floating ashfire | same matrix | 3×2×3 = 18 | ⏳ |
 | 5 | Underkingdom Shade — black leathers, twin daggers (rare Cinderling recruit) | same matrix | 2×2×2 = 8 | ⏳ |
 

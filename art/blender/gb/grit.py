@@ -350,9 +350,11 @@ def brass(name, color=None, tarnish=0.95, blood=0.1, mud=1.0, seed=7, film=0.55)
     return m
 
 
-def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth', device=None):
+def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth', device=None, cross=None):
     """Heavy wool gone dark with weather: fibre, folds full of dirt, blood worked in, a mud-soaked hem.
-    device=(cx, cz, radius, hex): a painted roundel in object space (the company's mark on a banner)."""
+    device=(cx, cz, radius, hex): a painted roundel in object space (the company's mark on a banner).
+    cross=(cx, cz, arm, width, hex): a dyed cross in object space, its crossing at (cx, cz), the arms `arm` long each
+    way, the foot longer (a surcoat's cross, front and back)."""
     hit, key = _cached(('cloth', name))
     if hit:
         return hit
@@ -370,6 +372,21 @@ def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth'
         dot = _maprange(nt, r, rad * 0.36, rad * 0.4, 1.0, 0.0)
         mark = _math(nt, 'MAXIMUM', ring, dot)
         worn = _maprange(nt, g.noise(9.0, detail=8.0, w=19.0), 0.35, 0.55, 0.35, 1.0)   # paint flaked off the weave
+        col = _mix(nt, 'MIX', col, g.col(hexc, kind), _math(nt, 'MULTIPLY', mark, worn))
+    if cross:
+        cx, cz, arm, wd, hexc = cross
+        sep = g.N.new('ShaderNodeSeparateXYZ')
+        g.L.new(g.obj, sep.inputs[0])
+        dx = _math(nt, 'ABSOLUTE', _math(nt, 'SUBTRACT', sep.outputs['X'], cx))
+        dz = _math(nt, 'SUBTRACT', sep.outputs['Z'], cz)
+        soft = 0.004
+        in_x = _maprange(nt, dx, wd / 2, wd / 2 + soft, 1.0, 0.0)                 # within the upright's width
+        up = _math(nt, 'MULTIPLY', _maprange(nt, dz, -1.7 * arm - soft, -1.7 * arm, 0.0, 1.0),
+                   _maprange(nt, dz, arm, arm + soft, 1.0, 0.0))
+        bar = _math(nt, 'MULTIPLY', _maprange(nt, _math(nt, 'ABSOLUTE', dz), wd / 2, wd / 2 + soft, 1.0, 0.0),
+                    _maprange(nt, dx, arm, arm + soft, 1.0, 0.0))
+        mark = _math(nt, 'MAXIMUM', _math(nt, 'MULTIPLY', in_x, up), bar)
+        worn = _maprange(nt, g.noise(11.0, detail=8.0, w=29.0), 0.3, 0.55, 0.55, 1.0)    # dye faded unevenly
         col = _mix(nt, 'MIX', col, g.col(hexc, kind), _math(nt, 'MULTIPLY', mark, worn))
     col = _mix(nt, 'MIX', col, g.col(COL['grime'], 'earth'), _math(nt, 'MULTIPLY', g.cavity, grime))
     bm = g.blood(blood)

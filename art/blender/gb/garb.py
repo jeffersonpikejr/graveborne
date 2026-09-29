@@ -154,9 +154,10 @@ class Drape:
     the hem; folds ripple it (fold_n of them round a full circle); ragged tears the hem."""
 
     def __init__(self, D, z_top, z_bot, angles, clear, rows=26, oy=0.02, collar=None, flare=0.0, folds=0.0, fold_n=9,
-                 ragged=0.0, seed=0, arms=True, closed=False, hem=None):
+                 ragged=0.0, seed=0, arms=True, closed=False, hem=None, cinch=None):
         """closed: the angles run the whole way round (without repeating the first at the end). hem(a): how much
-        higher the hem is at angle a (m), shaping it (a capelet shorter in front)."""
+        higher the hem is at angle a (m), shaping it (a capelet shorter in front). cinch=(z, clear): a belt at height
+        z pulls the cloth in to `clear` off the body there, and it hangs afresh below it (a belted tabard or robe)."""
         self.oy = oy
         A_ = np.asarray(angles, np.float32)
         a = np.radians(A_)
@@ -170,14 +171,29 @@ class Drape:
         R = D.outer(O, np.tile(dirs, (nr, 1)), clear, arms=arms).reshape(nr, nc)
         if collar:
             R = np.maximum(R, collar[0] + collar[1] * (z_top - Zg))
-        R = np.maximum.accumulate(R, axis=0)               # it hangs from whatever stands out above
+        kc = None
+        if cinch:           # the belt's row: the cloth pulled in to the body there
+            kc = int(np.argmin(np.abs(Zg[:, 0] - cinch[0])))
+            Oc = np.column_stack((np.zeros(nc), np.full(nc, oy), Zg[kc])).astype(np.float32)
+            belt = D.outer(Oc, dirs, cinch[1], arms=arms)
+
+        raw = R.copy()
+        if kc is None:
+            R = np.maximum.accumulate(R, axis=0)             # it hangs from whatever stands out above
+        else:               # above the belt it hangs, then bloused in to it; below, it hangs afresh from the belt
+            R[:kc] = np.maximum.accumulate(R[:kc], axis=0)
+            w = np.clip(1.0 - (Zg[:kc] - Zg[kc]) / 0.08, 0.0, 1.0) ** 2
+            R[:kc] = np.maximum(R[:kc] * (1.0 - w) + belt[None, :] * w, raw[:kc])
+            R[kc] = belt
+            R[kc:] = np.maximum.accumulate(R[kc:], axis=0)
+            self.belt_row = kc
         for _ in range(2):                                   # smooth round, then down
             if closed:
                 R = 0.25 * np.roll(R, 1, 1) + 0.5 * R + 0.25 * np.roll(R, -1, 1)
             else:
                 R[:, 1:-1] = 0.25 * R[:, :-2] + 0.5 * R[:, 1:-1] + 0.25 * R[:, 2:]
         R[1:-1] = 0.25 * R[:-2] + 0.5 * R[1:-1] + 0.25 * R[2:]
-        R = np.maximum.accumulate(R, axis=0)
+        R = np.maximum.accumulate(R, axis=0) if kc is None else np.maximum(R, raw)
         t = np.repeat(frac, nc, 1)
         rnd = random.Random(seed)
         ph = [rnd.random() * 6.283 for _ in range(4)]
@@ -381,9 +397,9 @@ def quiver(name, bottom, top, leather, rim, fletch, cock, shaft, head, n=12, r_t
     return parts
 
 
-def boar_spear(name, grip, up, length, shaft, steel, leather, butt_z=0.03):
+def boar_spear(name, grip, up, length, shaft, steel, leather, butt_z=0.03, lugs=True):
     """A hunting spear held upright in a fist at `grip`, its butt on the ground: an ash shaft, a leather grip, a broad
-    leaf head on a long socket and the crossbar lugs that stop a boar on the blade."""
+    leaf head on a long socket and (lugs) the crossbar that stops a boar on the blade; without it, a war spear."""
     u = Vector(up).normalized()
     G = Vector(grip)
     butt = G - u * ((G.z - butt_z) / max(u.z, 1e-3))
@@ -391,9 +407,10 @@ def boar_spear(name, grip, up, length, shaft, steel, leather, butt_z=0.03):
     parts = [K.tube(name + '_shaft', butt, top, 0.0145, 0.0135, shaft, seg=12),
              K.tube(name + '_wrap', G - u * 0.07, G + u * 0.07, 0.0165, 0.0165, leather, seg=12),
              K.tube(name + '_socket', top - u * 0.02, top + u * 0.1, 0.017, 0.013, steel, seg=10)]
-    lug = K.rbox(name + '_lugs', (0.13, 0.016, 0.016), (0, 0, 0), steel, bev=0.004)
-    A.place(lug, top + u * 0.065, A.frame(u, back=(0.0, 1.0, 0.0)))
-    parts.append(lug)
+    if lugs:
+        lug = K.rbox(name + '_lugs', (0.13, 0.016, 0.016), (0, 0, 0), steel, bev=0.004)
+        A.place(lug, top + u * 0.065, A.frame(u, back=(0.0, 1.0, 0.0)))
+        parts.append(lug)
     bl = K.blade(name + '_head', 0.3, 0.078, 0.014, steel,
                  secs=[(0.0, 0.3), (0.18, 0.9), (0.38, 1.0), (0.66, 0.72), (1.0, 0.0)])
     A.place(bl, top + u * 0.1, A.frame(u, back=(0.0, 1.0, 0.0)))
@@ -412,3 +429,59 @@ def long_knife(name, at, down, leather, wood, steel, brass):
     A.place(sheath, P - d * 0.02, R)
     return [sheath, K.tube(name + '_grip', P - d * 0.02, P - d * 0.13, 0.0145, 0.013, wood, seg=10),
             K.sphere(name + '_pommel', P - d * 0.14, 0.017, brass, scale=(1.0, 1.0, 0.8), seg=12, rings=8)]
+
+
+def lantern(name, bail, iron, horn, flame, light_color, energy=2.2, cross=True):
+    """A chapel lantern hanging from a fist at `bail`: a hexagonal iron cage with horn panels lit from within, a
+    pierced cone of a cap and a ring to carry it by, a small iron cross on top; a flame and the light it throws.
+    horn: the panels' (glowing) material; flame: the flame's. Returns the parts."""
+    B = Vector(bail)
+    top = B - Vector((0.0, 0.0, 0.045))
+    h, r = 0.15, 0.052
+    base = top - Vector((0.0, 0.0, h))
+    parts = [A.torus(name + '_ring', (0.0, 0.0, 0.0), 0.028, 0.0045, iron, seg=20, rseg=8)]
+    A.place(parts[-1], B + Vector((0.0, 0.0, -0.012)), A.frame((1.0, 0.0, 0.0)))
+    parts.append(K.tube(name + '_stem', B - Vector((0.0, 0.0, 0.03)), top + Vector((0.0, 0.0, 0.035)), 0.005, 0.005,
+                        iron, seg=8))
+    parts.append(K.lathe(name + '_cap', [(r * 1.12, 0.0), (r * 0.9, 0.012), (r * 0.35, 0.04), (0.008, 0.05)], iron,
+                         seg=6, loc=tuple(top), cap_bottom=True, cap_top=True, smooth=False))
+    parts.append(K.lathe(name + '_panes', [(r * 0.96, 0.0), (r, 0.02), (r, h - 0.02), (r * 0.96, h)], horn, seg=6,
+                         loc=tuple(base), cap_bottom=True, cap_top=True, smooth=False))
+    parts.append(K.lathe(name + '_foot', [(r * 1.1, -0.018), (r * 1.14, -0.006), (r * 1.08, 0.004)], iron, seg=6,
+                         loc=tuple(base), cap_bottom=True, cap_top=True, smooth=False))
+    for k in range(6):                       # the cage's posts at the corners
+        a = math.radians(60.0 * k)
+        c = Vector((math.cos(a), math.sin(a), 0.0)) * (r * 1.04)
+        parts.append(K.tube(name + '_post', base + c, top + c, 0.0042, 0.0042, iron, seg=6))
+    for z in (0.006, h - 0.006):
+        parts.append(K.lathe(name + '_band', [(r * 1.06, -0.005), (r * 1.08, 0.0), (r * 1.06, 0.005)], iron, seg=6,
+                             loc=tuple(base + Vector((0.0, 0.0, z))), cap_bottom=False, cap_top=False, smooth=False))
+    if cross:
+        c0 = top + Vector((0.0, 0.0, 0.05))
+        parts.append(K.rbox(name + '_cross', (0.009, 0.009, 0.05), tuple(c0 + Vector((0.0, 0.0, 0.025))), iron, bev=0.002))
+        parts.append(K.rbox(name + '_crossbar', (0.032, 0.009, 0.009), tuple(c0 + Vector((0.0, 0.0, 0.034))), iron,
+                            bev=0.002))
+    parts.append(K.sphere(name + '_flame', tuple(base + Vector((0.0, 0.0, h * 0.42))), 0.011, flame,
+                          scale=(1.0, 1.0, 1.9), seg=10, rings=8))
+    parts.append(K.glow(name + '_light', base + Vector((0.0, 0.0, h * 0.45)), light_color, energy, radius=0.02))
+    return parts
+
+
+def cord(name, path, r, mat, closed=False):
+    """A rope along `path`: a girdle, a lanyard, a hanging end."""
+    pts = [Vector(p) for p in path]
+    extra = [(len(pts) - 1, 0)] if closed else ()
+    return K.skin_chain(name, pts, [r] * len(pts), mat, levels=1, extra_edges=extra)
+
+
+def book(name, at, facing, cover, pages, clasp, size=(0.1, 0.034, 0.135)):
+    """A small girdle book hanging at `at`, its face turned toward `facing`: leather boards, the page block showing
+    at the fore-edge, a clasp."""
+    R = A.frame(Vector(facing), back=(0.0, 0.0, 1.0))
+    w, t, hgt = size
+    parts = [K.rbox(name + '_boards', (w, hgt, t), (0, 0, 0), cover, bev=0.006, segs=2),
+             K.rbox(name + '_pages', (w * 0.9, hgt * 0.92, t * 0.78), (0.006, 0, 0), pages, bev=0.002),
+             K.rbox(name + '_clasp', (0.014, 0.02, t * 1.08), (w * 0.5 - 0.004, 0, 0), clasp, bev=0.002)]
+    for ob in parts:
+        A.place(ob, at, R)
+    return parts
