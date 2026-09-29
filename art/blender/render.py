@@ -12,10 +12,12 @@ Writes art/renders/<asset>/<variant>.png: a master render CANVAS (1.5) tiles squ
 not every face in every kit:
   layers/<variant>.png     the variant with its head hidden from the camera (it still casts its shadow)
   heads/<asset>_<id>.png   each look's head (gb/looks.py) on the base kit, which is held out: whatever of the body
-                           stands in front of the head (the scarf, the collar) cuts it; rendered in a border round the
-                           head only. _revenant: the same head in the revenant's materials and light.
-A sprite is the head layer over the body layer. Only the scarf and collar ever cover a head, and every kit shares
-them, so one head layer serves every kit of its form.
+                           stands in front of the head (the Fighter's scarf and collar, the Ranger's hood and capelet)
+                           cuts it; rendered in a border round the head only. _revenant: the same head in the
+                           revenant's materials and light. The asset seats the head (add_head): under the Ranger's
+                           hood a head's hair is fitted to it.
+A sprite is the head layer over the body layer. Whatever covers a head is the same in every kit of a class (a
+Commander's banner and a Veteran's mail stay clear of it), so one head layer serves every kit of its form and class.
 """
 import argparse
 import importlib

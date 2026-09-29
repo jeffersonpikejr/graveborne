@@ -2,14 +2,18 @@
 // before and after swapping Blender sprites in — without touching index.html. Used for every asset review.
 //
 //   python3 -m http.server 8931 --directory .            # serve the repo root
-//   node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review [--mode ring|mini|both]
+//   node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review [--mode ring|mini|both] [--squad fighter|ranger]
 //
-// Sprite files follow <class>[_commander|_veteran][_revenant]_<m|f>.webp (see art/README.md): the Commander kit
+// Sprite files follow <class>[_<weapon>][_commander|_veteran][_revenant]_<m|f>.webp (see art/README.md): a kit drawn
+// for the soldier's own weapon wins (ranger_spear_...), else the class's own (the Ranger's bow); the Commander kit
 // wins, then the Veteran kit from level 5 (the game's own veterancy capstone), then the base kit. A soldier with a
 // look (s.look, 'f07': dealt at creation, see LOOKS in index.html) is drawn in layers: the kit's body
 // (body/<variant>.webp) under their own head (heads/<class>_<look>[_revenant].webp), the form from the look;
 // without one, the whole sprite of the form the preview stages. The override is the integration contract in
 // miniature: a 1.5-tile sprite anchored at 50%/74% on the tile centre, and a team ring drawn in CSS under the feet.
+//
+// --squad stages the same people every time: the Commander (a Fighter, a founder's head), then three of the class
+// under review (one at veterancy; the Ranger's third carries a spear) and the founding grave risen as that class.
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -17,6 +21,15 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, arr) => (
 const SPR = args.sprites || 'art/sprites';
 const OUT = args.out || '.';
 const MODE = args.mode || 'ring';
+const SQUADS = {
+  fighter: { roster: [{ look: 'f00' }, { cls: 'fighter', level: 5, weapon: 'shortsword', look: 'm06' },
+    { cls: 'fighter', weapon: 'shortsword', look: 'f07' }, { cls: 'fighter', weapon: 'shortsword', look: 'm13' }],
+    grave: { cls: 'fighter', weapon: 'shortsword', look: 'f05' } },
+  ranger: { roster: [{ look: 'f00' }, { cls: 'ranger', level: 5, weapon: 'bow', look: 'm06' },
+    { cls: 'ranger', weapon: 'bow', look: 'f07' }, { cls: 'ranger', weapon: 'spear', look: 'm13' }],
+    grave: { cls: 'ranger', weapon: 'bow', look: 'f05' } },
+};
+const SQUAD = SQUADS[args.squad || 'fighter'];
 const BASE = process.env.GB_URL || 'http://localhost:8931/';
 const { chromium } = await import(process.env.PW_MODULE || 'playwright');   // PW_MODULE=/path/to/playwright/index.mjs if not installed locally
 fs.mkdirSync(OUT, { recursive: true });
@@ -55,15 +68,16 @@ function inject(page, mode) {
       const cls = s.cls || 'fighter', rev = o.revenant ? '_revenant' : '';
       const form = s.look ? s.look[0] : (s.form || (s.commander ? 'f' : 'm'));
       const tiers = s.commander ? ['_commander', ''] : ((s.level || 1) >= 5 ? ['_veteran', ''] : ['']);
+      const kits = s.weapon ? [`${cls}_${s.weapon}`, cls] : [cls];
       const head = s.look && heads[`${cls}_${s.look}${rev}`];
       let body = null;
-      for (const t of tiers) body = body || bodies[`${cls}${t}${rev}_${form}`];
+      for (const k of kits) for (const t of tiers) body = body || bodies[`${k}${t}${rev}_${form}`];
       if (head && body) {       // the kit's body under the soldier's own head
         if (size >= 44) return `<div class="spr-card" style="width:${size}px;height:${size}px;background-image:url(${head}),url(${body});background-size:175%;background-position:50% 64%"></div>`;
         return `<img class="spr" src="${body}" alt=""><img class="spr" src="${head}" alt="">`;
       }
       let src = null;
-      for (const t of tiers) for (const f of [form, form === 'm' ? 'f' : 'm']) src = src || sprites[`${cls}${t}${rev}_${f}`];
+      for (const k of kits) for (const t of tiers) for (const f of [form, form === 'm' ? 'f' : 'm']) src = src || sprites[`${k}${t}${rev}_${f}`];
       if (!src) return window.__origPc(s, size, o);
       if (size >= 44) return `<div class="spr-card" style="width:${size}px;height:${size}px;background-image:url(${src});background-size:175%;background-position:50% 64%"></div>`;
       return `<img class="spr" src="${src}" alt="">`;
@@ -96,20 +110,16 @@ async function stage(page) {
   await page.waitForTimeout(500);
   await page.evaluate(() => { localStorage.clear(); G.newGame(); });
   await page.waitForTimeout(250); await dismiss(page);
-  await page.evaluate(() => {
+  await page.evaluate((squad) => {
     const S = G.state, c = S.contracts.find(c => c.type === 'patrol') || S.contracts[0];
-    // staged: a squad of four Fighters, two men and two women, so every review compares the same people: the
-    // Commander (a founder's head), one at veterancy, two in the base kit. Only the Fighter has rendered sprites so far.
-    Object.assign(S.roster[0], { look: 'f00' });
-    Object.assign(S.roster[1], { cls: 'fighter', level: 5, weapon: 'shortsword', look: 'm06' });
-    Object.assign(S.roster[2], { cls: 'fighter', weapon: 'shortsword', look: 'f07' });
-    Object.assign(S.roster[3], { cls: 'fighter', weapon: 'shortsword', look: 'm13' });
+    // staged: the same four people every review (see --squad), two men and two women
+    squad.roster.forEach((o, i) => Object.assign(S.roster[i], o));
     startBattle(c, S.roster.slice(0, 4).map(s => s.id));
-  });
+  }, SQUAD);
   await page.waitForTimeout(400); await dismiss(page);
   // A fair comparison: clear weather (fog stripes muddy the art), the squad gathered mid-map on level ground so the
   // camera isn't pinned to an edge, and the founding grave raised as a Fighter revenant on the Commander's flank.
-  await page.evaluate(() => {
+  await page.evaluate((grave) => {
     const S = G.state, B = S.battle, g = S.graves[0];
     B.weather = null; B.rain = false;
     const ok = (x, y, z) => { const t = tileAt(B, x, y); return t && !bImpass(t.t) && !t.blighted && !unitAt(B, x, y) && elevAt(B, x, y) === z; };
@@ -126,7 +136,7 @@ async function stage(page) {
     for (const u of others) if (best && u.x >= best.x - 1 && u.x <= best.x + 6 && u.y >= best.y - 1 && u.y <= best.y + 3) {
       const p = nearOpen(B, Math.max(0, best.x - 5), u.y, 8); if (p) { u.x = p.x; u.y = p.y; }
     }
-    g.snap.cls = 'fighter'; g.snap.commander = false; g.look = 'f05';
+    g.snap.cls = grave.cls; g.snap.weapon = grave.weapon; g.snap.commander = false; g.look = grave.look;
     spawnRevenant(B, g);
     const rv = B.units.find(u => u.graveId === g.id), cmd = pcs[0];
     for (const [dx, dy] of [[3, 0], [3, 1], [4, 0], [3, -1], [2, 1]]) {
@@ -135,7 +145,7 @@ async function stage(page) {
     }
     B._camTouched = false; B._camFollow = null;
     render();
-  });
+  }, SQUAD.grave);
   await page.waitForTimeout(300); await dismiss(page);
 }
 

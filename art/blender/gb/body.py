@@ -11,7 +11,9 @@ Widths are absolute (m): adult averages pushed a little toward the strong end, a
 A Frame is one body: its settings, its height, its torso's cross-sections at each level, its joints in a pose, and
 where its head sits. Kits are built on it. fighter.py lays the Line-Breaker's armour on the male anchor's dimensions
 plus the difference a body makes at each level (Frame.dw, and friends), so the plate keeps its clearance over any
-body and his armour never moves.
+body and his armour never moves. A Frame can be posed: reach() bends an arm so its hand lands where a kit needs it
+(on a bow's grip, a spear's shaft), and a gripping hand closes into a fist round what it holds. gb/garb.py lays
+clothes over the posed body itself (the Ranger).
 
 For review, bare() builds the body itself: a signed-distance field of anatomical masses (a torso lofted through the
 cross-sections; pecs or bust, seat, hip, back, traps and deltoids on it; limbs as capsules with their muscle bellies;
@@ -114,6 +116,43 @@ class Frame:
             J['kn_' + side] = (s * (hp + 0.012 - kin), -0.005, 0.5)
             J['an_' + side] = (s * (hp + 0.02), 0.02, 0.085)
         self.joints = {k: np.array((x, y, z * self.hf), np.float32) for k, (x, y, z) in J.items()}
+        self.grip = {}      # side -> the direction of what that hand holds (a bow's stave, a spear): a fist round it
+
+    def reach(self, side, wrist, pole=(0.0, 0.3, -1.0), grip=None):
+        """Pose an arm ('l' or 'r') so its wrist lands on `wrist` (figure space; pulled in along the line if out of
+        reach), keeping the arm's own lengths, the elbow bending toward `pole`. grip: the direction of a shaft the
+        hand closes round."""
+        J = self.joints
+        sh = J['sh_' + side]
+        lu = float(np.linalg.norm(J['el_' + side] - sh))
+        lf = float(np.linalg.norm(J['wr_' + side] - J['el_' + side]))
+        d = np.asarray(wrist, np.float32) - sh
+        L = min(float(np.linalg.norm(d)), (lu + lf) * 0.999)
+        u = d / np.linalg.norm(d)
+        a = (lu * lu - lf * lf + L * L) / (2.0 * L)          # the elbow's foot on the shoulder-wrist line
+        h = math.sqrt(max(lu * lu - a * a, 0.0))
+        p = np.asarray(pole, np.float32)
+        p = p - u * float(p @ u)
+        p = p / np.linalg.norm(p)
+        J['el_' + side] = (sh + u * a + p * h).astype(np.float32)
+        J['wr_' + side] = (sh + u * L).astype(np.float32)
+        if grip is not None:
+            self.grip[side] = np.asarray(grip, np.float32) / np.linalg.norm(grip)
+        return J['wr_' + side]
+
+    def fist(self, side):
+        """Where a gripping hand's fist closes (the centre of what it holds), figure space."""
+        J = self.joints
+        wr, el = J['wr_' + side], J['el_' + side]
+        hd = (wr - el) / np.linalg.norm(wr - el)
+        hl, hb = self.f['hand']
+        return wr + hd * hl * 0.36 + self._palm(side, hd) * hb * 0.2
+
+    def _palm(self, side, hd):
+        """The direction the palm faces on a gripping hand: toward the body's midline, square to the forearm."""
+        g = self.grip.get(side, np.array((0.0, 0.0, 1.0), np.float32))
+        n = np.cross(g, hd) * (-1.0 if side == 'l' else 1.0)
+        return n / max(np.linalg.norm(n), 1e-6)
 
     def torso(self, u):
         """Half-width, front depth and back depth of the torso at level u (on the male anchor's scale)."""
@@ -189,6 +228,25 @@ def _hand(P, wr, hd, s, hl, hb):
                              0.011 * k, 0.009 * k), 0.008)
 
 
+def _fist(P, fr, side):
+    """A hand closed round a shaft (Frame.grip): the palm and the rolled fingers as one rounded block across the
+    shaft, the thumb wrapped over the front of the fingers."""
+    J, f = fr.joints, fr.f
+    wr, el = J['wr_' + side], J['el_' + side]
+    hd = (wr - el) / np.linalg.norm(wr - el)
+    hl, hb = f['hand']
+    k = hl / 0.19
+    g = fr.grip[side]
+    a = g - hd * float(g @ hd)
+    a = a / np.linalg.norm(a)
+    palm = fr._palm(side, hd)
+    M = np.column_stack((a, np.cross(hd, a), hd)).astype(np.float32)     # local X along the shaft, Z along the hand
+    d = F._rbox(P, wr + hd * hl * 0.3, (hb * 0.5, 0.025 * k, hl * 0.22), 0.016 * k, M=M)
+    up = a if float(a[2]) >= 0.0 else -a                                  # the thumb closes over the top of the fist
+    t0 = wr + hd * hl * 0.12 + palm * 0.018 * k + up * hb * 0.42
+    return F._smin(d, F._cap(P, t0, t0 + hd * hl * 0.26 + palm * 0.012 * k, 0.011 * k, 0.009 * k), 0.008)
+
+
 def _foot(P, an, s, fl, fb):
     """A foot: the heel under the ankle, the instep falling to the toes, narrow at the heel, turned out a little."""
     t = math.radians(8.0) * s
@@ -232,8 +290,9 @@ def _arms(P, fr, grow=1.0):
     return out
 
 
-def field(P, fr):
-    """Signed distance to the bare body's skin (m) at points P (N, 3)."""
+def field(P, fr, arms=True):
+    """Signed distance to the bare body's skin (m) at points P (N, 3). arms=False: the body without its arms (a belt
+    or a strap goes round the trunk, not round a hanging arm)."""
     f, hf = fr.f, fr.hf
     Pm = np.column_stack((np.abs(P[:, 0]), P[:, 1], P[:, 2]))
 
@@ -276,15 +335,16 @@ def field(P, fr):
         sh, el, wr = J['sh_' + side], J['el_' + side], J['wr_' + side]
         ua, fa = el - sh, wr - el
         lu, lf = float(np.linalg.norm(ua)), float(np.linalg.norm(fa))
-        d = F._smin(d, F._cap(P, sh, el, a0, a1), 0.02)
-        d = F._smin(d, F._ell(P, sh + ua * 0.48 + np.array((0.0, -a0 * 0.38, 0.0), np.float32),
-                              np.array((a0 * 0.72, a0 * 0.62, lu * 0.28), np.float32)), 0.015)      # biceps
-        d = F._smin(d, F._ell(P, sh + ua * 0.38 + np.array((0.0, a0 * 0.42, 0.0), np.float32),
-                              np.array((a0 * 0.75, a0 * 0.62, lu * 0.32), np.float32)), 0.015)      # triceps
-        d = F._smin(d, F._cap(P, el, wr, a2, a3), 0.018)
-        d = F._smin(d, F._ell(P, el + fa * 0.2 + np.array((s * a2 * 0.15, 0.0, 0.0), np.float32),
-                              np.array((a2 * 0.85, a2 * 0.8, lf * 0.3), np.float32)), 0.015)       # the forearm's belly
-        d = F._smin(d, _hand(P, wr, fa / lf, s, *f['hand']), 0.012)
+        if arms:
+            d = F._smin(d, F._cap(P, sh, el, a0, a1), 0.02)
+            d = F._smin(d, F._ell(P, sh + ua * 0.48 + np.array((0.0, -a0 * 0.38, 0.0), np.float32),
+                                  np.array((a0 * 0.72, a0 * 0.62, lu * 0.28), np.float32)), 0.015)      # biceps
+            d = F._smin(d, F._ell(P, sh + ua * 0.38 + np.array((0.0, a0 * 0.42, 0.0), np.float32),
+                                  np.array((a0 * 0.75, a0 * 0.62, lu * 0.32), np.float32)), 0.015)      # triceps
+            d = F._smin(d, F._cap(P, el, wr, a2, a3), 0.018)
+            d = F._smin(d, F._ell(P, el + fa * 0.2 + np.array((s * a2 * 0.15, 0.0, 0.0), np.float32),
+                                  np.array((a2 * 0.85, a2 * 0.8, lf * 0.3), np.float32)), 0.015)       # the forearm's belly
+            d = F._smin(d, _fist(P, fr, side) if side in fr.grip else _hand(P, wr, fa / lf, s, *f['hand']), 0.012)
         hp, kn, an = J['hp_' + side], J['kn_' + side], J['an_' + side]
         th, sk = kn - hp, an - kn
         lt, ls = float(np.linalg.norm(th)), float(np.linalg.norm(sk))

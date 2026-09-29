@@ -57,6 +57,13 @@ the Line-Breaker concept art and briefs:
   Scars are darker and desaturated, uneven and broken, sunk into the skin. Heads run 8% large and tilt chin-up
   toward the camera in battle; portraits are level three-quarter busts, and can take a pixel-art finish (64px,
   28 colours, no dither).
+- **Light kit is laid on the body too** (the Ranger, `gb/garb.py`): garments are layers offset from the posed body's
+  own surface, so a jack, a jerkin or breeches show his barrel chest and her waist, hips and seat with nothing redrawn;
+  capes and cloaks drape from their top edge over whatever of the body stands out and flare toward a ragged hem. A
+  hood is worn up but **pulled back off the brow**, so the face, the hairline and the beard read and every soldier
+  stays their own: hair that gathers on the crown or the nape flattens under it, hanging hair keeps what falls out
+  through the opening, and a ponytail is brought forward over the shoulder. A class that rolls more than one weapon
+  gets a kit per weapon (`ranger_spear_*`); its silhouette weapon is the default.
 - **Commander** (any class): company banner strapped to the back, one tarnished mark of rank, a founding scar,
   fewer loose pieces. **Veteran** (level 5, the game's veterancy capstone): gear assembled from dead men's
   armour — a foreign gilt pauldron, a mismatched greave, a patched cuirass.
@@ -96,8 +103,8 @@ Status: ✅ approved · 🔍 in review · ⏳ queued
 ### Wave 1 — The Company (style anchor + every unit you control)
 | # | Asset | Variants | Score | Status |
 |---|---|---|---|---|
-| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded, the head carved from one skull (rev. 6) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | 🔍 |
-| 2 | Ranger — hood & cloak, longbow, quiver | same matrix | 3×2×3 = 18 | ⏳ |
+| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded, the head carved from one skull (rev. 6) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | ✅ |
+| 2 | **Ranger — the Harrier**: hood pulled back over a capelet, a rain-dark cloak, quilted jack and laced jerkin laid on the body, a yew longbow held upright, a back quiver (or a boar spear) | same matrix, × bow / spear | 3×2×3 = 18 | 🔍 |
 | 3 | Cleric — white tabard with red cross, mail coif, flanged mace | same matrix | 3×2×3 = 18 | ⏳ |
 | 4 | Ash Acolyte — hooded ash-robe, blight veins, floating ashfire | same matrix | 3×2×3 = 18 | ⏳ |
 | 5 | Underkingdom Shade — black leathers, twin daggers (rare Cinderling recruit) | same matrix | 2×2×2 = 8 | ⏳ |

@@ -23,6 +23,7 @@ Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 
     .bvenv/bin/python art/tools/post.py ship  art/renders/fighter/*.png --out art/sprites  # 384px WebP
     python3 -m http.server 8931 --directory . &
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review    # the real game, before/after
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad ranger   # Rangers beside the Commander
 
 `ingame.mjs` swaps sprites in at runtime and screenshots the same board state before and after, on desktop and
 phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/path/to/playwright/index.mjs`).
@@ -96,8 +97,11 @@ painted-miniature materials.)
                             eyes in carved sockets, hair/beard/brows as shells of the same field; marks()
                             gives the skin shader its landmarks (lips, sockets, lids and eye corners, scar)
     blender/gb/looks.py     the appearance genome: roll(form, n) -> a soldier's look; build_head(look)
-    blender/gb/body.py      bodies: male and female anchors on one dial, Frame (the dimensions kits are laid on),
-                            and a bare review body (a field of anatomical masses, like the heads)
+    blender/gb/body.py      bodies: male and female anchors on one dial, Frame (the dimensions kits are laid on;
+                            reach() poses an arm, a gripping hand closes into a fist), and the body's field
+    blender/gb/garb.py      light kit laid on the body: garments as layers offset from the posed body (Dressed),
+                            capes and cloaks draped over it (Drape), a hood pulled back off the brow (the head
+                            fits its hair under face.HOOD_*); a longbow, arrows, a quiver, a boar spear, a knife
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer (--looks: body and head layers)
     blender/review_heads.py head review sheets: views, hairstyles, the look pool
@@ -105,6 +109,7 @@ painted-miniature materials.)
     tools/post.py           review sheets at real display sizes; WebP export
     tools/ingame.mjs        before/after screenshots inside the running game
     renders/                master renders (768px PNG, 1.5 tiles square) — gitignored, reproducible
-    sprites/                shippable 384px WebP, named <class>[_commander|_veteran][_revenant]_<m|f>.webp
+    sprites/                shippable 384px WebP, named <class>[_<weapon>][_commander|_veteran][_revenant]_<m|f>.webp
+                            (a weapon's own kit, e.g. ranger_spear_*, else the class's: the Ranger's bow)
     sprites/body/           the same variants with the head left off (the looks' bodies)
     sprites/heads/          <class>_<look>[_revenant].webp, one per look, and looks.json (the pool the game deals)
