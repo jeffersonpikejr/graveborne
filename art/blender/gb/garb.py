@@ -557,6 +557,44 @@ def manacle(name, wrist, axis, iron, links=3, r_in=0.034):
     return parts
 
 
+def strips(name, drape, n, width, z_top, z_bot, mat, lift=0.0, offset=0.0, thick=0.006, jag=0.03, rows=8, seed=0,
+           rivet_mat=None):
+    """A skirt of hardened leather strips lying on a drape (a closed one, round the hips): n strips `width` wide from
+    z_top down to about z_bot, each a little longer or shorter, their feet rounded, a rivet at each foot. `offset` turns
+    the ring (degrees); a second ring lifted over the first and offset half a strip closes its gaps."""
+    rnd = random.Random(seed)
+    bm = bmesh.new()
+    rp = []
+    for k in range(n):
+        a = offset + 360.0 * k / n
+        zb = z_bot + rnd.uniform(-jag, jag)
+        p0, _ = drape.point(a, z_top, lift)
+        hw = math.degrees(width / 2.0 / max(math.hypot(p0.x, p0.y - drape.oy), 0.05))
+        grid = []
+        for j in range(rows + 1):
+            f = j / rows
+            row = []
+            for s in (-1.0, -0.5, 0.0, 0.5, 1.0):
+                z = z_top + (zb - z_top) * f
+                if j == rows:                 # a rounded foot
+                    z += width * 0.3 * (1.0 - math.cos(s * math.pi / 2.0))
+                row.append(bm.verts.new(drape.point(a + s * hw * (1.0 - 0.08 * f), z, lift)[0]))
+            grid.append(row)
+        for j in range(rows):
+            for i in range(4):
+                bm.faces.new((grid[j][i], grid[j + 1][i], grid[j + 1][i + 1], grid[j][i + 1]))
+        p, nrm = drape.point(a, zb + width * 0.35, lift)
+        rp.append(p + nrm * (thick + 0.003))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    ob = K._obj(name, bm, mat)
+    A.solid(ob, thick)
+    K.bevel(ob, 0.002, 1)
+    parts = [ob]
+    if rivet_mat is not None:
+        parts.append(A.rivets(name + '_rivets', rp, 0.0045, rivet_mat))
+    return parts
+
+
 def cord(name, path, r, mat, closed=False):
     """A rope along `path`: a girdle, a lanyard, a hanging end."""
     pts = [Vector(p) for p in path]

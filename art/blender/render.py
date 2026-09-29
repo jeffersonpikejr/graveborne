@@ -14,7 +14,7 @@ not every face in every kit:
   layers/<variant>.png     the variant with its head hidden from the camera (it still casts its shadow)
   heads/<asset>_<id>.png   each look's head (gb/looks.py) on the base kit, which is held out: whatever of the body
                            stands in front of the head (the Fighter's scarf and collar, the Ranger's hood and capelet,
-                           the Acolyte's hood and mantle) cuts it, and its lights still fall on it (the ashfire's);
+                           the Acolyte's hood and collar) cuts it, and its lights still fall on it (the ashfire's);
                            rendered in a border round the head only. _revenant: the same head in the revenant's
                            materials and light. The asset seats the head (add_head): under a hood a head's hair is
                            fitted to it.

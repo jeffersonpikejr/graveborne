@@ -350,6 +350,26 @@ def brass(name, color=None, tarnish=0.95, blood=0.1, mud=1.0, seed=7, film=0.55)
     return m
 
 
+def _ashen(g, col, ash, char, kind):
+    """Ash settled in drifts on whatever faces up and a grey film over the rest (ash); a hem scorched black in ragged
+    tongues climbing to `height` (world, tiles) (char=(height, amount))."""
+    nt = g.nt
+    if char:
+        h, amt = char
+        rise = _math(nt, 'ADD', g.wz, _math(nt, 'MULTIPLY', g.noise(7.0, detail=6.0, w=81.0), h * 0.9))
+        cm = _maprange(nt, rise, h * 0.55, h * 1.05, amt, 0.0)
+        col = _mix(nt, 'MIX', col, g.col('#121011', kind), cm)
+    if ash > 0:
+        nz = g.N.new('ShaderNodeSeparateXYZ')
+        g.L.new(g.geo.outputs['Normal'], nz.inputs[0])
+        up = _maprange(nt, nz.outputs['Z'], 0.25, 0.85)
+        drift = _maprange(nt, g.noise(30.0, detail=6.0, rough=0.7, w=83.0), 0.3, 0.7, 0.35, 0.8)     # a fine, even dust
+        col = _mix(nt, 'MIX', col, g.col('#6e6a67', kind),
+                   _math(nt, 'MULTIPLY', _maprange(nt, g.noise(3.0, w=85.0), 0.3, 0.7, 0.06, 0.2), ash))
+        col = _mix(nt, 'MIX', col, g.col('#7d7873', kind), _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', up, drift), ash))
+    return col
+
+
 def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth', device=None, cross=None, ash=0.0,
           char=None):
     """Heavy wool gone dark with weather: fibre, folds full of dirt, blood worked in, a mud-soaked hem.
@@ -397,19 +417,7 @@ def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth'
         col = _mix(nt, 'MIX', col, g.col(COL['oxblood_dry'], kind), bm)
     if mud > 0:
         col = _mix(nt, 'MIX', col, g.col(COL['mud'], 'earth'), g.mud(height=0.22, amount=mud))
-    if char:
-        h, amt = char
-        rise = _math(nt, 'ADD', g.wz, _math(nt, 'MULTIPLY', g.noise(7.0, detail=6.0, w=81.0), h * 0.9))
-        cm = _maprange(nt, rise, h * 0.55, h * 1.05, amt, 0.0)
-        col = _mix(nt, 'MIX', col, g.col('#121011', kind), cm)
-    if ash > 0:
-        nz = g.N.new('ShaderNodeSeparateXYZ')
-        g.L.new(g.geo.outputs['Normal'], nz.inputs[0])
-        up = _maprange(nt, nz.outputs['Z'], 0.25, 0.85)
-        drift = _maprange(nt, g.noise(30.0, detail=6.0, rough=0.7, w=83.0), 0.3, 0.7, 0.35, 0.8)     # a fine, even dust
-        col = _mix(nt, 'MIX', col, g.col('#6e6a67', kind),
-                   _math(nt, 'MULTIPLY', _maprange(nt, g.noise(3.0, w=85.0), 0.3, 0.7, 0.06, 0.2), ash))
-        col = _mix(nt, 'MIX', col, g.col('#7d7873', kind), _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', up, drift), ash))
+    col = _ashen(g, col, ash, char, kind)
     g.bump(g.noise(260.0, detail=2.0, w=15.0), 0.25)
     g.bump(g.noise(40.0, detail=4.0, w=16.0), 0.2)
     g.bsdf.inputs['Sheen Weight'].default_value = 0.08       # more sheen and wool reads as pink velvet
@@ -420,8 +428,11 @@ def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth'
     return m
 
 
-def leather(name, color=None, blood=0.15, mud=1.2, seed=11):
-    """Oiled leather scuffed pale where it rubs, cracked where it bends."""
+def leather(name, color=None, blood=0.15, mud=1.2, seed=11, scuff_c=None, ash=0.0, char=None, crackle=0.3,
+            cells=60.0):
+    """Oiled leather scuffed pale where it rubs, cracked where it bends. scuff_c: the colour it wears to (the Acolyte's
+    scorched leather wears ash-grey); ash, char: as cloth; crackle, cells: how deep and how fine its cracking (boiled
+    leather is hard and barely creases)."""
     hit, key = _cached(('leather', name))
     if hit:
         return hit
@@ -430,7 +441,7 @@ def leather(name, color=None, blood=0.15, mud=1.2, seed=11):
     col = _mix(nt, 'MULTIPLY', g.col(color or COL['leather'], 'leather'), _maprange(nt, g.noise(7.0, w=2.0), 0.3, 0.7, 0.75, 1.1))
     scuff = _maprange(nt, g.noise(14.0, detail=8.0, w=4.0), 0.58, 0.68)
     scuff = _math(nt, 'MINIMUM', _math(nt, 'ADD', scuff, _math(nt, 'MULTIPLY', g.edge, 0.9)), 1.0)
-    col = _mix(nt, 'MIX', col, g.col('#6a5541', 'leather'), _math(nt, 'MULTIPLY', scuff, 0.55))
+    col = _mix(nt, 'MIX', col, g.col(scuff_c or '#6a5541', 'leather'), _math(nt, 'MULTIPLY', scuff, 0.55))
     col = _mix(nt, 'MIX', col, g.col(COL['grime'], 'earth'), _math(nt, 'MULTIPLY', g.cavity, 0.6))
     rgh = _lerp(nt, 0.55, 0.8, scuff)
     bm = g.blood(blood)
@@ -438,11 +449,12 @@ def leather(name, color=None, blood=0.15, mud=1.2, seed=11):
         col = _mix(nt, 'MIX', col, g.col(COL['oxblood_dry'], 'cloth'), bm)
     if mud > 0:
         col = _mix(nt, 'MIX', col, g.col(COL['mud'], 'earth'), g.mud(amount=mud))
+    col = _ashen(g, col, ash, char, 'leather')
     vo = g.N.new('ShaderNodeTexVoronoi')
     vo.feature = 'DISTANCE_TO_EDGE'
-    vo.inputs['Scale'].default_value = 60.0
+    vo.inputs['Scale'].default_value = cells
     g.L.new(g.obj, vo.inputs['Vector'])
-    g.bump(_maprange(nt, vo.outputs['Distance'], 0.0, 0.05, -1.0, 0.0), 0.3)
+    g.bump(_maprange(nt, vo.outputs['Distance'], 0.0, 0.05, -1.0, 0.0), crackle)
     g.cracks(0.7)
     m = g.finish(col, rgh, 0.0)
     _CACHE[key] = m

@@ -78,7 +78,8 @@ Battle-worn realism, per the art direction in `ASSETS.md`. Every surface is a ba
 campaign leaves, in order: scratches and pitting → worn-bright edges → grime packed in recesses → rust or
 tarnish → oxblood smears → mud climbing from the ground (in world space, so it rises from the same ground line
 on every part). Library: `steel`, `paint_over_steel` (the bone-white shield), `maille`, `brass` (tarnished),
-`cloth` (with an optional painted device or dyed cross; ash settled on what faces up, a scorched hem), `leather`,
+`cloth` (with an optional painted device or dyed cross; ash settled on what faces up, a scorched hem), `leather` (the
+same ash; edges worn to a colour of its own),
 `skin` (windburn, dirt, stubble; with `face=face.marks(...)`: lips, sockets, dark circles, shadowed lid margins and
 eye corners, the undercut's stubble, a sunken scar), `graft` (Blight-grafted flesh, veins lit from the graft), `hair`,
 `wood`.
@@ -107,7 +108,8 @@ painted-miniature materials.)
     blender/gb/garb.py      light kit laid on the body: garments as layers offset from the posed body (Dressed),
                             capes and cloaks draped over it (Drape), a hood pulled back off the brow (the head
                             fits its hair under face.HOOD_*); a longbow, arrows, a quiver, a boar spear, a knife,
-                            a chapel lantern, a cord, a girdle book, the Acolyte's ashfire, a broken manacle
+                            a chapel lantern, a cord, a girdle book, a skirt of leather strips, the Acolyte's
+                            ashfire, a broken manacle
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer (--looks: body and head layers)
     blender/review_heads.py head review sheets: views, hairstyles, the look pool
