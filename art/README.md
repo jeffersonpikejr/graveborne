@@ -25,6 +25,7 @@ Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review    # the real game, before/after
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad ranger   # Rangers beside the Commander
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad cleric   # Clerics beside the Commander
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad acolyte  # Acolytes beside the Commander
 
 `ingame.mjs` swaps sprites in at runtime and screenshots the same board state before and after, on desktop and
 phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/path/to/playwright/index.mjs`).
@@ -77,8 +78,9 @@ Battle-worn realism, per the art direction in `ASSETS.md`. Every surface is a ba
 campaign leaves, in order: scratches and pitting → worn-bright edges → grime packed in recesses → rust or
 tarnish → oxblood smears → mud climbing from the ground (in world space, so it rises from the same ground line
 on every part). Library: `steel`, `paint_over_steel` (the bone-white shield), `maille`, `brass` (tarnished),
-`cloth` (with an optional painted device), `leather`, `skin` (windburn, dirt, stubble; with `face=face.marks(...)`:
-lips, sockets, dark circles, shadowed lid margins and eye corners, the undercut's stubble, a sunken scar), `hair`,
+`cloth` (with an optional painted device or dyed cross; ash settled on what faces up, a scorched hem), `leather`,
+`skin` (windburn, dirt, stubble; with `face=face.marks(...)`: lips, sockets, dark circles, shadowed lid margins and
+eye corners, the undercut's stubble, a sunken scar), `graft` (Blight-grafted flesh, veins lit from the graft), `hair`,
 `wood`.
 
 **Revenant mode** (`mat.set_mode`) re-renders any asset corrupted: palette drained toward grave-grey, skin gone
@@ -89,7 +91,8 @@ painted-miniature materials.)
 
     blender/gb/rig.py       camera, lights, world, grade presets, render settings, shadow catcher
     blender/gb/grit.py      battle-worn materials (the house look)
-    blender/gb/mat.py       palette, colour helpers, revenant corruption, the first painted materials
+    blender/gb/mat.py       palette, colour helpers, revenant corruption, emitters and a light's bloom (halo),
+                            the first painted materials
     blender/gb/kit.py       primitives: skin-modifier limbs, lathes, tubes, blades, hafted weapons
     blender/gb/armor.py     humanoid kit: plate shells, pauldrons, cops, gauntlets, straps, torn cloth,
                             the great shield, the broadsword
@@ -99,11 +102,12 @@ painted-miniature materials.)
                             gives the skin shader its landmarks (lips, sockets, lids and eye corners, scar)
     blender/gb/looks.py     the appearance genome: roll(form, n) -> a soldier's look; build_head(look)
     blender/gb/body.py      bodies: male and female anchors on one dial, Frame (the dimensions kits are laid on;
-                            reach() poses an arm, a gripping hand closes into a fist), and the body's field
+                            reach() poses an arm, a gripping hand closes into a fist, open_hand() turns an open
+                            hand at the wrist), and the body's field
     blender/gb/garb.py      light kit laid on the body: garments as layers offset from the posed body (Dressed),
                             capes and cloaks draped over it (Drape), a hood pulled back off the brow (the head
                             fits its hair under face.HOOD_*); a longbow, arrows, a quiver, a boar spear, a knife,
-                            a chapel lantern, a cord, a girdle book
+                            a chapel lantern, a cord, a girdle book, the Acolyte's ashfire, a broken manacle
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer (--looks: body and head layers)
     blender/review_heads.py head review sheets: views, hairstyles, the look pool

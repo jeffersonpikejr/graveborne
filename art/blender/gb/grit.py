@@ -350,11 +350,14 @@ def brass(name, color=None, tarnish=0.95, blood=0.1, mud=1.0, seed=7, film=0.55)
     return m
 
 
-def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth', device=None, cross=None):
+def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth', device=None, cross=None, ash=0.0,
+          char=None):
     """Heavy wool gone dark with weather: fibre, folds full of dirt, blood worked in, a mud-soaked hem.
     device=(cx, cz, radius, hex): a painted roundel in object space (the company's mark on a banner).
     cross=(cx, cz, arm, width, hex): a dyed cross in object space, its crossing at (cx, cz), the arms `arm` long each
-    way, the foot longer (a surcoat's cross, front and back)."""
+    way, the foot longer (a surcoat's cross, front and back).
+    ash: pale ash settled in drifts on whatever faces up (the shoulders, the crown of a hood) and a grey film over the
+    rest. char=(height, amount): the hem scorched black in ragged tongues climbing to `height` (world, tiles)."""
     hit, key = _cached(('cloth', name))
     if hit:
         return hit
@@ -394,6 +397,19 @@ def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth'
         col = _mix(nt, 'MIX', col, g.col(COL['oxblood_dry'], kind), bm)
     if mud > 0:
         col = _mix(nt, 'MIX', col, g.col(COL['mud'], 'earth'), g.mud(height=0.22, amount=mud))
+    if char:
+        h, amt = char
+        rise = _math(nt, 'ADD', g.wz, _math(nt, 'MULTIPLY', g.noise(7.0, detail=6.0, w=81.0), h * 0.9))
+        cm = _maprange(nt, rise, h * 0.55, h * 1.05, amt, 0.0)
+        col = _mix(nt, 'MIX', col, g.col('#121011', kind), cm)
+    if ash > 0:
+        nz = g.N.new('ShaderNodeSeparateXYZ')
+        g.L.new(g.geo.outputs['Normal'], nz.inputs[0])
+        up = _maprange(nt, nz.outputs['Z'], 0.25, 0.85)
+        drift = _maprange(nt, g.noise(30.0, detail=6.0, rough=0.7, w=83.0), 0.3, 0.7, 0.35, 0.8)     # a fine, even dust
+        col = _mix(nt, 'MIX', col, g.col('#6e6a67', kind),
+                   _math(nt, 'MULTIPLY', _maprange(nt, g.noise(3.0, w=85.0), 0.3, 0.7, 0.06, 0.2), ash))
+        col = _mix(nt, 'MIX', col, g.col('#7d7873', kind), _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', up, drift), ash))
     g.bump(g.noise(260.0, detail=2.0, w=15.0), 0.25)
     g.bump(g.noise(40.0, detail=4.0, w=16.0), 0.2)
     g.bsdf.inputs['Sheen Weight'].default_value = 0.08       # more sheen and wool reads as pink velvet
@@ -694,6 +710,54 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
     if near is not None:     # nor in the lid margins and the eye's corners
         rgh = _lerp(nt, rgh, 0.95, near)
     m = g.finish(col, rgh, 0.0)
+    _CACHE[key] = m
+    return m
+
+
+def graft(name, tone, source, reach=0.3, glow=3.0, light='#b07cf0', seed=15):
+    """Blight-grafted flesh (the Ash Acolyte's arm): toward the graft at `source` (object space, m) the skin is gone
+    ash-grey and bruised violet and split by veins that carry the Blight's light, brightest at the graft and dying out
+    `reach` from it; past that only the largest veins run on, dark, into the wearer's own skin (`tone`)."""
+    hit, key = _cached(('graft', name))
+    if hit:
+        return hit
+    g = _G(name, seed, ao_dist=0.012)
+    nt = g.nt
+    dist = g.N.new('ShaderNodeVectorMath')
+    dist.operation = 'DISTANCE'
+    g.L.new(g.obj, dist.inputs[0])
+    dist.inputs[1].default_value = tuple(source)
+    wob = _math(nt, 'MULTIPLY', _math(nt, 'SUBTRACT', g.noise(9.0, w=91.0), 0.5), reach * 0.6)
+    near = _maprange(nt, _math(nt, 'ADD', dist.outputs['Value'], wob), reach * 0.2, reach, 1.0, 0.0)
+    flesh = _mix(nt, 'MIX', g.col('#5d5560', 'skin'), g.col('#44384e', 'skin'), _maprange(nt, g.noise(5.0, w=92.0), 0.3, 0.7))
+    col = _mix(nt, 'MIX', g.col(tone, 'skin'), flesh, near)
+
+    def network(scale, width, w):
+        """Veins: the wandering mid-lines of a noise stretched along the arm (object Y, where a raised forearm points),
+        long and branching where they meet. Returns (vein, its bright core)."""
+        n = g.noise(scale, detail=3.0, rough=0.55, distort=0.35, vec=g.stretched(1.0, 0.35, 1.0), w=w)
+        d = _math(nt, 'ABSOLUTE', _math(nt, 'SUBTRACT', n, 0.5))
+        return _maprange(nt, d, 0.0, width, 1.0, 0.0), _maprange(nt, d, 0.0, width * 0.4, 1.0, 0.0)
+    big, big_core = network(7.0, 0.035, 93.0)
+    fine, fine_core = network(17.0, 0.028, 95.0)
+    veins = _math(nt, 'MAXIMUM', _math(nt, 'MULTIPLY', big, _lerp(nt, 0.45, 1.0, near)), _math(nt, 'MULTIPLY', fine, near))
+    col = _mix(nt, 'MIX', col, _mix(nt, 'MIX', g.col('#3c3442', 'skin'), g.col('#2a1236', 'skin'), near),
+               _math(nt, 'MULTIPLY', veins, 0.85))
+    col = _mix(nt, 'MIX', col, g.col('#2a1a12', 'skin'), _math(nt, 'MULTIPLY', g.cavity, 0.5))
+    core = _math(nt, 'MAXIMUM', big_core, fine_core)
+    lit = _math(nt, 'MULTIPLY', near, near)
+    em = _math(nt, 'ADD', _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', core, lit), glow),
+               _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', lit, near), glow * 0.08))     # and a faint glow under the skin
+    g.bsdf.inputs['Emission Color'].default_value = (*hexlin(light), 1.0)
+    g.L.new(em, g.bsdf.inputs['Emission Strength'])
+    b = g.bsdf
+    b.inputs['Specular IOR Level'].default_value = 0.4
+    b.inputs['Subsurface Weight'].default_value = 0.1
+    b.inputs['Subsurface Radius'].default_value = (0.6, 0.35, 0.8)
+    b.inputs['Subsurface Scale'].default_value = 0.004
+    g.bump(veins, 0.4)
+    g.bump(g.noise(180.0, detail=3.0, w=97.0), 0.25)
+    m = g.finish(col, _maprange(nt, g.noise(12.0, w=98.0), 0.3, 0.7, 0.55, 0.75), 0.0)
     _CACHE[key] = m
     return m
 

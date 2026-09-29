@@ -65,6 +65,10 @@ the Line-Breaker concept art and briefs:
   stays their own: hair that gathers on the crown or the nape flattens under it, hanging hair keeps what falls out
   through the opening, and a ponytail is brought forward over the shoulder. A class that rolls more than one weapon
   gets a kit per weapon (`ranger_spear_*`); its silhouette weapon is the default.
+- **The Blight is worn in the flesh, and its light is kept violet** (the Ash Acolyte, `grit.graft`): a graft is flesh
+  gone ash-grey and bruised violet, split by veins whose light dies away from the graft into the wearer's own skin. Blight
+  light stays below the point where it burns to white, so it reads as violet at 26 px; on a living soldier it comes
+  only from the graft and the ashfire, where a Revenant leaks it from every crack.
 - **Commander** (any class): company banner strapped to the back, one tarnished mark of rank, a founding scar,
   fewer loose pieces. **Veteran** (level 5, the game's veterancy capstone): gear assembled from dead men's
   armour — a foreign gilt pauldron, a mismatched greave, a patched cuirass.
@@ -107,7 +111,7 @@ Status: ✅ approved · 🔍 in review · ⏳ queued
 | 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded, the head carved from one skull (rev. 6) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | ✅ |
 | 2 | **Ranger — the Harrier**: hood pulled back over a capelet, a rain-dark cloak, quilted jack and laced jerkin laid on the body, a yew longbow held upright, a back quiver (or a boar spear) | same matrix, × bow / spear | 3×2×3 = 18 | 🔍 |
 | 3 | **Cleric — the Chirurgeon**: a mail hauberk under a belted bone-white surcoat with an oxblood cross, the coif pushed back into a collar, a flanged mace held low, a chapel lantern | same matrix, × mace / spear / shortsword | 3×2×3 = 18 | 🔍 |
-| 4 | Ash Acolyte — hooded ash-robe, blight veins, floating ashfire | same matrix | 3×2×3 = 18 | ⏳ |
+| 4 | **Ash Acolyte — the Grafted**: a charcoal robe and ash-dusted mantle, the hood pulled back, an oxblood sash; the left arm bare and Blight-grafted (ash-grey flesh split by violet veins, a broken Conclave manacle), the ashfire floating over the open palm, a shortsword held low | same matrix, × shortsword / spear | 3×2×3 = 18 | 🔍 |
 | 5 | Underkingdom Shade — black leathers, twin daggers (rare Cinderling recruit) | same matrix | 2×2×2 = 8 | ⏳ |
 
 ### Wave 2 — The Enemy (one style for the whole board; fill the three missing designs)

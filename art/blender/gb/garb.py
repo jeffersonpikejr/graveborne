@@ -30,7 +30,8 @@ def dressed(fr, grid=0.004):
     wear the same clothes, so the body is sampled and each garment meshed once."""
     key = (tuple(sorted((k, tuple(v) if isinstance(v, list) else v) for k, v in fr.f.items())),
            tuple((k, tuple(np.round(v, 5))) for k, v in sorted(fr.joints.items())),
-           tuple((k, tuple(np.round(v, 4))) for k, v in sorted(fr.grip.items())), grid)
+           tuple((k, tuple(np.round(v, 4))) for k, v in sorted(fr.grip.items())),
+           tuple((k, tuple(np.round(np.concatenate(v), 4))) for k, v in sorted(fr.open.items())), grid)
     if key not in _DRESSED:
         while len(_DRESSED) >= 4:
             _DRESSED.pop(next(iter(_DRESSED)))
@@ -464,6 +465,95 @@ def lantern(name, bail, iron, horn, flame, light_color, energy=2.2, cross=True):
     parts.append(K.sphere(name + '_flame', tuple(base + Vector((0.0, 0.0, h * 0.42))), 0.011, flame,
                           scale=(1.0, 1.0, 1.9), seg=10, rings=8))
     parts.append(K.glow(name + '_light', base + Vector((0.0, 0.0, h * 0.45)), light_color, energy, radius=0.02))
+    return parts
+
+
+ASHFIRE = {       # (core, inner flame, outer flame, halo, light): the living Blight burns violet; a revenant's colder
+    False: ('#f3e4ff', '#b77ef7', '#8a45e0', '#7f3fd6', '#b584f5'),
+    True: ('#f4f2ff', '#a99af7', '#6a58dc', '#5c4dd0', '#a393f5'),
+}
+
+
+def _blob(name, loc, r, scale, tilt, mat, seg=12, rings=8):
+    """An ellipsoid (radius r, scaled) tilted by the Euler angles `tilt` (radians), centred at loc."""
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=seg, v_segments=rings, radius=r)
+    bmesh.ops.scale(bm, vec=scale, verts=bm.verts)
+    bmesh.ops.rotate(bm, cent=(0.0, 0.0, 0.0), matrix=Matrix.Rotation(tilt[0], 3, 'X') @ Matrix.Rotation(tilt[1], 3, 'Y'),
+                     verts=bm.verts)
+    bmesh.ops.translate(bm, vec=Vector(loc), verts=bm.verts)
+    return K._obj(name, bm, mat)
+
+
+def ashfire(name, at, revenant=False, energy=3.0, seed=0):
+    """The Ash Acolyte's ashfire, floating at `at`: a white heart in a knot of violet flame licking upward, a bloom of
+    its light round it, embers and flakes of ash turning about it, and the light it throws. Nothing of it casts a
+    shadow, so its light reaches the palm under it. Returns the parts."""
+    from . import mat as M
+    core_c, inner_c, outer_c, halo_c, light_c = ASHFIRE[revenant]
+    sfx = '_rev' if revenant else ''
+    C = Vector(at)
+    rnd = random.Random(seed)
+    inner = M.emissive('ashfire_inner' + sfx, inner_c, 1.6)      # kept low enough that the violet doesn't burn to white
+    outer = M.emissive('ashfire_outer' + sfx, outer_c, 1.35)
+    parts = [K.sphere(name + '_heart', tuple(C), 0.013, M.emissive('ashfire_heart' + sfx, core_c, 5.0), seg=14, rings=10)]
+    for k in range(11):         # the flame: narrow tongues close round the heart, broader ones outside, all licking up
+        a = 2.0 * math.pi * k / (4 if k < 4 else 7) + rnd.uniform(-0.3, 0.3) + (0.0 if k < 4 else 0.45)
+        rr = rnd.uniform(0.004, 0.009) if k < 4 else rnd.uniform(0.014, 0.02)
+        off = Vector((math.cos(a) * rr, math.sin(a) * rr, rnd.uniform(0.004, 0.016) if k < 4 else rnd.uniform(-0.008, 0.01)))
+        lean = (math.sin(a) * rnd.uniform(0.2, 0.45), -math.cos(a) * rnd.uniform(0.2, 0.45))
+        r = rnd.uniform(0.009, 0.012) if k < 4 else rnd.uniform(0.012, 0.017)
+        parts.append(_blob(name + '_flame', C + off, r, (1.0, 1.0, rnd.uniform(2.4, 3.2) if k < 4 else rnd.uniform(1.6, 2.3)),
+                           lean, inner if k < 4 else outer))
+    for r, op, st, hollow in ((0.06, 0.85, 1.4, True), (0.11, 0.38, 1.1, False)):     # its bloom
+        parts.append(K.sphere(name + '_halo', tuple(C + Vector((0.0, 0.0, 0.006))), r,
+                              M.halo(f'ashfire_halo{r}' + sfx, halo_c, st, op, hollow=hollow), seg=24, rings=14))
+    ember = M.emissive('ashfire_ember' + sfx, inner_c, 3.0)
+    bm = bmesh.new()
+    for k in range(16):         # embers rising off it
+        a, rr = rnd.random() * 6.283, rnd.uniform(0.025, 0.075)
+        p = C + Vector((math.cos(a) * rr, math.sin(a) * rr, rnd.uniform(-0.01, 0.13)))
+        g = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=rnd.uniform(0.0016, 0.0028))
+        bmesh.ops.translate(bm, vec=p, verts=g['verts'])
+    parts.append(K._obj(name + '_embers', bm, ember))
+    bm = bmesh.new()
+    for k in range(12):         # and flakes of ash turning round it
+        a, rr = rnd.random() * 6.283, rnd.uniform(0.045, 0.095)
+        g = bmesh.ops.create_cube(bm, size=1.0)
+        bmesh.ops.scale(bm, vec=(rnd.uniform(0.005, 0.009), rnd.uniform(0.004, 0.007), 0.0008), verts=g['verts'])
+        bmesh.ops.rotate(bm, cent=(0.0, 0.0, 0.0), matrix=Matrix.Rotation(rnd.random() * 3.0, 3, 'X')
+                         @ Matrix.Rotation(rnd.random() * 3.0, 3, 'Z'), verts=g['verts'])
+        bmesh.ops.translate(bm, vec=C + Vector((math.cos(a) * rr, math.sin(a) * rr, rnd.uniform(-0.03, 0.08))),
+                            verts=g['verts'])
+    from . import grit as G
+    parts.append(K._obj(name + '_ash', bm, G.flat('ash_flake', '#3a3634')))
+    for ob in parts:
+        ob.visible_shadow = False
+    parts.append(K.glow(name + '_light', C, light_c, energy, radius=0.03))
+    return parts
+
+
+def manacle(name, wrist, axis, iron, links=3, r_in=0.034):
+    """A broken iron manacle still locked on a wrist at `wrist`, round the forearm's `axis`: a flat band with its hinge
+    and lock, and the links of its chain hanging from it, the last one burst."""
+    ax = Vector(axis).normalized()
+    Wr = Vector(wrist)
+    parts = [A.torus(name, (0.0, 0.0, 0.0), r_in + 0.004, 0.0045, iron, seg=28, rseg=8, rz=0.014, lumpy=0.05, seed=3)]
+    A.place(parts[-1], Wr, A.frame(ax))
+    down = Vector((0.0, 0.0, -1.0))
+    down = down - ax * down.dot(ax)
+    down = down.normalized() if down.length > 1e-3 else Vector((0.0, -1.0, 0.0))
+    side = ax.cross(down).normalized()
+    parts.append(K.rbox(name + '_lock', (0.022, 0.016, 0.03), (0, 0, 0), iron, bev=0.003))
+    A.place(parts[-1], Wr + side * (r_in + 0.011), A.frame(ax, back=tuple(side)))
+    top = Wr + down * (r_in + 0.011)
+    for k in range(links):
+        c = top + Vector((0.0, 0.0, -0.012 - 0.021 * k))
+        link = A.torus(name + '_link', (0.0, 0.0, 0.0), 0.0085, 0.0028, iron, sy=1.5, seg=16, rseg=6)
+        A.place(link, c, A.frame((1.0, 0.0, 0.0) if k % 2 else tuple(ax), back=(0.0, 0.0, 1.0)))
+        if k == links - 1:      # the burst link, twisted open
+            link.rotation_euler.rotate_axis('Z', 0.5)
+        parts.append(link)
     return parts
 
 

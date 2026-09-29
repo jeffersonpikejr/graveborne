@@ -4,6 +4,7 @@
     python art/blender/render.py fighter --only fighter_commander  # one variant
     python art/blender/render.py fighter --elev 45 --suffix _e45   # camera-angle study
     python art/blender/render.py fighter --looks                   # layers for every soldier's own face (below)
+    python art/blender/render.py fighter --looks --layers-only     # just the body layers (--heads-only: just the heads)
 
 Writes art/renders/<asset>/<variant>.png: a master render CANVAS (1.5) tiles square with the tile centre at
 50% across / ANCHOR_Y (70%) down. art/tools/post.py turns masters into shippable sprites and review sheets.
@@ -12,10 +13,11 @@ Writes art/renders/<asset>/<variant>.png: a master render CANVAS (1.5) tiles squ
 not every face in every kit:
   layers/<variant>.png     the variant with its head hidden from the camera (it still casts its shadow)
   heads/<asset>_<id>.png   each look's head (gb/looks.py) on the base kit, which is held out: whatever of the body
-                           stands in front of the head (the Fighter's scarf and collar, the Ranger's hood and capelet)
-                           cuts it; rendered in a border round the head only. _revenant: the same head in the
-                           revenant's materials and light. The asset seats the head (add_head): under the Ranger's
-                           hood a head's hair is fitted to it.
+                           stands in front of the head (the Fighter's scarf and collar, the Ranger's hood and capelet,
+                           the Acolyte's hood and mantle) cuts it, and its lights still fall on it (the ashfire's);
+                           rendered in a border round the head only. _revenant: the same head in the revenant's
+                           materials and light. The asset seats the head (add_head): under a hood a head's hair is
+                           fitted to it.
 A sprite is the head layer over the body layer. Whatever covers a head is the same in every kit of a class (a
 Commander's banner and a Veteran's mail stay clear of it), so one head layer serves every kit of its form and class.
 """
@@ -99,7 +101,7 @@ def looks(mod, asset, a, out):
             print(f'[layer] {name}: {time.time() - t:.1f}s -> {os.path.relpath(path)}', flush=True)
     with open(os.path.join(out, 'heads', 'looks.json'), 'w') as fh:     # what the game deals from (LOOKS in index.html)
         json.dump(LK.manifest(), fh, separators=(',', ':'))
-    for form in forms:
+    for form in (forms if not a.layers_only else ()):
         sex = LK.FORMS[form]
         for rev in (False, True):
             rig.stage(elev=a.elev, res=a.res, samples=a.samples, rim_color=REV_RIM if rev else None,
@@ -145,6 +147,7 @@ def main():
     ap.add_argument('--count', type=int, default=LK.POOL, help='--looks: looks per form')
     ap.add_argument('--first', type=int, default=0, help='--looks: the first look number')
     ap.add_argument('--heads-only', action='store_true', help='--looks: skip the body layers')
+    ap.add_argument('--layers-only', action='store_true', help='--looks: skip the head layers')
     a = ap.parse_args()
     if a.draft:
         a.res, a.samples = 384, 24

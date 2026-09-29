@@ -249,6 +249,36 @@ def painted(name, color, rough=0.65, metal=0.0, edge=0.35, wash=0.55, grime=0.18
     return m
 
 
+def halo(name, color, strength=2.0, opacity=0.5, falloff=2.0, hollow=False):
+    """A soft glow round a light (the ashfire): an emitting shell, densest where it is seen face-on and clear toward
+    its rim, so on a transparent sprite it reads as the light's bloom. hollow: clear in the middle too, a ring round
+    whatever burns inside it, so it adds its glow without veiling it. Give its object no shadow (visible_shadow)."""
+    key = (name, MODE['revenant'])
+    if key in _CACHE:
+        return _CACHE[key]
+    m = bpy.data.materials.new(name)
+    m.use_nodes = True
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    N.remove(N['Principled BSDF'])
+    em = N.new('ShaderNodeEmission')
+    em.inputs['Color'].default_value = (*hexlin(color), 1.0)
+    em.inputs['Strength'].default_value = strength
+    tr = N.new('ShaderNodeBsdfTransparent')
+    lw = N.new('ShaderNodeLayerWeight')
+    lw.inputs['Blend'].default_value = 0.5
+    face_on = _math(nt, 'POWER', _math(nt, 'SUBTRACT', 1.0, lw.outputs['Facing']), falloff)
+    if hollow:
+        face_on = _math(nt, 'MULTIPLY', face_on, _maprange(nt, lw.outputs['Facing'], 0.05, 0.45, 0.12, 1.0))
+    mix = N.new('ShaderNodeMixShader')
+    L.new(_math(nt, 'MULTIPLY', face_on, opacity), mix.inputs['Fac'])
+    L.new(tr.outputs[0], mix.inputs[1])
+    L.new(em.outputs[0], mix.inputs[2])
+    L.new(mix.outputs[0], N['Material Output'].inputs['Surface'])
+    _CACHE[key] = m
+    return m
+
+
 def emissive(name, color, strength=8.0):
     key = (name, MODE['revenant'])
     if key in _CACHE:

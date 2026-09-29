@@ -2,7 +2,7 @@
 // before and after swapping Blender sprites in — without touching index.html. Used for every asset review.
 //
 //   python3 -m http.server 8931 --directory .            # serve the repo root
-//   node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review [--mode ring|mini|both] [--squad fighter|ranger|cleric]
+//   node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review [--mode ring|mini|both] [--squad fighter|ranger|cleric|acolyte]
 //
 // Sprite files follow <class>[_<weapon>][_commander|_veteran][_revenant]_<m|f>.webp (see art/README.md): a kit drawn
 // for the soldier's own weapon wins (ranger_spear_...), else the class's own (the Ranger's bow); the Commander kit
@@ -14,7 +14,7 @@
 //
 // --squad stages the same people every time: the Commander (a Fighter, a founder's head), then three of the class
 // under review (one at veterancy; the third carries another of the class's weapons: the Ranger's spear, the Cleric's
-// shortsword) and the founding grave risen as that class.
+// shortsword, the Acolyte's spear) and the founding grave risen as that class.
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -32,6 +32,9 @@ const SQUADS = {
   cleric: { roster: [{ look: 'f00' }, { cls: 'cleric', level: 5, weapon: 'mace', look: 'm06' },
     { cls: 'cleric', weapon: 'mace', look: 'f07' }, { cls: 'cleric', weapon: 'shortsword', look: 'm13' }],
     grave: { cls: 'cleric', weapon: 'mace', look: 'f05' } },
+  acolyte: { roster: [{ look: 'f00' }, { cls: 'acolyte', level: 5, weapon: 'shortsword', look: 'm06' },
+    { cls: 'acolyte', weapon: 'shortsword', look: 'f07' }, { cls: 'acolyte', weapon: 'spear', look: 'm13' }],
+    grave: { cls: 'acolyte', weapon: 'shortsword', look: 'f05' } },
 };
 const SQUAD = SQUADS[args.squad || 'fighter'];
 const BASE = process.env.GB_URL || 'http://localhost:8931/';

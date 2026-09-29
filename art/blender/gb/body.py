@@ -12,8 +12,9 @@ A Frame is one body: its settings, its height, its torso's cross-sections at eac
 where its head sits. Kits are built on it. fighter.py lays the Line-Breaker's armour on the male anchor's dimensions
 plus the difference a body makes at each level (Frame.dw, and friends), so the plate keeps its clearance over any
 body and his armour never moves. A Frame can be posed: reach() bends an arm so its hand lands where a kit needs it
-(on a bow's grip, a spear's shaft), and a gripping hand closes into a fist round what it holds. gb/garb.py lays
-clothes over the posed body itself (the Ranger).
+(on a bow's grip, a spear's shaft), and a gripping hand closes into a fist round what it holds, or open_hand() turns
+an open hand at the wrist (a palm raised under the Acolyte's ashfire). gb/garb.py lays clothes over the posed body
+itself (the Ranger).
 
 For review, bare() builds the body itself: a signed-distance field of anatomical masses (a torso lofted through the
 cross-sections; pecs or bust, seat, hip, back, traps and deltoids on it; limbs as capsules with their muscle bellies;
@@ -117,6 +118,24 @@ class Frame:
             J['an_' + side] = (s * (hp + 0.02), 0.02, 0.085)
         self.joints = {k: np.array((x, y, z * self.hf), np.float32) for k, (x, y, z) in J.items()}
         self.grip = {}      # side -> the direction of what that hand holds (a bow's stave, a spear): a fist round it
+        self.open = {}      # side -> (direction, palm normal) of an open hand turned at the wrist (open_hand)
+
+    def open_hand(self, side, direction, palm):
+        """Turn an open hand at the wrist: its fingers along `direction`, its palm facing `palm` (a palm raised to the
+        sky: (0, 0, 1)). The thumb falls on the side away from the body."""
+        d = np.asarray(direction, np.float32)
+        d = d / np.linalg.norm(d)
+        p = np.asarray(palm, np.float32)
+        p = p - d * float(p @ d)
+        self.open[side] = (d, p / np.linalg.norm(p))
+
+    def hand_dir(self, side):
+        """The direction a hand points from its wrist: along the forearm, unless open_hand turned it."""
+        if side in self.open:
+            return self.open[side][0]
+        J = self.joints
+        fa = J['wr_' + side] - J['el_' + side]
+        return fa / np.linalg.norm(fa)
 
     def reach(self, side, wrist, pole=(0.0, 0.3, -1.0), grip=None):
         """Pose an arm ('l' or 'r') so its wrist lands on `wrist` (figure space; pulled in along the line if out of
@@ -215,15 +234,21 @@ def _axes(z):
     return np.column_stack((x, np.cross(z, x), z)).astype(np.float32)
 
 
-def _hand(P, wr, hd, s, hl, hb):
-    """A relaxed hand hanging palm-in: the palm, the fingers curled a little in toward the thigh, the thumb in front."""
+def _hand(P, wr, hd, s, hl, hb, palm=None):
+    """A relaxed hand hanging palm-in: the palm, the fingers curled a little in toward the thigh, the thumb in front.
+    palm: an open hand's palm normal (Frame.open_hand), the fingers curling toward it and the thumb out to the side."""
     k = hl / 0.19
-    M = _axes(hd)
-    inward = np.array((-s, 0.0, 0.0), np.float32)
+    if palm is None:
+        M = _axes(hd)
+        inward = np.array((-s, 0.0, 0.0), np.float32)
+        front = np.array((0.0, -1.0, 0.0), np.float32)
+    else:
+        inward = palm
+        front = np.cross(hd, palm) * -s
+        M = np.column_stack((palm, np.cross(hd, palm), hd)).astype(np.float32)
     d = F._rbox(P, wr + hd * hl * 0.25, (0.017 * k, hb * 0.5, hl * 0.26), 0.014 * k, M=M)
     d = F._smin(d, F._rbox(P, wr + hd * hl * 0.7 + inward * 0.007 * k, (0.013 * k, hb * 0.46, hl * 0.22), 0.011 * k, M=M),
                 0.01)
-    front = np.array((0.0, -1.0, 0.0), np.float32)
     return F._smin(d, F._cap(P, wr + hd * 0.03 * k + front * hb * 0.42, wr + hd * 0.1 * k + front * hb * 0.52 + inward * 0.012 * k,
                              0.011 * k, 0.009 * k), 0.008)
 
@@ -283,9 +308,12 @@ def _arms(P, fr, grow=1.0):
     out = None
     for side in 'lr':
         sh, el, wr = J['sh_' + side], J['el_' + side], J['wr_' + side]
-        fa = wr - el
-        tip = wr + fa / np.linalg.norm(fa) * f['hand'][0]
-        d = np.minimum(F._cap(P, sh, el, a0, a1), F._cap(P, el, tip, a2, a3))
+        tip = wr + fr.hand_dir(side) * f['hand'][0]
+        if side in fr.open:      # the hand turned at the wrist
+            fore = np.minimum(F._cap(P, el, wr, a2, a3), F._cap(P, wr, tip, a3, a3))
+        else:
+            fore = F._cap(P, el, tip, a2, a3)
+        d = np.minimum(F._cap(P, sh, el, a0, a1), fore)
         out = d if out is None else np.minimum(out, d)
     return out
 
@@ -344,7 +372,13 @@ def field(P, fr, arms=True):
             d = F._smin(d, F._cap(P, el, wr, a2, a3), 0.018)
             d = F._smin(d, F._ell(P, el + fa * 0.2 + np.array((s * a2 * 0.15, 0.0, 0.0), np.float32),
                                   np.array((a2 * 0.85, a2 * 0.8, lf * 0.3), np.float32)), 0.015)       # the forearm's belly
-            d = F._smin(d, _fist(P, fr, side) if side in fr.grip else _hand(P, wr, fa / lf, s, *f['hand']), 0.012)
+            if side in fr.grip:
+                hand = _fist(P, fr, side)
+            elif side in fr.open:
+                hand = _hand(P, wr, fr.open[side][0], s, *f['hand'], palm=fr.open[side][1])
+            else:
+                hand = _hand(P, wr, fa / lf, s, *f['hand'])
+            d = F._smin(d, hand, 0.012)
         hp, kn, an = J['hp_' + side], J['kn_' + side], J['an_' + side]
         th, sk = kn - hp, an - kn
         lt, ls = float(np.linalg.norm(th)), float(np.linalg.norm(sk))
