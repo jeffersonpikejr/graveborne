@@ -248,7 +248,8 @@ foes. Each foe still gets one signature of its own.
 1. **The contract and the Risen's base**: the foe sprite hook in the in-game preview, the corpse mode, the shamble,
    the **Husk** and its tier looks. The most common foe, and it unlocks the Risen.
 2. **Brigands**: the brigand kit and the enemy look pool, then the **Brigand**, **Cutthroat** and **Archer**. The
-   patrol contract and the Warband doctrine are complete.
+   patrol contract and the Warband doctrine are complete. Planned in detail below
+   ([Step 2: the brigand pass](#step-2-the-brigand-pass)).
 3. **Karsk**: the livery, the kettle hat and the heater, then the **Shieldman**, **Pikeman** and **Deserter**. The
    Shieldwall doctrine.
 4. **The Conclave**: the robe back from git (`26d1aca`), then the **Conclave Acolyte**, **Blight-Mage**,
@@ -263,8 +264,9 @@ ladder of every foe so far beside the company, a board section, then approve and
 
 ### Cost
 
-- **Rendering:** about 5 whole sprites per foe, plus its leader and tier looks, at 20 to 30 minutes each. The wave
-  is about 90 sprites, roughly 6 hours of rendering and 2 MB of WebP; one company class takes about 2.5 hours.
+- **Rendering:** about 5 whole sprites per foe, plus its leader and tier looks, at 3 to 4 minutes each (the Husk's
+  took a minute to build and 2.5 to render). The wave is about 90 sprites, roughly 6 hours of rendering and 1.5 MB of
+  WebP; one company class takes about 2.5 hours.
 - **Building:** the effort sits in the shared pieces. The quadruped rig and the brute are the large ones, the corpse
   mode and the poses mid-sized; most foes after them are kit variants.
 - **Pipeline:** unchanged: a script per foe in `blender/assets/`, `render.py`, `post.py ship`, the in-game preview
@@ -278,6 +280,88 @@ ladder of every foe so far beside the company, a board section, then approve and
 3. **Variety**: two looks per form per foe, four sprites, plus its leader and tier looks.
 4. **Karsk livery**: slate blue and white.
 5. **The Troll**: 1.8 tiles, over its neighbours.
+
+## Step 2: the brigand pass
+
+Three foes: the **Brigand**, the **Cutthroat** and the **Brigand Archer**. With them come the Brigand's tier look
+and a Captain for when a brigand leads. The pass completes the Warband doctrine (`brigand, cutthroat, archer,
+brigand`, fought on patrol, hunt and hold contracts) and the Road Patrol pool, bar the Deserter (step 3). The
+brigand kit it builds dresses the Hound-Rider in step 6.
+
+### The faction read
+
+- **Palette:** faded ochre and mustard rags, undyed raw leather (paler than the company's dark hide), rusted iron,
+  dun. No oxblood and no violet. Scraps of Karsk slate blue show as loot, patched onto the Brigands' gambesons.
+- **Ochre at the head is the brigand mark:** the Brigand's rag mask and the Archer's cowl. The Cutthroat's black wrap
+  is the exception that marks the knife.
+- **Living, and shown:** no corpse mode. Faces come from the enemy look pool, and masks cover some of them.
+
+### The three foes
+
+| Foe | In the game | Signature at 26 px | Kit | Pose | Looks |
+|---|---|---|---|---|---|
+| **Brigand** | 8 HP, shortsword; two in every Warband, two in five of the patrol pool | a **round shield** on the arm and an **ochre rag mask** | a quilted gambeson in mustard, patched with dun and looted Karsk slate, its skirts split; raw-leather belt and baldric; leg wraps; the company's shortsword; a planked round shield, iron boss and rim, painted ochre with a crude mark | on guard: the shield across the body, the sword back and low, knees bent | two per form: masked, and the mask pulled down to the neck, the face shown |
+| **Cutthroat** | 8 HP, speed 6, flanks; the Warband, patrol and hunt | the **lowest living silhouette**, a **black face-wrap with a trailing tail**, blades reversed | a face-wrap over the nose and mouth, bound round the head, its tail trailing a forearm's length; a close dark jerkin, bare wrapped forearms, soft boots; the game's shortsword drawn as a pair of long knives | the crouch: a wide stance, the weight forward, the head up, both blades reversed along the forearms | two per form: hair and eyes over the wrap, black or soot-brown |
+| **Brigand Archer** | 6 HP, the game's own Hunting Bow; the Warband and patrol | a **short ochre cowl** and a **bow at half-draw** | the company's hood cut (it fits every look's hair) in ochre, ending in a short cape at the shoulders, with no cloak where the Ranger's falls to the calves; a raw-leather jerkin over a mustard shirt, a bracer, a quiver at the hip; a short hunting bow with recurved tips | half-draw: the bow arm out, the stave canted, the string drawn to the chest, an arrow nocked | two per form |
+
+### Tier and leader looks
+
+- **Hardened Brigand** (tier 2, `Hardened`): a dented nasal helm, and mail showing under the gambeson's hem. 2
+  sprites.
+- **Brigand Captain** (the ♛ of Cut Off the Head when a brigand leads, a fifth of patrols): a trophy standard on the
+  back, a fur-collared cloak, and the greataxe the game gives half its leaders, the Butchers. The other half, the
+  Quarry, keep their sword, but the one look serves both and the unit card names the weapon. The standard is a
+  crossbar hung with a Karsk kettle hat, bones and a strip of the company's oxblood. That strip is the only oxblood
+  on any foe: it says they have killed yours. 2 sprites.
+- **Not drawn:** the weapon upgrades (Arming Sword, War Bow) and the Cutthroat's speed tier. They carry no tag in the
+  unit's name, and the unit card names the weapon.
+
+### New pieces
+
+| Piece | Where | Reused by | Size |
+|---|---|---|---|
+| **Enemy look pool** as an API: `looks.foe(form, n)`, rolled from 1000 as the Husk's are, the living roughened (scars three times as often, broken noses twice, dirtier, more stubble); the Husk's heads unchanged | `looks.py` | every human foe | S |
+| **Masks**: the rag mask (the nose to the throat) and the face-wrap (with its tail), shells on the head's own field like the hood, knotted behind; the hair and a beard clipped under them | `face.py`, `garb.py` | the Conclave's bone mask builds on it | M |
+| **The nasal helm**: an iron skullcap and nasal, fitted as the hood is (the hair under it), dented and rusted | `armor.py` | the Karsk kettle hat and the Deserter's (step 3) | M |
+| **Round shield**: a planked disc, iron boss and rim, painted and chipped, strapped to the forearm | `armor.py` | brigands, the Hound-Rider | S |
+| **Quilted and patched cloth**: `grit.cloth` quilting channels and sewn-on patches with stitched edges | `grit.py` | every gambeson and levy jack | M |
+| **Three poses**: on guard, the crouch (`Frame.hunch` with the feet spread), the half-draw (both arms by `reach`) | `body.py` | the half-draw for the Conclave Acolyte, the Hound-Rider | S |
+| **A bow at draw**: `garb.longbow(draw=)` bends the string to the draw hand and nocks an arrow; a short hunting bow with recurved tips | `garb.py` | the Conclave Acolyte, the Hound-Rider | S |
+| **Trophy standard** | `garb.py` | brigand leaders | S |
+| **The Warband in the preview**: `--foes warband` stages the doctrine's pod, a Hardened Brigand and the Captain (♛) before the mixed company, and deals the leader its look | `ingame.mjs` | every doctrine | S |
+
+### Sprites and cost
+
+- **16 whole sprites:** the Brigand 4, Hardened 2, the Captain 2, the Cutthroat 4, the Archer 4. About an hour of
+  rendering and 250 KB of WebP.
+- **Building:** the masks, the helm and the quilted cloth are mid-sized; the rest are kit variants and parameters.
+
+### Order
+
+1. **A kit sheet first:** the masks and the helm on two looks, the shield, the gambeson cloth, and the three poses,
+   bare and dressed. One review render before any foe.
+2. **The Brigand, the Cutthroat, the Archer** in turn, each tested at the battle camera beside the Husk and the
+   company.
+3. **Hardened and the Captain.**
+4. **Production:** the Warband in the game before the company, the board section with the 26-px ladder, then
+   commit.
+
+### Risks
+
+- **The crouch against the hunch:** the Cutthroat and the Husk are both low. The crouch must read coiled, not
+  slumped: the head up, the stance wide, the blades forward, black against the Husk's pale shroud. The rings differ
+  too (red and green).
+- **Two hooded bowmen:** the Archer's ochre cowl and a canted bow at draw against the Ranger's moss hood, long cloak
+  and upright bow.
+- **Beards under masks:** a full beard is clipped under the rag mask as hair is under the hood; check it on the
+  bearded looks.
+
+### Open calls
+
+1. **Masks:** the Brigand's two looks masked and unmasked (recommended), or both masked.
+2. **The Captain:** built in this pass (recommended), or leaders left for a pass across the factions.
+3. **Weapon upgrades:** not drawn (recommended), or drawn (8 more sprites).
+4. **The oxblood trophy:** one strip on the Captain's standard (recommended), or none.
 
 ## Integration plan (after approvals, not before)
 
