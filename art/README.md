@@ -26,10 +26,23 @@ Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad ranger   # Rangers beside the Commander
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad cleric   # Clerics beside the Commander
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad acolyte  # Acolytes beside the Commander
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --foes husk      # a pod of Husks before the company
 
 `ingame.mjs` swaps sprites in at runtime and screenshots the same board state before and after, on desktop and
 phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/path/to/playwright/index.mjs`).
 `index.html` is not modified until an asset is approved.
+
+## Foes (whole sprites)
+
+A foe doesn't persist, so it ships a few whole sprites instead of body and head layers (ASSETS.md, the enemy plan):
+`foe_<key>[_<tag>]_<n>_<m|f>.webp`, where `key` is the game's `ENEMIES` key, `n` one of its looks and `tag` a tier
+look named for the tag its `TIER_UPGRADES` entry puts in the unit's name (`foe_husk_ironbound_1_m`). Their heads
+come from the same genome as the company's, rolled from `n = 1000` on (`husk.FOE_LOOKS`), so a foe never wears a
+soldier's face. `--foes <key>` stages a pod of four before the company (by default a mixed squad: the Commander, a
+Ranger, a Cleric and an Acolyte; the last two foes carrying the tier tags) and deals each unit a sprite by its id.
+
+    .bvenv/bin/python art/blender/render.py husk                  # every variant -> art/renders/husk/*.png
+    .bvenv/bin/python art/tools/post.py ship art/renders/husk/*.png --out art/sprites
 
 ## Every soldier's own face (`blender/gb/looks.py`)
 
@@ -81,19 +94,23 @@ on every part). Library: `steel`, `paint_over_steel` (the bone-white shield), `m
 `cloth` (with an optional painted device or dyed cross; ash settled on what faces up, a scorched hem), `leather` (the
 same ash; edges worn to a colour of its own),
 `skin` (windburn, dirt, stubble; with `face=face.marks(...)`: lips, sockets, dark circles, shadowed lid margins and
-eye corners, the undercut's stubble, a sunken scar), `graft` (Blight-grafted flesh, veins lit from the graft), `hair`,
-`wood`.
+eye corners, the undercut's stubble, a sunken scar; with `rot`: a corpse's flesh, rot-green and livid, split to the
+bone, the feet black with grave dirt), `graft` (Blight-grafted flesh, veins lit from the graft), `hair`, `wood`.
 
-**Revenant mode** (`mat.set_mode`) re-renders any asset corrupted: palette drained toward grave-grey, skin gone
-pale, sparse blight-violet fissures, violet back-light and glowing eyes. (`gb/mat.py` also keeps the first,
+**Revenant mode** (`mat.set_mode(revenant=True)`) re-renders any asset corrupted: palette drained toward grave-grey,
+skin gone pale, sparse blight-violet fissures and glowing eyes; `render.py` adds the violet back-light to any variant
+flagged `revenant`. **Corpse mode** (`set_mode(corpse=True)`, the Risen) keeps the violet eyes but sinks the palette
+toward grave-earth and black iron instead of lifting it to grey, turns flesh the grey-green of rot at its own
+lightness (capped), and keeps the fissures in the flesh alone. Its foes carry no `revenant` flag, so no violet
+back-light: that marks the company's risen, and a foe's side is its ring. (`gb/mat.py` also keeps the first,
 painted-miniature materials.)
 
 ## Layout
 
     blender/gb/rig.py       camera, lights, world, grade presets, render settings, shadow catcher
     blender/gb/grit.py      battle-worn materials (the house look)
-    blender/gb/mat.py       palette, colour helpers, revenant corruption, emitters and a light's bloom (halo),
-                            the first painted materials
+    blender/gb/mat.py       palette, colour helpers, revenant and corpse corruption, emitters and a light's bloom
+                            (halo), the first painted materials
     blender/gb/kit.py       primitives: skin-modifier limbs, lathes, tubes, blades, hafted weapons
     blender/gb/armor.py     humanoid kit: plate shells, pauldrons, cops, gauntlets, straps, torn cloth,
                             the great shield, the broadsword
@@ -101,12 +118,14 @@ painted-miniature materials.)
                             one centreline, meshed (numpy surface nets) and decimated to readable planes;
                             eyes in carved sockets, hair/beard/brows as shells of the same field; marks()
                             gives the skin shader its landmarks (lips, sockets, lids and eye corners, scar)
-    blender/gb/looks.py     the appearance genome: roll(form, n) -> a soldier's look; build_head(look)
+    blender/gb/looks.py     the appearance genome: roll(form, n) -> a soldier's look; build_head(look) (rot: the
+                            face of a corpse)
     blender/gb/body.py      bodies: male and female anchors on one dial, Frame (the dimensions kits are laid on;
-                            reach() poses an arm, a gripping hand closes into a fist, open_hand() turns an open
-                            hand at the wrist), and the body's field
+                            hunch() tips the upper body forward and bends the knees, reach() poses an arm, a
+                            gripping hand closes into a fist, open_hand() turns an open hand at the wrist), and
+                            the body's field
     blender/gb/garb.py      light kit laid on the body: garments as layers offset from the posed body (Dressed),
-                            capes and cloaks draped over it (Drape), a hood pulled back off the brow (the head
+                            capes and cloaks draped over it (Drape), a hood worn low over the brow (the head
                             fits its hair under face.HOOD_*); a longbow, arrows, a quiver, a boar spear, a knife,
                             a chapel lantern, a cord, a girdle book, a skirt of leather strips, the Acolyte's
                             ashfire, a broken manacle
@@ -118,6 +137,7 @@ painted-miniature materials.)
     tools/ingame.mjs        before/after screenshots inside the running game
     renders/                master renders (768px PNG, 1.5 tiles square) — gitignored, reproducible
     sprites/                shippable 384px WebP, named <class>[_<weapon>][_commander|_veteran][_revenant]_<m|f>.webp
-                            (a weapon's own kit, e.g. ranger_spear_*, else the class's: the Ranger's bow)
+                            (a weapon's own kit, e.g. ranger_spear_*, else the class's: the Ranger's bow), and
+                            foes' whole sprites, foe_<key>[_<tag>]_<n>_<m|f>.webp
     sprites/body/           the same variants with the head left off (the looks' bodies)
     sprites/heads/          <class>_<look>[_revenant].webp, one per look, and looks.json (the pool the game deals)

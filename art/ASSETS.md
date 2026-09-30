@@ -121,7 +121,7 @@ Ordered by how often each appears across contract pools and pod doctrines, with 
 regroups them into a build order.
 | # | Asset | Why here | Score | Status |
 |---|---|---|---|---|
-| 6 | Husk | in 7 of 8 contract pools + 4 doctrines — the most common foe | 3×2×3 = 18 | ⏳ |
+| 6 | Husk | in 7 of 8 contract pools + 4 doctrines — the most common foe | 3×2×3 = 18 | 🔍 |
 | 7 | Cutthroat | **no art today**; patrol + hunt pools, Warband | 3×3×2 = 18 | ⏳ |
 | 8 | Shieldman | **no art today**; purge/hold/reclaim pools, Shieldwall | 3×3×2 = 18 | ⏳ |
 | 9 | Blight-hound | hunt/purge/hold/delve pools, Outriders; first quadruped rig | 3×2×3 = 18 | ⏳ |
@@ -212,7 +212,7 @@ foes. Each foe still gets one signature of its own.
 
 | Piece | Unlocks | Size |
 |---|---|---|
-| **Corpse material mode** (`mat.set_mode`): desiccated, mottled skin, bone showing through, violet cracks | Husk, Graveguard, Troll, hound | M |
+| **Corpse material mode** (`mat.set_mode(corpse=True)`): rot-green, mottled skin, bone showing through, violet cracks in the flesh alone; the rest sinks to grave-earth and black iron. No violet back-light: that marks the company's risen, and a foe's side is its ring | Husk, Graveguard, Troll, hound | M |
 | **Headgear and masks** (`armor.py`): kettle hat, nasal helm, sallet, great helm with a violet slit, face-wrap, bone mask. Covered faces read as enemies and save the face budget | every human foe, the Graveguard | M |
 | **Weapons**: halberd, pike, greataxe, hunting bow, round shield, a Karsk heater (the axe, mace, spear, broadsword and longbow exist) | eight foes | S |
 | **Poses** (`body.py`, beyond `reach`): a spine and knee bend for a hunched shamble, a crouch, an archer's half-draw, a shield set, a levelled pike, a casting stance, a seat for the rider | every humanoid foe | M |
@@ -270,15 +270,14 @@ ladder of every foe so far beside the company, a board section, then approve and
 - **Pipeline:** unchanged: a script per foe in `blender/assets/`, `render.py`, `post.py ship`, the in-game preview
   and the board.
 
-### Open calls
+### Settled (as recommended)
 
-1. **Faces**: masks and helmets on most foes, with faces only on the brigands (recommended), or faces on every
-   human foe.
-2. **Forms**: his and hers for every humanoid foe (the house rule, nearly free on the body dial), the undead
-   included; the Troll and the beasts as one.
-3. **Variety**: two looks per form per foe (4 sprites), or one.
-4. **Karsk livery**: slate blue and white, apart from the company's oxblood and the brigands' ochre.
-5. **The Troll's size**: 1.8 tiles, over its neighbours.
+1. **Faces**: masks and helmets on most foes; faces only on the brigands (the Deserter's shows under a dented
+   kettle hat), from an enemy look pool so a foe never wears a soldier's face.
+2. **Forms**: his and hers for every humanoid foe, the undead included; the Troll and the beasts as one.
+3. **Variety**: two looks per form per foe, four sprites, plus its leader and tier looks.
+4. **Karsk livery**: slate blue and white.
+5. **The Troll**: 1.8 tiles, over its neighbours.
 
 ## Integration plan (after approvals, not before)
 

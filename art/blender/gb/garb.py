@@ -31,7 +31,8 @@ def dressed(fr, grid=0.004):
     key = (tuple(sorted((k, tuple(v) if isinstance(v, list) else v) for k, v in fr.f.items())),
            tuple((k, tuple(np.round(v, 5))) for k, v in sorted(fr.joints.items())),
            tuple((k, tuple(np.round(v, 4))) for k, v in sorted(fr.grip.items())),
-           tuple((k, tuple(np.round(np.concatenate(v), 4))) for k, v in sorted(fr.open.items())), grid)
+           tuple((k, tuple(np.round(np.concatenate(v), 4))) for k, v in sorted(fr.open.items())),
+           None if fr.spine is None else (fr.spine[0], tuple(np.round(fr.spine[1], 4)), fr.spine[2]), grid)
     if key not in _DRESSED:
         while len(_DRESSED) >= 4:
             _DRESSED.pop(next(iter(_DRESSED)))

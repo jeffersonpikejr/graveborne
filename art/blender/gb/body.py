@@ -119,6 +119,72 @@ class Frame:
         self.joints = {k: np.array((x, y, z * self.hf), np.float32) for k, (x, y, z) in J.items()}
         self.grip = {}      # side -> the direction of what that hand holds (a bow's stave, a spear): a fist round it
         self.open = {}      # side -> (direction, palm normal) of an open hand turned at the wrist (open_hand)
+        self.spine = None   # (bend degrees, pivot, drop) once hunch() has posed the spine and the legs
+
+    def hunch(self, bend=25.0, pivot=1.0, drop=0.0, stride=0.0):
+        """Pose the spine and the legs: the upper body tipped forward `bend` degrees about the small of the back
+        (pivot: its height on the male anchor's scale), the hips lowered `drop` (m) with the knees bending forward to
+        keep the feet planted, the left foot `stride` (m) ahead of the right. Call it before reach(): the shoulders, the
+        arms and the head go with the upper body, and reach() then works in the posed figure's space."""
+        J = self.joints
+        lens = {s: (float(np.linalg.norm(J['kn_' + s] - J['hp_' + s])), float(np.linalg.norm(J['an_' + s] - J['kn_' + s])))
+                for s in 'lr'}
+        self.spine = (float(bend), np.array((0.0, 0.02, pivot * self.hf), np.float32), float(drop))
+        for k in ('sh_l', 'el_l', 'wr_l', 'sh_r', 'el_r', 'wr_r'):
+            J[k] = self.from_upper(J[k])
+        for s in 'lr':
+            J['hp_' + s] = (J['hp_' + s] - np.array((0.0, 0.0, drop), np.float32)).astype(np.float32)
+        if stride:
+            J['an_l'] = (J['an_l'] + np.array((0.0, -stride, 0.0), np.float32)).astype(np.float32)
+        for s in 'lr':          # each knee by two-bone IK from the lowered hip to the planted ankle, bending forward
+            hp, an = J['hp_' + s], J['an_' + s]
+            lt, ls = lens[s]
+            d = an - hp
+            L = min(float(np.linalg.norm(d)), (lt + ls) * 0.999)
+            u = d / np.linalg.norm(d)
+            a_ = (lt * lt - ls * ls + L * L) / (2.0 * L)
+            h = math.sqrt(max(lt * lt - a_ * a_, 0.0))
+            p = np.array((0.0, -1.0, 0.0), np.float32)
+            p = p - u * float(p @ u)
+            J['kn_' + s] = (hp + u * a_ + p / np.linalg.norm(p) * h).astype(np.float32)
+        return self
+
+    def _spine_R(self):
+        return np.array(Matrix.Rotation(math.radians(self.spine[0]), 3, 'X'), np.float32)
+
+    def from_upper(self, p):
+        """A point of the upright upper body carried into the posed figure (hunch)."""
+        bend, pv, drop = self.spine
+        return ((np.asarray(p, np.float32) - pv) @ self._spine_R().T + pv - np.array((0.0, 0.0, drop), np.float32)).astype(np.float32)
+
+    def to_upper(self, P):
+        """Points of the posed figure (N, 3) carried back into the upright upper body."""
+        bend, pv, drop = self.spine
+        return ((P + np.array((0.0, 0.0, drop), np.float32) - pv) @ self._spine_R() + pv).astype(np.float32)
+
+    def upright(self):
+        """The upper body as it stands before the hunch: a Frame whose arms (and what the hands hold) are carried back
+        into it, for evaluating the upper body's field in its own space."""
+        import copy
+        c = copy.copy(self)
+        c.spine = None
+        R = self._spine_R()
+        c.joints = dict(self.joints)
+        for k in ('sh_l', 'el_l', 'wr_l', 'sh_r', 'el_r', 'wr_r'):
+            c.joints[k] = self.to_upper(self.joints[k][None, :])[0]
+        c.grip = {s: (g @ R).astype(np.float32) for s, g in self.grip.items()}
+        c.open = {s: ((d @ R).astype(np.float32), (n @ R).astype(np.float32)) for s, (d, n) in self.open.items()}
+        return c
+
+    def lowered(self):
+        """The pelvis and legs in the pelvis's own space (the hips back up by the drop), for evaluating the lower
+        body's field."""
+        import copy
+        c = copy.copy(self)
+        c.spine = None
+        up = np.array((0.0, 0.0, self.spine[2]), np.float32)
+        c.joints = {k: ((v + up).astype(np.float32) if k[:2] in ('hp', 'kn', 'an') else v) for k, v in self.joints.items()}
+        return c
 
     def open_hand(self, side, direction, palm):
         """Turn an open hand at the wrist: its fingers along `direction`, its palm facing `palm` (a palm raised to the
@@ -210,10 +276,16 @@ class Frame:
         return HEAD_SCALE * self.f['head']
 
     def head_frame(self, portrait=False):
-        """Where the head sits (figure space): on the neck, chin a touch up in battle, level in portraits."""
+        """Where the head sits (figure space): on the neck, chin a touch up in battle, level in portraits; carried
+        with the upper body if the spine is posed (hunch)."""
         x, y, z = HEAD_C
-        return (Matrix.Translation(Vector((x, y, z * self.hf)))
-                @ Matrix.Rotation(math.radians(0.0 if portrait else HEAD_TILT), 4, 'X') @ Matrix.Scale(self.head_scale, 4))
+        H = (Matrix.Translation(Vector((x, y, z * self.hf)))
+             @ Matrix.Rotation(math.radians(0.0 if portrait else HEAD_TILT), 4, 'X') @ Matrix.Scale(self.head_scale, 4))
+        if self.spine is not None:
+            bend, pv, drop = self.spine
+            H = (Matrix.Translation(Vector(pv) - Vector((0.0, 0.0, drop))) @ Matrix.Rotation(math.radians(bend), 4, 'X')
+                 @ Matrix.Translation(-Vector(pv)) @ H)
+        return H
 
 
 _MALE = []
@@ -318,9 +390,26 @@ def _arms(P, fr, grow=1.0):
     return out
 
 
-def field(P, fr, arms=True):
+def _hunched(P, fr, arms, legs):
+    """The field of a figure whose spine is posed (Frame.hunch): the upper body evaluated upright in its own space
+    and cut below the small of the back, the pelvis and legs in theirs and cut above it, the two blended at the waist
+    (the cuts overlap there, so no wedge opens at the back as it bends)."""
+    bend, pv, drop = fr.spine
+    hf = fr.hf
+    Pu = fr.to_upper(P)
+    du = field(Pu, fr.upright(), arms=arms, legs=False)
+    du = F._smax(du, (pv[2] - 0.02 * hf) - Pu[:, 2], 0.015)
+    Pl = (P + np.array((0.0, 0.0, drop), np.float32)).astype(np.float32)
+    dl = field(Pl, fr.lowered(), arms=False, legs=legs)
+    dl = F._smax(dl, Pl[:, 2] - (pv[2] + (0.03 + 0.14 * math.sin(math.radians(abs(bend)))) * hf), 0.015)
+    return F._smin(du, dl, 0.035)
+
+
+def field(P, fr, arms=True, legs=True):
     """Signed distance to the bare body's skin (m) at points P (N, 3). arms=False: the body without its arms (a belt
-    or a strap goes round the trunk, not round a hanging arm)."""
+    or a strap goes round the trunk, not round a hanging arm); legs=False: without its legs."""
+    if fr.spine is not None:
+        return _hunched(P, fr, arms, legs)
     f, hf = fr.f, fr.hf
     Pm = np.column_stack((np.abs(P[:, 0]), P[:, 1], P[:, 2]))
 
@@ -379,6 +468,8 @@ def field(P, fr, arms=True):
             else:
                 hand = _hand(P, wr, fa / lf, s, *f['hand'])
             d = F._smin(d, hand, 0.012)
+        if not legs:
+            continue
         hp, kn, an = J['hp_' + side], J['kn_' + side], J['an_' + side]
         th, sk = kn - hp, an - kn
         lt, ls = float(np.linalg.norm(th)), float(np.linalg.norm(sk))

@@ -239,10 +239,10 @@ def game_face(look):
     return [look['skin'], look['hc'], hair]
 
 
-def build_head(look, name='head', gaze=0.0, tag=None, bust=-0.195, yoke=True, hood=None):
+def build_head(look, name='head', gaze=0.0, tag=None, bust=-0.195, yoke=True, hood=None, rot=0.0):
     """Materials and head for a look: face.head's (root, info). tag names the look's materials (None: the anchor's
     own names, so the Fighter's variants render exactly as before); bust, yoke: how much neck comes with it
-    (face.field); hood: the head wears a hood (face.head)."""
+    (face.field); hood: the head wears a hood (face.head); rot: a corpse's face (grit.skin)."""
     from . import grit as G
     f = settings(look) if not look.get('anchor') else FORMS[look['form']]
     scar = look['scar']
@@ -255,7 +255,8 @@ def build_head(look, name='head', gaze=0.0, tag=None, bust=-0.195, yoke=True, ho
         mk['stubble_amount'] = max(0.45, min(1.0, 1.25 - _lum(look['hair_hex']) / _lum(look['skin_hex'])))
     sfx = f'_{tag}' if tag else ''
     creases = (mk['creases'] if look['lines'] >= 1 else []) + (mk['forehead'] if look['lines'] >= 2 else [])
-    skin = G.skin('face' + sfx, look['skin_hex'], face=mk, dirt=look['dirt'], windburn=look['windburn'],
+    skin = G.skin('face' + sfx + ('_rot' if rot else ''), look['skin_hex'], face=mk, dirt=look['dirt'],
+                  windburn=look['windburn'] * (1.0 - 0.9 * rot), rot=rot,
                   stubble={'full': 0.3, 'short': 0.3, 'stubble': 0.15}.get(beard, 0.0) if tag else
                   (0.3 if beard else 0.0), creases=creases or None)
     hair = G.hair('hair' + sfx, look['hair_hex'], flow='back' if style in F.PULLED + ('knot',) else 'down',

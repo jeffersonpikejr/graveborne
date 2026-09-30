@@ -8,10 +8,13 @@ Colours are authored as the game's sRGB hex values so renders stay on the index.
 
 Revenant mode (set_mode(revenant=True)) corrupts every material the same way the game's SVG revenants are
 corrupted: colour drained toward a cold grave-grey, skin gone pale, blight-violet light leaking from cracks.
+Corpse mode (set_mode(corpse=True)) is the Risen's version: the same violet eyes, and violet cracks in the flesh
+alone, but the colours sink toward grave-earth and black iron instead of lifting to grey, and flesh goes the
+grey-green of rot at its own lightness, capped, so a corpse's rot, bruising and sores keep their contrast.
 """
 import bpy
 
-MODE = {'revenant': False}
+MODE = {'revenant': False, 'corpse': False}
 _CACHE = {}
 
 # the game's palette (index.html :root and the battle-token colours)
@@ -24,8 +27,9 @@ PAL = {
 }
 
 
-def set_mode(revenant=False):
-    MODE['revenant'] = revenant
+def set_mode(revenant=False, corpse=False):
+    MODE['revenant'] = revenant or corpse
+    MODE['corpse'] = corpse
     _CACHE.clear()
 
 
@@ -38,8 +42,32 @@ def hexlin(h):
     return tuple(srgb_to_lin(int(h[i:i + 2], 16) / 255.0) for i in (0, 2, 4))
 
 
+def _lum(lin):
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def _corpse(lin, kind):
+    """Corpse palette shift (the Risen): flesh keeps its lightness, capped, in the grey-green of rot, and a third of
+    its own hue, so a bruise stays livid and a sore stays red; the rest sinks toward grave-earth, black iron and old
+    bone."""
+    lum = _lum(lin)
+    if kind == 'skin':
+        rot = hexlin('#6c7b6b')
+        lr, L = _lum(rot), min(lum, 0.2)
+        return tuple((0.35 * c / max(lum, 1e-4) + 0.65 * r / lr) * L for c, r in zip(lin, rot))
+    to, k = CORPSE_SINK.get(kind, CORPSE_SINK['cloth'])
+    return tuple((1 - k) * c + k * g for c, g in zip(lin, hexlin(to)))
+
+
+# corpse mode: what each kind of surface sinks toward, and how far (cloth for every kind not named)
+CORPSE_SINK = {'cloth': ('#2f2c24', 0.45), 'metal': ('#27241f', 0.5), 'bone': ('#8a826c', 0.3),
+               'stone': ('#3d3f3a', 0.4)}
+
+
 def _corrupt(lin, kind):
     """Revenant palette shift: drain toward a cold grave-grey. Skin goes the game's revenant pale."""
+    if MODE['corpse']:
+        return _corpse(lin, kind)
     if kind == 'skin':   # grave-pale, but keeping each colour's lightness: sockets, lips and creases stay dark
         pale = hexlin('#8e988c')
         lum = 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
@@ -225,7 +253,7 @@ def painted(name, color, rough=0.65, metal=0.0, edge=0.35, wash=0.55, grime=0.18
         bsdf.inputs['Emission Strength'].default_value = emit_strength
     crack_amt = cracks if cracks is not None else {'skin': 1.0, 'cloth': 0.7, 'leather': 0.7, 'metal': 0.35,
                                                     'wood': 0.5, 'bone': 0.8}.get(kind, 0.0)
-    if rev and crack_amt > 0 and not emit:
+    if rev and crack_amt > 0 and not emit and (not MODE['corpse'] or kind in ('skin', 'bone')):
         vo = N.new('ShaderNodeTexVoronoi')
         vo.feature = 'DISTANCE_TO_EDGE'
         vo.inputs['Scale'].default_value = 5.0

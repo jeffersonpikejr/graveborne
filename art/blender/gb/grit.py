@@ -113,9 +113,10 @@ class _G:
     def bump(self, height, strength):
         self.bumps.append((height, strength))
 
-    def cracks(self, amt):
-        """Revenant: blight-violet light leaking through fissures."""
-        if not self.rev or amt <= 0:
+    def cracks(self, amt, flesh=False):
+        """Revenant: blight-violet light leaking through fissures. A corpse (corpse mode) carries it in its flesh
+        alone: its rags, iron and wood are only dead."""
+        if not self.rev or amt <= 0 or (MODE['corpse'] and not flesh):
             return
         vo = self.N.new('ShaderNodeTexVoronoi')
         vo.feature = 'DISTANCE_TO_EDGE'
@@ -610,10 +611,12 @@ def _segment_dist(g, a, b):
     return dd.outputs['Value']
 
 
-def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, creases=None):
+def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, creases=None, rot=0.0):
     """Windburned, dirty skin. face = face.marks(...): paints the head's own frame — weather-red cheeks, nose and
     ears; shadowed sockets and dark circles; the lips; the stubble of a shaved undercut; the founding scar, darker
-    and desaturated, uneven and broken, sunk into the skin. creases: (x, z) polylines of soft folds."""
+    and desaturated, uneven and broken, sunk into the skin. creases: (x, z) polylines of soft folds.
+    rot: a corpse's flesh (the Husk): livid bruising where the blood pooled, the grey-green of rot, the skin split and
+    the bone showing through in torn places, the feet black with grave dirt, the Blight's fissures fainter."""
     hit, key = _cached(('skin', name))
     if hit:
         return hit
@@ -621,6 +624,16 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
     nt = g.nt
     col = g.col(tone, 'skin')
     col = _mix(nt, 'MIX', col, g.col('#9a4a36', 'skin'), _maprange(nt, g.noise(6.0, w=1.0), 0.4, 0.75, 0.0, windburn))
+    tear = None
+    if rot > 0:
+        col = _mix(nt, 'MIX', col, g.col('#5c6451', 'skin'),
+                   _math(nt, 'MULTIPLY', _maprange(nt, g.noise(3.0, w=72.0), 0.3, 0.7), 0.55 * rot))
+        col = _mix(nt, 'MIX', col, g.col('#3e3242', 'skin'),
+                   _math(nt, 'MULTIPLY', _maprange(nt, g.noise(7.0, detail=6.0, rough=0.65, w=71.0), 0.45, 0.72), 0.7 * rot))
+        tear = _math(nt, 'MULTIPLY', _maprange(nt, g.noise(9.0, detail=5.0, rough=0.6, w=73.0), 0.66, 0.7), rot)
+        col = _mix(nt, 'MIX', col, g.col('#1c1416', 'skin'),
+                   _math(nt, 'MULTIPLY', _maprange(nt, g.noise(9.0, detail=5.0, rough=0.6, w=73.0), 0.62, 0.66), rot))
+        col = _mix(nt, 'MIX', col, g.col('#b7ab90', 'bone'), tear)          # split open, the bone beneath
 
     def spots(items):
         out = None
@@ -650,6 +663,8 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
         col = _mix(nt, 'MIX', col, g.col('#3a2218', 'skin'), _math(nt, 'MULTIPLY', lines, 0.16))
         g.bump(lines, -0.08)
     col = _mix(nt, 'MIX', col, g.col(COL['grime'], 'earth'), _maprange(nt, g.noise(9.0, detail=8.0, w=3.0), 0.45, 0.75, 0.0, dirt))
+    if rot > 0:     # bare feet black with grave dirt
+        col = _mix(nt, 'MIX', col, g.col('#1d1812', 'earth'), g.mud(height=0.13, amount=1.3 * rot))
     col = _mix(nt, 'MIX', col, g.col('#6e5a4c', 'skin'), _maprange(nt, g.noise(3.0, w=4.0), 0.3, 0.7, 0.35, 0.0))   # sallow
     mottle = _maprange(nt, g.noise(22.0, detail=6.0, rough=0.7, w=5.0), 0.3, 0.7, 0.0, 1.0)             # painterly blotching
     col = _mix(nt, 'MIX', col, g.col('#b89a86', 'skin'), _math(nt, 'MULTIPLY', mottle, 0.22))
@@ -714,7 +729,10 @@ def skin(name, tone, windburn=0.45, dirt=0.55, stubble=0.0, seed=13, face=None, 
     b.inputs['Subsurface Scale'].default_value = 0.004
     g.bump(g.noise(180.0, detail=3.0, w=7.0), 0.25)
     g.bump(g.noise(900.0, detail=2.0, w=8.0), 0.12)          # pores: kills the plastic sheen
-    g.cracks(1.0)
+    if tear is not None:
+        g.bump(tear, -0.5)
+        g.bump(g.noise(60.0, detail=4.0, w=74.0), 0.3 * rot)   # shrivelled
+    g.cracks(1.0 - 0.4 * rot, flesh=True)      # a corpse's fissures glow fainter: its eyes carry the violet
     rgh = _maprange(nt, g.noise(12.0, w=9.0), 0.3, 0.7, 0.7, 0.88)
     if lipm is not None:     # the lips carry a faint sheen
         rgh = _lerp(nt, rgh, 0.5, _math(nt, 'MULTIPLY', lipm, 0.6))
