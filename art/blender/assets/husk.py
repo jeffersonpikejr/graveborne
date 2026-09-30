@@ -30,7 +30,6 @@ from gb import looks as LK
 from gb import mat as M
 
 FIG_SCALE = 0.6
-FOE_LOOKS = 1000            # foes roll their heads from n = 1000 on: never a soldier's face
 
 # Corpse mode throughout (build sets it), but no revenant flag: the violet back-light is the company's risen, whose
 # ring is violet; a foe's side is its ring (green for the undead), and its Blight is in its eyes and its flesh.
@@ -131,7 +130,7 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
     H = _droop(fr.head_frame(v.get('portrait') or v.get('level')))
     seed = seed + 17 * n + (5 if form == 'f' else 0)
     if look is None:
-        look = LK.roll(form, FOE_LOOKS + 3 * n + (1 if tag else 0))
+        look = LK.foe(form, 3 * n + (1 if tag else 0), rough=False)     # the dead are dealt as rolled
     look = corpse_look(look)
 
     def up(P):          # posed points in the upright upper body's own space

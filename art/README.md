@@ -27,6 +27,7 @@ Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad cleric   # Clerics beside the Commander
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad acolyte  # Acolytes beside the Commander
     node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --foes husk      # a pod of Husks before the company
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --foes warband   # a doctrine's pod, with its ♛
 
 `ingame.mjs` swaps sprites in at runtime and screenshots the same board state before and after, on desktop and
 phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/path/to/playwright/index.mjs`).
@@ -36,13 +37,20 @@ phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/
 
 A foe doesn't persist, so it ships a few whole sprites instead of body and head layers (ASSETS.md, the enemy plan):
 `foe_<key>[_<tag>]_<n>_<m|f>.webp`, where `key` is the game's `ENEMIES` key, `n` one of its looks and `tag` a tier
-look named for the tag its `TIER_UPGRADES` entry puts in the unit's name (`foe_husk_ironbound_1_m`). Their heads
-come from the same genome as the company's, rolled from `n = 1000` on (`husk.FOE_LOOKS`), so a foe never wears a
-soldier's face. `--foes <key>` stages a pod of four before the company (by default a mixed squad: the Commander, a
-Ranger, a Cleric and an Acolyte; the last two foes carrying the tier tags) and deals each unit a sprite by its id.
+look named for the tag its `TIER_UPGRADES` entry puts in the unit's name (`foe_husk_ironbound_1_m`), or `captain`
+for the look a pod's ♛ leader wears (`foe_brigand_captain_1_f`). Their heads come from the same genome as the
+company's, from its enemy pool (`looks.foe(form, n)`, rolled from `looks.FOE_LOOKS` = 1000 on), so a foe never wears a
+soldier's face; the living are dealt rougher (more scars and broken noses, dirtier), the dead as rolled. `--foes <key>`
+stages a pod before the company (by default a mixed squad: the Commander, a Ranger, a Cleric and an Acolyte): four of
+a foe, the last two carrying its tier tags, or a doctrine's pod (`--foes warband`) with a tier look of its first foe
+and that foe again as the ♛; each unit is dealt a sprite by its id, the leader from its `captain` looks.
 
     .bvenv/bin/python art/blender/render.py husk                  # every variant -> art/renders/husk/*.png
+    .bvenv/bin/python art/blender/render.py brigand               # the Warband: brigand, cutthroat, archer
     .bvenv/bin/python art/tools/post.py ship art/renders/husk/*.png --out art/sprites
+
+The brigands share a kit (`assets/brigand.py`: the palette, what's worn from the belt down, the belt, a rag mask's
+ends), which `cutthroat.py` and `archer.py` import.
 
 ## Every soldier's own face (`blender/gb/looks.py`)
 
@@ -95,7 +103,9 @@ on every part). Library: `steel`, `paint_over_steel` (the bone-white shield), `m
 same ash; edges worn to a colour of its own),
 `skin` (windburn, dirt, stubble; with `face=face.marks(...)`: lips, sockets, dark circles, shadowed lid margins and
 eye corners, the undercut's stubble, a sunken scar; with `rot`: a corpse's flesh, rot-green and livid, split to the
-bone, the feet black with grave dirt), `graft` (Blight-grafted flesh, veins lit from the graft), `hair`, `wood`.
+bone, the feet black with grave dirt), `graft` (Blight-grafted flesh, veins lit from the graft), `hair`, `wood`,
+`planks` (boards under paint worn to chips, a crude device daubed on: a round shield's face). `cloth(patches=)` sews
+on squares of other cloth where it wore through, their edges stitched.
 
 **Revenant mode** (`mat.set_mode(revenant=True)`) re-renders any asset corrupted: palette drained toward grave-grey,
 skin gone pale, sparse blight-violet fissures and glowing eyes; `render.py` adds the violet back-light to any variant
@@ -113,22 +123,25 @@ painted-miniature materials.)
                             (halo), the first painted materials
     blender/gb/kit.py       primitives: skin-modifier limbs, lathes, tubes, blades, hafted weapons
     blender/gb/armor.py     humanoid kit: plate shells, pauldrons, cops, gauntlets, straps, torn cloth,
-                            the great shield, the broadsword
+                            the great shield, the broadsword, a round shield of planks, a nasal helm
     blender/gb/face.py      heads carved from one skull: a signed-distance field of anatomical masses about
                             one centreline, meshed (numpy surface nets) and decimated to readable planes;
                             eyes in carved sockets, hair/beard/brows as shells of the same field; marks()
-                            gives the skin shader its landmarks (lips, sockets, lids and eye corners, scar)
-    blender/gb/looks.py     the appearance genome: roll(form, n) -> a soldier's look; build_head(look) (rot: the
-                            face of a corpse)
+                            gives the skin shader its landmarks (lips, sockets, lids and eye corners, scar);
+                            a head fits its hair under a hood or a helm (HOOD_*, HELM_*) and wears a mask
+                            (MASKS: a rag, a wrap) laid over its own face
+    blender/gb/looks.py     the appearance genome: roll(form, n) -> a soldier's look; foe(form, n) -> a foe's,
+                            from the enemy pool; build_head(look) (hood, helm, mask; rot: the face of a corpse)
     blender/gb/body.py      bodies: male and female anchors on one dial, Frame (the dimensions kits are laid on;
-                            hunch() tips the upper body forward and bends the knees, reach() poses an arm, a
-                            gripping hand closes into a fist, open_hand() turns an open hand at the wrist), and
-                            the body's field
+                            hunch() tips the upper body forward, bends the knees and sets the feet apart, reach()
+                            poses an arm, a gripping hand closes into a fist, open_hand() turns an open hand at
+                            the wrist), and the body's field
     blender/gb/garb.py      light kit laid on the body: garments as layers offset from the posed body (Dressed),
                             capes and cloaks draped over it (Drape), a hood worn low over the brow (the head
-                            fits its hair under face.HOOD_*); a longbow, arrows, a quiver, a boar spear, a knife,
-                            a chapel lantern, a cord, a girdle book, a skirt of leather strips, the Acolyte's
-                            ashfire, a broken manacle
+                            fits its hair under face.HOOD_*); quilting and leg wraps; a longbow (braced, or drawn,
+                            recurved), arrows, a quiver, a boar spear, a knife, a chapel lantern, a cord, a
+                            ribbon, a girdle book, a skirt of leather strips, the Acolyte's ashfire, a broken
+                            manacle, a trophy standard
     blender/assets/*.py     one script per asset: build(variant) + VARIANTS
     blender/render.py       CLI renderer (--looks: body and head layers)
     blender/review_heads.py head review sheets: views, hairstyles, the look pool

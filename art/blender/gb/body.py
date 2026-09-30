@@ -121,11 +121,12 @@ class Frame:
         self.open = {}      # side -> (direction, palm normal) of an open hand turned at the wrist (open_hand)
         self.spine = None   # (bend degrees, pivot, drop) once hunch() has posed the spine and the legs
 
-    def hunch(self, bend=25.0, pivot=1.0, drop=0.0, stride=0.0):
+    def hunch(self, bend=25.0, pivot=1.0, drop=0.0, stride=0.0, spread=0.0):
         """Pose the spine and the legs: the upper body tipped forward `bend` degrees about the small of the back
         (pivot: its height on the male anchor's scale), the hips lowered `drop` (m) with the knees bending forward to
-        keep the feet planted, the left foot `stride` (m) ahead of the right. Call it before reach(): the shoulders, the
-        arms and the head go with the upper body, and reach() then works in the posed figure's space."""
+        keep the feet planted, the left foot `stride` (m) ahead of the right and the feet `spread` (m) wider apart.
+        Call it before reach(): the shoulders, the arms and the head go with the upper body, and reach() then works in
+        the posed figure's space."""
         J = self.joints
         lens = {s: (float(np.linalg.norm(J['kn_' + s] - J['hp_' + s])), float(np.linalg.norm(J['an_' + s] - J['kn_' + s])))
                 for s in 'lr'}
@@ -134,8 +135,9 @@ class Frame:
             J[k] = self.from_upper(J[k])
         for s in 'lr':
             J['hp_' + s] = (J['hp_' + s] - np.array((0.0, 0.0, drop), np.float32)).astype(np.float32)
-        if stride:
-            J['an_l'] = (J['an_l'] + np.array((0.0, -stride, 0.0), np.float32)).astype(np.float32)
+        if stride or spread:
+            J['an_l'] = (J['an_l'] + np.array((spread / 2.0, -stride, 0.0), np.float32)).astype(np.float32)
+            J['an_r'] = (J['an_r'] + np.array((-spread / 2.0, 0.0, 0.0), np.float32)).astype(np.float32)
         for s in 'lr':          # each knee by two-bone IK from the lowered hip to the planted ankle, bending forward
             hp, an = J['hp_' + s], J['an_' + s]
             lt, ls = lens[s]

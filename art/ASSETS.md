@@ -122,14 +122,14 @@ regroups them into a build order.
 | # | Asset | Why here | Score | Status |
 |---|---|---|---|---|
 | 6 | Husk | in 7 of 8 contract pools + 4 doctrines — the most common foe | 3×2×3 = 18 | 🔍 |
-| 7 | Cutthroat | **no art today**; patrol + hunt pools, Warband | 3×3×2 = 18 | ⏳ |
+| 7 | Cutthroat | **no art today**; patrol + hunt pools, Warband | 3×3×2 = 18 | 🔍 |
 | 8 | Shieldman | **no art today**; purge/hold/reclaim pools, Shieldwall | 3×3×2 = 18 | ⏳ |
 | 9 | Blight-hound | hunt/purge/hold/delve pools, Outriders; first quadruped rig | 3×2×3 = 18 | ⏳ |
-| 10 | Brigand | patrol pool ×2, Warband | 3×2×2 = 12 | ⏳ |
+| 10 | Brigand | patrol pool ×2, Warband | 3×2×2 = 12 | 🔍 |
 | 11 | Graveguard | hold/delve/reclaim, Risen/Conclave/Warhost | 3×2×2 = 12 | ⏳ |
 | 12 | Conclave Acolyte | six contract pools | 3×2×2 = 12 | ⏳ |
 | 13 | Levy Pikeman | **no art today**; hold pool, Shieldwall | 2×3×2 = 12 | ⏳ |
-| 14 | Brigand Archer | patrol pool, Warband | 2×2×2 = 8 | ⏳ |
+| 14 | Brigand Archer | patrol pool, Warband | 2×2×2 = 8 | 🔍 |
 | 15 | Deserter | patrol pool | 2×2×2 = 8 | ⏳ |
 | 16 | Hound-Rider | Outriders (reuses hound + humanoid rigs) | 2×2×2 = 8 | ⏳ |
 | 17 | Blight-Mage | Ebon Coven VIP | 1×2×2 = 4 | ⏳ |
@@ -356,12 +356,12 @@ brigand kit it builds dresses the Hound-Rider in step 6.
 - **Beards under masks:** a full beard is clipped under the rag mask as hair is under the hood; check it on the
   bearded looks.
 
-### Open calls
+### Settled (as recommended), and built
 
-1. **Masks:** the Brigand's two looks masked and unmasked (recommended), or both masked.
-2. **The Captain:** built in this pass (recommended), or leaders left for a pass across the factions.
-3. **Weapon upgrades:** not drawn (recommended), or drawn (8 more sprites).
-4. **The oxblood trophy:** one strip on the Captain's standard (recommended), or none.
+1. **Masks:** the Brigand's two looks, masked and with the mask pulled down.
+2. **The Captain:** built in this pass.
+3. **Weapon upgrades:** not drawn.
+4. **The oxblood trophy:** one strip on the Captain's standard.
 
 ## Integration plan (after approvals, not before)
 

@@ -91,54 +91,6 @@ def add_head(fig, look, sex, portrait=False):
     return hroot
 
 
-def _seg_dist(P, a, b):
-    """Distance from points P to the segment a-b."""
-    pa, ba = P - a, b - a
-    h = np.clip((pa @ ba) / float(ba @ ba), 0.0, 1.0)
-    return np.sqrt(((pa - h[:, None] * ba) ** 2).sum(1))
-
-
-def _quilt(fr, n_torso=26, pitch=0.045):
-    """A quilted jack's thickness: vertical channels round the trunk, rings down the sleeves."""
-    J = fr.joints
-    segs = [(J['sh_' + s], J['el_' + s]) for s in 'lr'] + [(J['el_' + s], J['wr_' + s]) for s in 'lr']
-
-    def t(P):
-        th = np.arctan2(P[:, 0], -P[:, 1])
-        g_torso = np.exp(-(np.sin(th * n_torso / 2.0) / 0.3) ** 2)
-        nearest = np.stack([_seg_dist(P, a, b) for a, b in segs], 1).argmin(1)
-        g_arm = np.zeros(len(P), np.float32)
-        for i, (a, b) in enumerate(segs):
-            u = (b - a) / np.linalg.norm(b - a)
-            g_arm = np.where(nearest == i, np.exp(-(np.sin(np.pi * ((P - a) @ u) / pitch) / 0.3) ** 2), g_arm)
-        on_arm = np.clip(1.0 - BD._arms(P, fr, 1.0) / 0.02, 0.0, 1.0)
-        groove = g_torso * (1.0 - on_arm) + g_arm * on_arm
-        base = 0.011 * (1.0 - on_arm) + 0.0085 * on_arm
-        return (base * (1.0 - 0.3 * groove)).astype(np.float32)
-    return t
-
-
-def _wraps(fr):
-    """Leg wraps: a band wound up each calf, overlapping itself."""
-    J = fr.joints
-
-    def t(P):
-        side = np.where(P[:, 0] >= 0.0, 0, 1)
-        out = np.zeros(len(P), np.float32)
-        for k, s in enumerate('lr'):
-            kn, an = J['kn_' + s], J['an_' + s]
-            u = (kn - an) / np.linalg.norm(kn - an)
-            q = P - an
-            along = q @ u
-            ax = an + along[:, None] * u
-            th = np.arctan2(P[:, 1] - ax[:, 1], P[:, 0] - ax[:, 0])
-            ph = along / 0.036 * 2.0 * np.pi + th * (1.0 if s == 'l' else -1.0)
-            band = 0.5 + 0.5 * np.cos(ph)
-            out = np.where(side == k, 0.0068 + 0.0028 * band, out)
-        return out
-    return t
-
-
 def build(v, seed=7, turn=-4.0, look=None, head=True):
     """One variant (VARIANTS). look: a soldier's own face (gb/looks.py); by default the variant's anchor face.
     head=False leaves the head off, for the look pipeline (render.py --looks) to seat each look's head."""
@@ -190,7 +142,7 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
     parts.append(D.skin('ranger_body', skin))
     parts.append(D.layer('breeches', breech, lambda P: np.full(len(P), 0.0035, np.float32),
                          lambda P: np.maximum(D.heights(0.1, 1.0)(P), -D.arms(1.2)(P)), inner=0.002, tris=9000))
-    parts.append(D.layer('wraps', wrapc, _wraps(fr), lambda P: np.maximum(D.heights(0.14, 0.45)(P), -D.arms(1.2)(P)),
+    parts.append(D.layer('wraps', wrapc, GB.wraps(fr), lambda P: np.maximum(D.heights(0.14, 0.45)(P), -D.arms(1.2)(P)),
                          inner=-0.0015, feather=0.002, floor=0.9, tris=7000))
 
     def boot_t(P):
@@ -198,7 +150,7 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
         return (0.0055 + 0.0045 * cuff).astype(np.float32)
     parts.append(D.layer('boots', boots, boot_t, lambda P: np.maximum(D.heights(-0.02, 0.205)(P), -D.arms(1.2)(P)),
                          inner=-0.001, tris=7000, smooth=40))
-    parts.append(D.layer('jack', jackc, _quilt(fr), lambda P: np.maximum(D.heights(0.86, 1.545)(P), no_hands(P)),
+    parts.append(D.layer('jack', jackc, GB.quilted(fr), lambda P: np.maximum(D.heights(0.86, 1.545)(P), no_hands(P)),
                          inner=0.003, tris=14000, smooth=45))
 
     def jerkin_region(P):

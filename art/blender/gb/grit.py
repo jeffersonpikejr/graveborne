@@ -12,6 +12,8 @@ tarnished gold only as rivets, repairs and mismatched trim.
 Revenant mode (mat.set_mode) drains every colour toward grave-grey and lets blight-violet light leak through
 cracks, exactly as the painted materials did.
 """
+import math
+
 import bpy
 from mathutils import Vector
 
@@ -371,14 +373,64 @@ def _ashen(g, col, ash, char, kind):
     return col
 
 
+def _patched(g, col, patches, kind):
+    """Sewn-on patches (cloth(patches=)): object space cut into cells, some of them patched in other cloth, the patch
+    raised a little and its edges stitched. The stitches follow the cell's edges across the surface: an edge the
+    surface faces along is ignored."""
+    nt, N, L = g.nt, g.N, g.L
+    size, share, hexes = patches
+    snap = N.new('ShaderNodeVectorMath')
+    snap.operation = 'SNAP'
+    L.new(g.obj, snap.inputs[0])
+    snap.inputs[1].default_value = (size, size, size)
+    draws = []
+    for w in (0.0, 11.0):
+        wn = N.new('ShaderNodeTexWhiteNoise')
+        wn.noise_dimensions = '4D'
+        L.new(snap.outputs['Vector'], wn.inputs['Vector'])
+        wn.inputs['W'].default_value = g.seed * 3.7 + w
+        draws.append(wn.outputs['Value'])
+    patch = _maprange(nt, draws[0], share, share + 0.0005, 1.0, 0.0)
+    pc = g.col(hexes[0], kind)
+    for i, hx in enumerate(hexes[1:]):
+        t = (i + 1) / len(hexes)
+        pc = _mix(nt, 'MIX', pc, g.col(hx, kind), _maprange(nt, draws[1], t, t + 0.0005))
+    pc = _mix(nt, 'MULTIPLY', pc, _maprange(nt, g.noise(6.0, detail=8.0, w=13.0), 0.3, 0.75, 0.72, 1.1))
+    dv = N.new('ShaderNodeVectorMath')
+    dv.operation = 'DIVIDE'
+    L.new(g.obj, dv.inputs[0])
+    dv.inputs[1].default_value = (size, size, size)
+    fr = N.new('ShaderNodeVectorMath')
+    fr.operation = 'FRACTION'
+    L.new(dv.outputs['Vector'], fr.inputs[0])
+    sf = N.new('ShaderNodeSeparateXYZ')
+    L.new(fr.outputs['Vector'], sf.inputs[0])
+    sn = N.new('ShaderNodeSeparateXYZ')
+    L.new(g.geo.outputs['Normal'], sn.inputs[0])
+    edge = None
+    for ax in ('X', 'Y', 'Z'):
+        f = sf.outputs[ax]
+        e = _math(nt, 'MINIMUM', f, _math(nt, 'SUBTRACT', 1.0, f))
+        e = _math(nt, 'ADD', e, _math(nt, 'MULTIPLY', _math(nt, 'ABSOLUTE', sn.outputs[ax]), 1.5))
+        edge = e if edge is None else _math(nt, 'MINIMUM', edge, e)
+    stitch = _math(nt, 'MULTIPLY', _maprange(nt, edge, 0.012, 0.04, 1.0, 0.0), patch)
+    col = _mix(nt, 'MIX', col, pc, patch)
+    col = _mix(nt, 'MIX', col, g.col('#1c1812', kind), _math(nt, 'MULTIPLY', stitch, 0.75))
+    g.bump(patch, 0.25)
+    g.bump(stitch, -0.4)
+    return col
+
+
 def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth', device=None, cross=None, ash=0.0,
-          char=None):
+          char=None, patches=None):
     """Heavy wool gone dark with weather: fibre, folds full of dirt, blood worked in, a mud-soaked hem.
     device=(cx, cz, radius, hex): a painted roundel in object space (the company's mark on a banner).
     cross=(cx, cz, arm, width, hex): a dyed cross in object space, its crossing at (cx, cz), the arms `arm` long each
     way, the foot longer (a surcoat's cross, front and back).
     ash: pale ash settled in drifts on whatever faces up (the shoulders, the crown of a hood) and a grey film over the
-    rest. char=(height, amount): the hem scorched black in ragged tongues climbing to `height` (world, tiles)."""
+    rest. char=(height, amount): the hem scorched black in ragged tongues climbing to `height` (world, tiles).
+    patches=(size, share, (hex, ...)): squares of other cloth sewn on where it wore through: object space is cut into
+    cells `size` across, a `share` of them patched, each in one of the colours, its edges stitched."""
     hit, key = _cached(('cloth', name))
     if hit:
         return hit
@@ -412,6 +464,8 @@ def cloth(name, color=None, blood=0.35, mud=1.4, grime=0.6, seed=9, kind='cloth'
         mark = _math(nt, 'MAXIMUM', _math(nt, 'MULTIPLY', in_x, up), bar)
         worn = _maprange(nt, g.noise(11.0, detail=8.0, w=29.0), 0.3, 0.55, 0.55, 1.0)    # dye faded unevenly
         col = _mix(nt, 'MIX', col, g.col(hexc, kind), _math(nt, 'MULTIPLY', mark, worn))
+    if patches:
+        col = _patched(g, col, patches, kind)
     col = _mix(nt, 'MIX', col, g.col(COL['grime'], 'earth'), _math(nt, 'MULTIPLY', g.cavity, grime))
     bm = g.blood(blood)
     if bm is not None:
@@ -810,6 +864,59 @@ def hair(name, color=None, seed=17, flow='down'):
     g.bsdf.inputs['Specular IOR Level'].default_value = 0.25
     g.cracks(0.5)
     m = g.finish(col, 0.78, 0.0)
+    _CACHE[key] = m
+    return m
+
+
+def planks(name, paint=None, wood='#5b4530', plank=0.1, chip=0.5, device=None, blood=0.3, mud=1.0, seed=21):
+    """Boards side by side under a coat of paint worn to chips: a round shield's face. Object space: the boards run
+    along y, `plank` wide across x, their seams dark and sunk, the paint gone most toward the rim (the radius from the
+    origin). paint: the coat's hex (None: bare wood); chip: how much of it has flaked; device=(hex, a): three crude
+    strokes daubed across it at angle a (degrees), a brigand's mark."""
+    hit, key = _cached(('planks', name))
+    if hit:
+        return hit
+    g = _G(name, seed)
+    nt, N, L = g.nt, g.N, g.L
+    sep = N.new('ShaderNodeSeparateXYZ')
+    L.new(g.obj, sep.inputs[0])
+    x, y = sep.outputs['X'], sep.outputs['Y']
+    f = _math(nt, 'FRACT', _math(nt, 'DIVIDE', _math(nt, 'ADD', x, 0.5 * plank), plank))
+    seam = _maprange(nt, _math(nt, 'MINIMUM', f, _math(nt, 'SUBTRACT', 1.0, f)), 0.0, 0.035, 1.0, 0.0)
+    grain = g.noise(30.0, detail=6.0, vec=g.stretched(1.0, 0.07, 1.0), w=1.0)
+    col = _mix(nt, 'MULTIPLY', g.col(wood, 'wood'), _maprange(nt, grain, 0.3, 0.7, 0.62, 1.15))
+    rr = _math(nt, 'SQRT', _math(nt, 'ADD', _math(nt, 'MULTIPLY', x, x), _math(nt, 'MULTIPLY', y, y)))
+    worn = _maprange(nt, rr, 0.1, 0.28, 0.0, 0.3)          # most flaked toward the rim, where it's struck and stood on
+    flakes = g.noise(14.0, detail=8.0, rough=0.7, w=5.0)
+    if paint:
+        keep = _maprange(nt, _math(nt, 'SUBTRACT', flakes, worn), chip - 0.06, chip + 0.02, 0.0, 1.0)
+        pc = _mix(nt, 'MULTIPLY', g.col(paint, 'cloth'), _maprange(nt, g.noise(4.0, w=7.0), 0.3, 0.7, 0.78, 1.08))
+        if device:
+            hexd, ang = device
+            ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+            along = _math(nt, 'ADD', _math(nt, 'MULTIPLY', x, ca), _math(nt, 'MULTIPLY', y, sa))
+            across = _math(nt, 'SUBTRACT', _math(nt, 'MULTIPLY', y, ca), _math(nt, 'MULTIPLY', x, sa))
+            wob = _math(nt, 'MULTIPLY', _math(nt, 'SUBTRACT', g.noise(9.0, w=9.0), 0.5), 0.02)
+            mark = None
+            for off in (-0.062, 0.0, 0.062):
+                d = _math(nt, 'ABSOLUTE', _math(nt, 'SUBTRACT', _math(nt, 'ADD', across, wob), off))
+                stroke = _math(nt, 'MULTIPLY', _maprange(nt, d, 0.011, 0.017, 1.0, 0.0),
+                               _maprange(nt, _math(nt, 'ABSOLUTE', along), 0.13, 0.17, 1.0, 0.0))
+                mark = stroke if mark is None else _math(nt, 'MAXIMUM', mark, stroke)
+            pc = _mix(nt, 'MIX', pc, g.col(hexd, 'cloth'), mark)
+        col = _mix(nt, 'MIX', col, pc, keep)
+        g.bump(keep, 0.15)
+    col = _mix(nt, 'MIX', col, g.col(COL['grime'], 'earth'), _math(nt, 'MULTIPLY', seam, 0.8))
+    col = _mix(nt, 'MIX', col, g.col(COL['grime'], 'earth'), _math(nt, 'MULTIPLY', g.cavity, 0.6))
+    bm = g.blood(blood)
+    if bm is not None:
+        col = _mix(nt, 'MIX', col, g.col(COL['oxblood_dry'], 'cloth'), bm)
+    if mud > 0:
+        col = _mix(nt, 'MIX', col, g.col(COL['mud'], 'earth'), g.mud(amount=mud))
+    g.bump(seam, -0.6)
+    g.bump(grain, 0.25)
+    g.cracks(0.4)
+    m = g.finish(col, _maprange(nt, flakes, 0.3, 0.7, 0.7, 0.9), 0.0)
     _CACHE[key] = m
     return m
 

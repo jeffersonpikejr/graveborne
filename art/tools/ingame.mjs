@@ -4,6 +4,7 @@
 //   python3 -m http.server 8931 --directory .            # serve the repo root
 //   node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review [--mode ring|mini|both] [--squad fighter|ranger|cleric|acolyte|company]
 //   node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --foes husk     # a pod of foes before the company
+//   node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --foes warband  # a doctrine's pod, with its ♛
 //
 // Sprite files follow <class>[_<weapon>][_commander|_veteran][_revenant]_<m|f>.webp (see art/README.md): a kit drawn
 // for the soldier's own weapon wins (ranger_spear_...), else the class's own (the Ranger's bow); the Commander kit
@@ -16,10 +17,11 @@
 // --squad stages the same people every time: the Commander (a Fighter, a founder's head), then three of the class
 // under review (one at veterancy; the third carries another of the class's weapons: the Ranger's spear, the Cleric's
 // shortsword, the Acolyte's spear) and the founding grave risen as that class.
-// --foes <key> stages a pod of four of that foe a few tiles before the company (by default the mixed squad: the
-// Commander, a Ranger, a Cleric and an Acolyte) instead of the risen grave, the last two carrying its TIER_UPGRADES
-// tags, and draws foes from foe_<key>[_<tag>]_<n>_<m|f>.webp: whole sprites, each unit dealt one by its id, from its
-// tier's looks if its name carries the tag; ringed red, or green for the undead.
+// --foes <key> stages a pod of that foe a few tiles before the company (by default the mixed squad: the Commander, a
+// Ranger, a Cleric and an Acolyte) instead of the risen grave: four of it, the last two carrying its TIER_UPGRADES tags;
+// or, for a doctrine's key (--foes warband), the doctrine's pod, a tier look of its first foe and that foe again as the
+// ♛ leader. Foes are drawn from foe_<key>[_<tag>]_<n>_<m|f>.webp: whole sprites, each unit dealt one by its id, from
+// its tier's looks if its name carries the tag, the leader from the 'captain' looks; ringed red, or green for the undead.
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -85,9 +87,10 @@ function inject(page, mode) {
       const kit = foeKits[m[1]] = foeKits[m[1]] || { base: [], tiers: {} };
       if (m[2]) (kit.tiers[m[2]] = kit.tiers[m[2]] || []).push(k); else kit.base.push(k);
     }
-    const foeSprite = (u) => {
+    const foeSprite = (u) => {       // the leader's look for the ♛, else its tier's by the tag in its name, else its own
       const kit = foeKits[u.ekey], tag = u.name.split(' ')[0].toLowerCase();
-      const pool = kit.tiers[tag] || kit.base;
+      const lead = G.state.battle && G.state.battle.leaderUid === u.uid;
+      const pool = (lead && kit.tiers.captain) || kit.tiers[tag] || kit.base;
       return sprites[pool[u.uid % pool.length]];
     };
     window.enemyFace = function (key, size) {
@@ -219,13 +222,21 @@ async function stageFoes(page) {
     for (const u of B.units.filter(u => u.kind !== 'pc')) if (u.x >= best.x - 2 && u.x <= best.x + best.w + 1 && u.y >= best.y - 2 && u.y <= best.y + best.h + 1) { u.hp = 0; }
     B.units = B.units.filter(u => u.hp > 0);
     [[0, 1], [1, 0], [1, 2], [0, 2]].forEach(([dx, dy], i) => { if (pcs[i]) { pcs[i].x = best.x + dx; pcs[i].y = best.y + dy; } });
-    // four of the foe at the patch's far end; the last two carry its tier upgrades (TIER_UPGRADES' tags), so every
-    // look is on the board
-    const tags = (TIER_UPGRADES[key] || []).filter(t => t.tag).map(t => t.tag);
+    // the pod at the patch's far end, so every look is on the board. A foe's key: four of it, the last two carrying
+    // its tier upgrades' tags (TIER_UPGRADES). A doctrine's key (POD_DOCTRINES): its composition, then one more of its
+    // first foe per tag, and its first foe again as the pod's leader (♛), as Cut Off the Head makes a Butcher of it.
+    const doc = POD_DOCTRINES[key];
+    const first = doc ? doc.comp[0] : key;
+    const tags = (TIER_UPGRADES[first] || []).filter(t => t.tag).map(t => t.tag);
+    const plan = doc ? [...doc.comp.map(k => [k, null]), ...tags.map(t => [first, t]), [first, 'lead']]
+      : [[key, null], [key, null], [key, tags[0] || null], [key, tags[1] || null]];
     const { w, h } = best;
-    const pod = [[w - 3, 0], [w - 2, 1], [w - 3, h - 1], [w - 1, h - 1]].map(([dx, dy], i) => {
-      const u = spawnEnemy(B, key, 1, false); u.x = best.x + dx; u.y = best.y + dy;
-      u.name = ENEMIES[key].n; const tag = tags[i - 2]; if (tag) u.name = tag + ' ' + u.name;
+    const slots = [[w - 3, 0], [w - 2, 1], [w - 3, h - 1], [w - 1, h - 1], [w - 1, 0], [w - 4, 1], [w - 2, h - 1]];
+    const pod = plan.slice(0, slots.length).map(([k, tag], i) => {
+      const u = spawnEnemy(B, k, 1, false); u.x = best.x + slots[i][0]; u.y = best.y + slots[i][1];
+      u.name = ENEMIES[k].n;
+      if (tag === 'lead') { B.leaderUid = u.uid; u.name += ' the Butcher'; u.weapon = 'greataxe'; }
+      else if (tag) u.name = tag + ' ' + u.name;
       return u;
     });
     // the pod stays in view whatever the fog (one of them standing behind another would otherwise go unseen)

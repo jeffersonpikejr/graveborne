@@ -79,7 +79,7 @@ EYE_R = 0.0125          # eyeball radius; the same for both forms, so the female
 CANTHI = ((-0.0134, -0.0009), (0.0134, 0.0009))     # the eye's inner and outer corner tissue: (x, z) off the eyeball's centre
 CANTHUS_Y = -0.0025                                  # ...set this far forward: it fills the corner, behind the lids
 GRID = 0.0012           # meshing resolution (m): fine enough for the lid margin and the mouth line
-LOWPOLY = dict(skin=9000, hair=2600, hang=3800, beard=1500, brow=900)     # triangles after decimation: large readable planes (the lips and nostrils need the skin's budget)
+LOWPOLY = dict(skin=9000, hair=2600, hang=3800, beard=1500, brow=900, mask=3000)     # triangles after decimation: large readable planes (the lips and nostrils need the skin's budget)
 
 
 # ------------------------------------------------------------------------------------------------ distance field
@@ -714,13 +714,14 @@ def _thick_hair(style, L, noise, recede=0.0):
     return t
 
 
-def _hang(g, L, style, noise, hood=False):
+def _hang(g, L, style, noise, clip=None):
     """Hair falling free of the skull: a bob to the jaw with a side parting and a swept fringe, or shoulder length
     with a centre parting, tucked behind the ears. Its own field: a cap over the skull, thinner toward the hairline,
     and a curtain falling from the skull's widest section (a band, not a solid, so it hangs clear of the neck) that
     thins toward ragged, clumped ends turned in a little; open over the face, grooved into strands and carved clear
-    of the skin. Sampled on every second point of the skin's grid: coarse is plenty for hair. Under a hood, only what
-    fits inside it or falls out through its opening is kept."""
+    of the skin. Sampled on every second point of the skin's grid: coarse is plenty for hair. clip: where hair may be
+    (negative): under a hood, only what fits inside it or falls out through its opening is kept; under a helm, what
+    fits inside it or falls below its rim."""
     D = g.D[::2, ::2, ::2]
     h = g.h * 2.0
     n = D.shape
@@ -764,8 +765,8 @@ def _hang(g, L, style, noise, hood=False):
     hair = _smax(hair, -part, 0.002)
     hair = hair + 0.0014 * fall * (0.5 + 0.5 * np.cos(psi * 22.0 + 3.0 * noise(P * (1.0, 1.0, 0.12), 20.0)))   # strands
     hair = np.maximum(hair, -(d - 0.0012))                                            # clear of the skin
-    if hood:
-        hair = _smax(hair, _under_hood(P), 0.002)
+    if clip is not None:
+        hair = _smax(hair, clip(P), 0.002)
     return _nets(hair.reshape(n).astype(np.float32), g.lo, h)
 
 
@@ -806,6 +807,77 @@ def hood_front(P):
 def _under_hood(P):
     """Where hair may be under a hood: inside it (a few millimetres clear of the cloth) or out through its opening."""
     return np.minimum(hood_inner(P) + 0.004, hood_front(P) + 0.003)
+
+
+# ------------------------------------------------------------------------------------------------ under a helm
+# A nasal helm (armor.nasal_helm builds it): an iron skullcap close over the head, from above the brow round over the
+# ears to the nape, and a nasal down the bridge of the nose. Head space, an unscaled head: its inside, and its rim's
+# height at the brow, over the ears and at the nape.
+HELM_C, HELM_R = (0.0, 0.014, 0.022), (0.08, 0.108, 0.092)
+HELM_RIM = (0.03, 0.006, -0.02)
+HELM_NASAL = ((0.0, -0.1, 0.03), (0.0, -0.1095, -0.008))      # its nasal: from the rim over the bridge of the nose
+
+
+def helm_rim(P):
+    """The helm's rim height round the head at points P (by their angle about its vertical axis)."""
+    c = np.cos(np.arctan2(P[:, 0], -(P[:, 1] - HELM_C[1])))
+    f, s, b = HELM_RIM
+    return np.where(c > 0.0, s + (f - s) * c, s + (s - b) * c)
+
+
+def _under_helm(P):
+    """Where hair may be under a helm: inside it (clear of the iron) or below its rim."""
+    inner = _ell(P, np.array(HELM_C, np.float32), np.array(HELM_R, np.float32))
+    return np.minimum(inner + 0.003, P[:, 2] - helm_rim(P) + 0.002)
+
+
+# ------------------------------------------------------------------------------------------------ masks
+# A cloth over the lower face, knotted behind the head: from just under the eyes over the bridge of the nose, down past
+# the chin, back round the jaw and over the ears. Head space, an unscaled head. top: its upper edge before the ears;
+# point, side: its lower edge under the chin and past the jaw; back: its band's top and bottom behind the ears; t: the
+# cloth's thickness. The rag hangs to a point over the throat; the wrap is bound tight and high, over the ears.
+MASKS = {'rag': dict(top=-0.016, point=-0.158, side=-0.088, back=(-0.002, -0.04), t=0.0038),
+         'wrap': dict(top=-0.012, point=-0.118, side=-0.1, back=(0.014, -0.03), t=0.0042)}
+
+
+def _region_mask(kind, L, noise):
+    """Negative where the mask covers the head."""
+    m, k = MASKS[kind], float(L.k[2])
+
+    def region(P):
+        x, y, z = P[:, 0], P[:, 1], P[:, 2]
+        front = np.clip((0.03 - y) / 0.05, 0.0, 1.0)       # 1 before the ears, 0 behind them
+        wob = 0.0015 * (noise(P, 70.0) - 0.5)              # its edges a little uneven
+        top = (m['top'] * front + m['back'][0] * (1.0 - front)) * k + wob
+        low = m['point'] + (m['side'] - m['point']) * np.clip(np.abs(x) / 0.062, 0.0, 1.0)
+        bot = (low * front + m['back'][1] * (1.0 - front)) * k + wob
+        return np.maximum(bot - z, z - top)
+    return region
+
+
+def _mask(g, L, kind, noise):
+    """The mask's shell and its knot (head space). Cloth doesn't follow the lips: between the tip of the nose and the
+    chin it falls straight, tenting off the face beside the nose, so the shell thickens to meet that line."""
+    m, k = MASKS[kind], L.k
+    P, d = g.P, g.exact
+    near = (np.abs(d) < g.h) & (np.abs(P[:, 0]) < 0.006)
+
+    def fore(z0, z1):       # the most forward point of the centreline between two heights: (y, z)
+        sel = near & (P[:, 2] > z0 * k[2]) & (P[:, 2] < z1 * k[2])
+        i = int(np.argmin(np.where(sel, P[:, 1], np.inf)))
+        return float(P[i, 1]), float(P[i, 2])
+    yn, zn = fore(-0.06, -0.005)            # the tip of the nose
+    yc, zc = fore(-0.14, -0.075)            # the chin
+    line = yn + (yc - yn) * (P[:, 2] - zn) / (zc - zn) + 22.0 * P[:, 0] ** 2
+    fill = np.where((P[:, 2] < zn) & (P[:, 2] > zc), np.clip(P[:, 1] - line + d, 0.0, 0.0085), 0.0)
+    r = _region_mask(kind, L, noise)(P)
+    th = (m['t'] + fill) * np.clip(-r / 0.002, 0.85, 1.0)
+    H = np.ones(g.shape, np.float32)
+    H[g.idx] = _smax(_smax(d - th, -(d + 0.002), 0.001), r, 0.0012)
+    zb = 0.5 * (m['back'][0] + m['back'][1]) * k[2]
+    sel = near & (np.abs(P[:, 2] - zb) < 0.004)
+    yb = float(np.max(np.where(sel, P[:, 1], -np.inf)))
+    return _nets(H, g.lo, g.h), (0.0, yb + m['t'] + 0.007, zb)
 
 
 def _placed(ob, loc, M3):
@@ -1049,7 +1121,8 @@ def _tail_forward(name, path, hair, dark):
 
 
 def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='crop', scar=None, crooked=0.0,
-         greying=None, seed=0, gaze=0.0, recede=0.0, scar_kind='founding', bust=-0.195, yoke=True, hood=None):
+         greying=None, seed=0, gaze=0.0, recede=0.0, scar_kind='founding', bust=-0.195, yoke=True, hood=None,
+         helm=False, mask=None):
     """Build a head. Returns (root_empty, info). Place the root; everything else follows it.
 
     sex: 'male' / 'female' (an anchor) or a settings dict from form(); skin: the face material (grit.skin with
@@ -1062,14 +1135,18 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
     hood: the head wears a hood low over the brow (hood_inner): what gathers on the crown or at the nape (a topknot, a
     bun, a braided crown) is flattened under it, any hair keeps only what fits inside it or falls out through its
     opening, and a ponytail comes forward out of it under the jaw and over the shoulder if hood is a dict with its
-    'tail' path (head space; the kit knows where its cloak lies), else stays under the hood."""
+    'tail' path (head space; the kit knows where its cloak lies), else stays under the hood.
+    helm: the head wears a nasal helm (armor.nasal_helm, HELM_*): the hair keeps what fits inside it or falls below its
+    rim, and nothing gathers on the crown (a topknot, a braided crown).
+    mask: (kind, material): a cloth over the lower face, knotted behind the head (MASKS: 'rag' or 'wrap'); no beard
+    or hair under it. info['knot'] is where it is knotted (head space), for the kit to hang the ends from."""
     if isinstance(beard, bool):
         beard = 'full' if beard else None
     tail_path = tuple(tuple(round(float(c), 5) for c in p) for p in hood.get('tail', ())) if isinstance(hood, dict) else ()
     L = Layout(sex, crooked)
     fk = (tuple(sorted((k, round(v, 6)) for k, v in L.f.items())), scar, scar_kind if scar else None, round(crooked, 5),
           round(bust, 4), yoke)
-    key = fk + (beard, hair_style, round(recede, 4), seed, bool(hood))
+    key = fk + (beard, hair_style, round(recede, 4), seed, bool(hood), bool(helm), mask[0] if mask else None)
     if key not in _CACHE:
         if _GRID.get('key') != fk:      # one skin serves every hairstyle and beard on it: keep the last one sampled
             sc = scar_path(L, scar, lift=0.0012, kind=scar_kind) if scar else None
@@ -1078,18 +1155,29 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
         g = _GRID['g']
         noise = _Noise(seed + 101)
         geo = {'skin': _nets(g.D, g.lo, g.h)}
-        if hair_style in HANGING:
-            geo['hair'] = _hang(g, L, hair_style, noise, hood=bool(hood))
+        clips = [c for c, on in ((_under_hood, hood), (_under_helm, helm)) if on]   # where hair may be (negative)
+        mreg = _region_mask(mask[0], L, noise) if mask else None
+        if hair_style in HANGING:       # hanging hair falls over a mask's knot: only the hood or the helm clip it
+            geo['hair'] = _hang(g, L, hair_style, noise,
+                                clip=(lambda P: np.max([c(P) for c in clips], 0)) if clips else None)
         elif hair_style not in CLIPPED:
             region = _region_hair(hair_style, L, noise, recede)
-            if hood:     # under a low hood the hair keeps only what fits inside it
+            if mask:         # nor under a mask's band
+                clips.append(lambda P: -mreg(P))
+            if clips:        # under a low hood or a helm the hair keeps only what fits inside it
                 grown = region
-                region = lambda P: np.maximum(grown(P), _under_hood(P))      # noqa: E731
+                region = lambda P: np.max([grown(P)] + [c(P) for c in clips], 0)      # noqa: E731
             geo['hair'] = _nets(g.shell(_thick_hair(hair_style, L, noise, recede), region), g.lo, g.h)
         if beard in ('full', 'short'):
             trim = 1.0 if beard == 'full' else 0.5
-            geo['beard'] = _nets(g.shell(_thick_beard(L, noise, trim), _region_beard(L, noise, trim),
+            bregion = _region_beard(L, noise, trim)
+            if mask:         # under the mask: what shows is what spills below it at the jaw
+                grown_b = bregion
+                bregion = lambda P: np.maximum(grown_b(P), -mreg(P))      # noqa: E731
+            geo['beard'] = _nets(g.shell(_thick_beard(L, noise, trim), bregion,
                                          feather=0.008 * trim, floor=0.12 + 0.4 * (1.0 - trim)), g.lo, g.h)
+        if mask:
+            geo['mask'], geo['knot'] = _mask(g, L, mask[0], noise)
         brow_cut = scar if scar_kind == 'founding' else None       # only the founding scar runs through the brow
         geo['brow'] = _nets(g.shell(lambda P: 0.0013 + 0.0007 * noise(P, 300.0), _region_brow(L, brow_cut, noise), feather=0.0016), g.lo, g.h)
         while len(_CACHE) >= CACHE_MAX:     # a roster renders many heads in one process: keep the recent few
@@ -1104,6 +1192,8 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
     if hood:     # under a hood nothing gathers on the crown or the nape; a ponytail may come forward
         if hair_style == 'tail' and tail_path:
             parts += _tail_forward(name, tail_path, hair, dark)
+    elif helm and hair_style in ('knot', 'braids'):      # under a helm nothing gathers on the crown
+        pass
     elif hair_style == 'tail':
         parts += _ponytail(name, L, hair, dark)
     elif hair_style == 'bun':
@@ -1124,6 +1214,12 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
         parts.append(tie)
     if 'beard' in geo:
         parts.append(_mesh(f'{name}_beard', *geo['beard'], greying or hair, LOWPOLY['beard'], smooth_angle=45))
+    knot = None
+    if mask:
+        parts.append(_mesh(f'{name}_mask', *geo['mask'], mask[1], LOWPOLY['mask'], smooth_angle=40))
+        knot = Vector(geo['knot'])
+        parts.append(K.sphere(f'{name}_mask_knot', tuple(knot), 0.011, mask[1], scale=(1.25, 0.8, 0.9), seg=12,
+                              rings=8))
     parts.append(_mesh(f'{name}_brows', *geo['brow'], hair, LOWPOLY['brow'], smooth_angle=60))
     eyes = []
     for s in (-1, 1):
@@ -1132,4 +1228,4 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
         parts.append(_ball(f'{name}_eye', EYE_R, eye_mat, c, rz=gaze))
     root = K.root(name + '_root')
     K.parent(parts, root)
-    return root, dict(eyes=eyes, chin=Vector(surface(L, 0.0, -0.1 * L.k[2])[0]))
+    return root, dict(eyes=eyes, chin=Vector(surface(L, 0.0, -0.1 * L.k[2])[0]), knot=knot)

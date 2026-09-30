@@ -277,6 +277,102 @@ def great_shield(name, w, h, face, band, rim, rivet_mat, boss_mat, curve=0.9, cr
 
 
 # ---------------------------------------------------------------- the broadsword
+# ---------------------------------------------------------------- the round shield, the nasal helm
+def round_shield(name, centre, facing, up, r, face, rim, boss, nail_mat, dish=0.03, boss_r=0.068, seed=0):
+    """A round shield of planks held at its centre, the fist behind its boss: its face dished out along `facing`, its
+    planks running along `up`; an iron boss over the hand, nails round it, the rim bound in rawhide. face: the planks'
+    material (grit.planks: its object space is the shield's own, y along the planks, the boss at the origin)."""
+    R = frame(facing, back=up)
+    rnd = random.Random(seed)
+
+    def warp(i, a):     # a board or two sprung, the rim not quite true
+        return (0.004 * mnoise.noise(Vector((math.cos(a) * 1.3, math.sin(a) * 1.3, seed + 0.7))) * (i / 3.0), 0.0)
+    disc = K.lathe(name + '_face', [(r, 0.0), (0.72 * r, 0.45 * dish), (0.4 * r, 0.82 * dish), (boss_r * 0.9, dish)],
+                   face, seg=56, cap_bottom=False, cap_top=True, jitter=warp)
+    solid(disc, 0.011, -1.0)
+    parts = [disc]
+    dome = K.lathe(name + '_boss', [(boss_r + 0.01, dish - 0.002), (boss_r + 0.008, dish + 0.004), (boss_r, dish + 0.008),
+                                    (boss_r * 0.84, dish + 0.034), (boss_r * 0.45, dish + 0.056), (0.0, dish + 0.062)],
+                   boss, seg=32, cap_bottom=True, cap_top=False, jitter=_dent(seed + 3, 0.002))
+    parts.append(dome)
+    parts.append(torus(name + '_rim', (0.0, 0.0, 0.0), r, 0.0095, rim, seg=64, rseg=10, lumpy=0.12, seed=seed))
+    nails = []
+    for k in range(6):
+        a = 2.0 * math.pi * (k + 0.5) / 6.0
+        nails.append(Vector((math.cos(a) * (boss_r + 0.004), math.sin(a) * (boss_r + 0.004), dish + 0.006)))
+    for k in range(14):
+        a = 2.0 * math.pi * (k + rnd.uniform(-0.2, 0.2)) / 14.0
+        nails.append(Vector((math.cos(a) * (r - 0.03), math.sin(a) * (r - 0.03), 0.0012)))
+    parts.append(rivets(name + '_nails', nails, 0.0055, nail_mat))
+    for ob in parts:
+        place(ob, Vector(centre), R)
+    return parts
+
+
+def nasal_helm(name, H, iron, rivet_mat, seed=0, dent=0.0025, band=0.024):
+    """An iron skullcap and nasal on a head placed by H (the head's frame, its scale in it: body.Frame.head_frame):
+    close over the head from above the brow round over the ears to the nape (face.HELM_*; face.head(helm=True) fits
+    the hair under it), a riveted band round its rim and a nasal down the bridge of the nose, dented and rusted."""
+    from . import face as F
+    cx, cy, cz = F.HELM_C
+    rx, ry, rz = F.HELM_R
+    fr_, sr, br = F.HELM_RIM
+
+    def phi_rim(th):
+        c = math.cos(th)
+        z = sr + (fr_ - sr) * c if c > 0.0 else sr + (sr - br) * c
+        return math.acos(max(-1.0, min(1.0, (z - cz) / rz)))
+
+    def at(th, phi, grow=0.0):
+        sp, cp = math.sin(phi), math.cos(phi)
+        p = Vector((cx + (rx + grow) * sp * math.sin(th), cy - (ry + grow) * sp * math.cos(th), cz + (rz + grow) * cp))
+        return p + p.normalized() * dent * mnoise.noise(p * 38.0 + Vector((seed, 0.0, 0.0)))
+
+    def cap(nm, rows, grow, top):
+        """A band of the cap from the rim up: rows are fractions of the way from the rim (0) to the crown (1)."""
+        nt = 48
+        bm = bmesh.new()
+        grid = []
+        for f in rows:
+            ring = []
+            for i in range(nt):
+                th = 2.0 * math.pi * i / nt
+                pr = phi_rim(th)
+                ring.append(bm.verts.new(at(th, pr - (pr - 0.05) * f, grow)))
+            grid.append(ring)
+        for a, b in zip(grid[:-1], grid[1:]):
+            for i in range(nt):
+                bm.faces.new((a[i], a[(i + 1) % nt], b[(i + 1) % nt], b[i]))
+        if top:
+            pole = bm.verts.new(Vector((cx, cy, cz + rz + grow)))
+            for i in range(nt):
+                bm.faces.new((grid[-1][i], grid[-1][(i + 1) % nt], pole))
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        return K._obj(nm, bm, iron)
+    dome = cap(name + '_cap', [k / 13.0 for k in range(14)], 0.0, True)
+    solid(dome, 0.0026, 1.0)
+    K.subsurf(dome, 1)
+    brim_f = band / 0.11          # the band's height as a fraction of the way to the crown
+    rim_band = cap(name + '_band', [0.0, brim_f * 0.5, brim_f], 0.0026, False)
+    solid(rim_band, 0.003, 1.0)
+    parts = [dome, rim_band]
+    rp = []
+    for i in range(22):
+        th = 2.0 * math.pi * (i + 0.5) / 22.0
+        pr = phi_rim(th)
+        rp.append(at(th, pr - (pr - 0.05) * brim_f * 0.5, 0.0062))
+    top, bot = Vector(F.HELM_NASAL[0]), Vector(F.HELM_NASAL[1])
+    d = (bot - top).normalized()
+    ln = (bot - top).length
+    parts.append(K.plate(name + '_nasal', [(-0.0115, -0.006), (0.0115, -0.006), (0.0075, ln), (-0.0075, ln)], top, d,
+                         Vector((1.0, 0.0, 0.0)), 0.0032, iron))
+    rp.append(top + d * 0.004 + Vector((0.0, -0.002, 0.0)))
+    parts.append(rivets(name + '_rivets', rp, 0.0034, rivet_mat))
+    for ob in parts:
+        ob.matrix_world = H @ ob.matrix_world
+    return parts
+
+
 def broadsword(name, hand, direction, blade_mat, guard_mat, grip_mat, pommel_mat, length=0.9, width=0.074):
     """A heavy straight blade gripped at `hand`, pointing along `direction`: broad nearly to the tip, then a short
     angled point; straight bar guard, leather grip, disc pommel."""

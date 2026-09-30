@@ -250,6 +250,56 @@ class Drape:
         return ob
 
 
+# ------------------------------------------------------------------------------------------------ quilting, wraps
+def seg_dist(P, a, b):
+    """Distance from points P to the segment a-b."""
+    pa, ba = P - a, b - a
+    h = np.clip((pa @ ba) / float(ba @ ba), 0.0, 1.0)
+    return np.sqrt(((pa - h[:, None] * ba) ** 2).sum(1))
+
+
+def quilted(fr, n_torso=26, pitch=0.045):
+    """A quilted jack's or gambeson's thickness (Dressed.layer t): vertical channels round the trunk, rings down the
+    sleeves."""
+    J = fr.joints
+    segs = [(J['sh_' + s], J['el_' + s]) for s in 'lr'] + [(J['el_' + s], J['wr_' + s]) for s in 'lr']
+
+    def t(P):
+        th = np.arctan2(P[:, 0], -P[:, 1])
+        g_torso = np.exp(-(np.sin(th * n_torso / 2.0) / 0.3) ** 2)
+        nearest = np.stack([seg_dist(P, a, b) for a, b in segs], 1).argmin(1)
+        g_arm = np.zeros(len(P), np.float32)
+        for i, (a, b) in enumerate(segs):
+            u = (b - a) / np.linalg.norm(b - a)
+            g_arm = np.where(nearest == i, np.exp(-(np.sin(np.pi * ((P - a) @ u) / pitch) / 0.3) ** 2), g_arm)
+        on_arm = np.clip(1.0 - BD._arms(P, fr, 1.0) / 0.02, 0.0, 1.0)
+        groove = g_torso * (1.0 - on_arm) + g_arm * on_arm
+        base = 0.011 * (1.0 - on_arm) + 0.0085 * on_arm
+        return (base * (1.0 - 0.3 * groove)).astype(np.float32)
+    return t
+
+
+def wraps(fr):
+    """Leg wraps' thickness (Dressed.layer t): a band wound up each calf, overlapping itself."""
+    J = fr.joints
+
+    def t(P):
+        side = np.where(P[:, 0] >= 0.0, 0, 1)
+        out = np.zeros(len(P), np.float32)
+        for k, s in enumerate('lr'):
+            kn, an = J['kn_' + s], J['an_' + s]
+            u = (kn - an) / np.linalg.norm(kn - an)
+            q = P - an
+            along = q @ u
+            ax = an + along[:, None] * u
+            th = np.arctan2(P[:, 1] - ax[:, 1], P[:, 0] - ax[:, 0])
+            ph = along / 0.036 * 2.0 * np.pi + th * (1.0 if s == 'l' else -1.0)
+            band = 0.5 + 0.5 * np.cos(ph)
+            out = np.where(side == k, 0.0068 + 0.0028 * band, out)
+        return out
+    return t
+
+
 # ------------------------------------------------------------------------------------------------ the hood
 def hood(name, H, z_bot, mat, thick=0.0065, grid=0.0025, seed=0, tris=9000):
     """A hood worn low round a head placed by H (the head's frame, figure space, its scale in it:
@@ -322,10 +372,13 @@ def _loft(name, centres, across, sections, mat, n=10, back=None, caps=True):
     return K._obj(name, bm, mat)
 
 
-def longbow(name, grip, up, string_side, length, wood, grip_mat, horn, string_mat, brace=0.155):
+def longbow(name, grip, up, string_side, length, wood, grip_mat, horn, string_mat, brace=0.155, recurve=0.0,
+            draw=None):
     """A braced yew self longbow held at `grip`: the stave runs along `up`, its limbs bending back toward the string
     (on the `string_side`) in a deep, even arc from a stiff handle; a D section (flat back, round belly) 32 mm wide at
-    the handle tapering to horn nocks. Returns (parts, top nock, bottom nock)."""
+    the handle tapering to horn nocks. recurve: its tips turned forward, away from the string, that far (m) (a short
+    hunting bow). draw: a point the string is drawn back to (the draw hand's nock): the limbs bend deeper with the
+    draw and the string runs to it from both nocks. Returns (parts, top nock, bottom nock)."""
     u = Vector(up).normalized()
     n = Vector(string_side)
     n = (n - u * n.dot(u)).normalized()
@@ -333,10 +386,13 @@ def longbow(name, grip, up, string_side, length, wood, grip_mat, horn, string_ma
     l = length / 2.0
     G = Vector(grip)
     N = 45
+    pull = max(0.0, (Vector(draw) - G).dot(n) - brace) / l if draw is not None else 0.0     # the draw, per half-length
 
     def centre(s):
         a = abs(s)
-        return G + u * (s * l * (1.0 - 0.045 * a * a)) + n * (brace * max(0.0, (a - 0.08) / 0.92) ** 1.75)
+        bend = (brace + 0.3 * pull * l) * max(0.0, (a - 0.08) / 0.92) ** 1.75
+        tip = recurve * max(0.0, (a - 0.84) / 0.16) ** 2
+        return G + u * (s * l * (1.0 - (0.045 + 0.08 * pull) * a * a)) + n * (bend - tip)
     ss = [-1.0 + 2.0 * i / (N - 1) for i in range(N)]
     cs = [centre(s) for s in ss]
     secs = [(0.016 * (1.0 - 0.6 * abs(s) ** 1.15), 0.0175 * (1.0 - 0.66 * abs(s) ** 1.1)) for s in ss]
@@ -351,7 +407,11 @@ def longbow(name, grip, up, string_side, length, wood, grip_mat, horn, string_ma
         tip = b + (b - a).normalized() * 0.03
         parts.append(K.tube(name + '_nock', a, tip, 0.0075, 0.0028, horn, seg=8))
         nocks.append(b + (b - a).normalized() * 0.008 + n * 0.004)
-    parts.append(K.tube(name + '_string', nocks[1], nocks[0], 0.0016, 0.0016, string_mat, seg=6))
+    if draw is None:
+        parts.append(K.tube(name + '_string', nocks[1], nocks[0], 0.0016, 0.0016, string_mat, seg=6))
+    else:
+        for k in (0, 1):
+            parts.append(K.tube(name + '_string', nocks[k], Vector(draw), 0.0016, 0.0016, string_mat, seg=6))
     return parts, nocks[0], nocks[1]
 
 
@@ -594,6 +654,77 @@ def strips(name, drape, n, width, z_top, z_bot, mat, lift=0.0, offset=0.0, thick
     if rivet_mat is not None:
         parts.append(A.rivets(name + '_rivets', rp, 0.0045, rivet_mat))
     return parts
+
+
+def trophy_standard(name, foot, top, wood, hat, bone, rag, cord_mat, seed=0):
+    """A brigand captain's standard lashed upright to the back: a pole from `foot` to `top` crowned with a skull, and
+    near its head a crossbar hung with trophies: a Karsk kettle hat (`hat`: the slate paint over its steel) by its
+    strap, two bones on a cord, and between them a strip of the company's oxblood (`rag`) torn from one of yours."""
+    F_, T = Vector(foot), Vector(top)
+    up = (T - F_).normalized()
+    side = Vector((1.0, 0.0, 0.0))
+    side = (side - up * side.dot(up)).normalized()
+    fwd = up.cross(side)
+    rnd = random.Random(seed)
+    parts = [K.tube(name + '_pole', F_, T - up * 0.03, 0.017, 0.014, wood, seg=12)]
+    skull = K.sphere(name + '_skull', tuple(T + up * 0.02), 0.058, bone, scale=(0.86, 1.02, 0.94), seg=18, rings=12)
+    parts.append(skull)
+    face = T + up * 0.004 - fwd * 0.052
+    parts.append(K.rbox(name + '_jaw', (0.066, 0.05, 0.03), tuple(face - up * 0.035 + fwd * 0.012), bone, bev=0.01))
+    for sx in (-1.0, 1.0):
+        parts.append(K.sphere(name + '_socket', tuple(face + side * (0.022 * sx) + up * 0.012), 0.0135, cord_mat,
+                              scale=(1.0, 0.7, 1.0), seg=10, rings=6))
+    cb = F_ + (T - F_) * 0.8
+    parts.append(K.tube(name + '_bar', cb - side * 0.27, cb + side * 0.27, 0.011, 0.011, wood, seg=10))
+    parts.append(A.torus(name + '_lash', tuple(cb), 0.02, 0.005, cord_mat, seg=16, rseg=6, lumpy=0.3, seed=seed))
+    # the kettle hat, hung by its strap from one end, turned so its crown faces out
+    e1 = cb + side * 0.23
+    hc = e1 - up * 0.2 - fwd * 0.03
+    parts.append(cord(name + '_hat_strap', [e1, e1 - up * 0.08 - fwd * 0.01, hc + up * 0.07], 0.004, cord_mat))
+    kh = K.lathe(name + '_hat', [(0.145, 0.0), (0.143, 0.007), (0.095, 0.014), (0.088, 0.043), (0.078, 0.083),
+                                 (0.048, 0.112), (0.0, 0.12)], hat, seg=36, cap_bottom=False, cap_top=True,
+                 jitter=A._dent(seed + 5, 0.004))
+    A.solid(kh, 0.003)
+    A.place(kh, hc, A.frame((side * 0.85 - fwd * 0.4 - up * 0.3).normalized(), back=up))     # seen in profile
+    parts.append(kh)
+    # two bones on a cord from the other end, crossed
+    e2 = cb - side * 0.23
+    bc = e2 - up * 0.2
+    parts.append(cord(name + '_bone_cord', [e2, bc + up * 0.07], 0.0035, cord_mat))
+    for k, tilt in enumerate((0.5, -0.45)):
+        d = (up + side * tilt).normalized()
+        a, b = bc - d * 0.1 - fwd * (0.01 * k), bc + d * 0.1 - fwd * (0.01 * k)
+        parts.append(K.tube(name + '_bone', a, b, 0.011, 0.011, bone, seg=8))
+        for e in (a, b):
+            parts.append(K.sphere(name + '_knob', tuple(e), 0.017, bone, scale=(1.2, 0.8, 0.9), seg=10, rings=6))
+    # the strip of oxblood from the middle of the bar
+    top_pts = [cb + side * (-0.07 + 0.14 * k / 4) - fwd * 0.014 for k in range(5)]
+    parts.append(A.cloth_panel(name + '_rag', top_pts, [-fwd] * 5, 0.34, rag, rows=12, tatter=0.45, slits=1,
+                               fold=0.01, seed=seed + rnd.randint(0, 99)))
+    return parts
+
+
+def ribbon(name, path, width, mat, thick=0.003, twist=0.0, taper=0.6):
+    """A flat strip of cloth along `path` (a wrap's trailing tail, a rag's knotted end): `width` across at its root,
+    narrowing to `taper` of that at its end, turning `twist` degrees along its length; it starts level across (x)."""
+    pts = [Vector(p) for p in path]
+    n = len(pts)
+    bm = bmesh.new()
+    rows = []
+    for i, p in enumerate(pts):
+        t = i / (n - 1)
+        d = (pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]).normalized()
+        a = Vector((1.0, 0.0, 0.0))
+        a = Matrix.Rotation(math.radians(twist * t), 3, d) @ (a - d * a.dot(d)).normalized()
+        w = width * (1.0 - (1.0 - taper) * t) / 2.0
+        rows.append((bm.verts.new(p - a * w), bm.verts.new(p + a * w)))
+    for (a0, b0), (a1, b1) in zip(rows[:-1], rows[1:]):
+        bm.faces.new((a0, b0, b1, a1))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    ob = K._obj(name, bm, mat)
+    A.solid(ob, thick)
+    K.subsurf(ob, 1)
+    return ob
 
 
 def cord(name, path, r, mat, closed=False):

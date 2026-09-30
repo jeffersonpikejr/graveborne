@@ -225,6 +225,29 @@ def pool(form, count=POOL):
     return [roll(form, n) for n in range(count)]
 
 
+FOE_LOOKS = 1000        # the enemy pool: foes roll their heads from n = 1000 on, so a foe never wears a soldier's face
+
+
+def foe(form, n, rough=True):
+    """Look n of the enemy pool (roll from FOE_LOOKS on). rough: the living of the road are dealt harder than the
+    company: a scar three times as often, a broken nose twice, dirtier and more weathered, fewer clean-shaven; the dead
+    (rough=False: the Husk) are dealt as rolled. A draw of its own, so the roll underneath is the same either way."""
+    look = roll(form, FOE_LOOKS + n)
+    if not rough:
+        return look
+    d = _Draw('foe', form, n)
+    male = look['form'] == 'm'
+    scar, crooked, beard = look['scar'], look['crooked'], look['beard']
+    if scar is None and d.u() < 0.26:
+        scar = ('cheek' if d.u() < 0.6 else 'chin', 1 if d.u() < 0.5 else -1)
+    if not crooked and d.u() < (0.1 if male else 0.045):
+        crooked = round((0.002 + 0.0015 * d.u()) * (1 if d.u() < 0.5 else -1), 5)
+    if male and beard is None and d.u() < 0.6:
+        beard = 'stubble'
+    return dict(look, scar=scar, crooked=crooked, beard=beard, dirt=round(min(1.0, look['dirt'] + 0.15), 3),
+                windburn=round(look['windburn'] + 0.08, 3))
+
+
 def settings(look):
     """The face settings (face.form) for a look."""
     return F.form(look['dial'], look['offsets'])
@@ -239,10 +262,11 @@ def game_face(look):
     return [look['skin'], look['hc'], hair]
 
 
-def build_head(look, name='head', gaze=0.0, tag=None, bust=-0.195, yoke=True, hood=None, rot=0.0):
+def build_head(look, name='head', gaze=0.0, tag=None, bust=-0.195, yoke=True, hood=None, rot=0.0, helm=False,
+               mask=None):
     """Materials and head for a look: face.head's (root, info). tag names the look's materials (None: the anchor's
     own names, so the Fighter's variants render exactly as before); bust, yoke: how much neck comes with it
-    (face.field); hood: the head wears a hood (face.head); rot: a corpse's face (grit.skin)."""
+    (face.field); hood, helm, mask: what the head wears (face.head); rot: a corpse's face (grit.skin)."""
     from . import grit as G
     f = settings(look) if not look.get('anchor') else FORMS[look['form']]
     scar = look['scar']
@@ -266,7 +290,8 @@ def build_head(look, name='head', gaze=0.0, tag=None, bust=-0.195, yoke=True, ho
     dark = G.flat('dark', '#140d0a')
     return F.head(name, f, skin, None, hair, eye, dark, beard=beard, hair_style=style,
                   scar=scar[1] if scar else None, scar_kind=scar[0] if scar else 'founding', crooked=look['crooked'],
-                  greying=grey, seed=look['seed'], gaze=gaze, recede=look['recede'], bust=bust, yoke=yoke, hood=hood)
+                  greying=grey, seed=look['seed'], gaze=gaze, recede=look['recede'], bust=bust, yoke=yoke, hood=hood,
+                  helm=helm, mask=mask)
 
 
 def manifest(count=POOL):
