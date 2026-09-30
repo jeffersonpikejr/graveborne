@@ -1,11 +1,12 @@
 """RANGER — the Harrier. Asset #2: the company's eyes, and its second silhouette.
 
 Brief (in the Line-Breaker's register): a lean, weathered skirmisher who lives out ahead of the column. At 26 px a
-Ranger is the hood and a rain-dark cloak, then the longbow. The hood is up but pulled back off the brow, so the face,
-the hairline and the beard read and every soldier stays their own; it comes with a capelet over the shoulders, and the
-cloak hangs from under it to the calf, moss-dark wool gone black at the mud-soaked hem. No plate: a quilted jack in
-dirty undyed wool, a scuffed leather jerkin laced over it, a leather bracer on the bow arm, wrapped calves, soft
-boots, all laid over the wearer's own body (gb/garb.py), so his barrel chest and her waist and hips show through.
+Ranger is the hood and a rain-dark cloak, then the longbow. The hood is worn low, its front out over the brow so the
+eyes sit in its shadow and the jaw, the mouth and the beard carry the soldier; it comes with a capelet over the
+shoulders, and the cloak hangs from under it to the calf, moss-dark wool gone black at the mud-soaked hem. No
+plate: a quilted jack in dirty undyed wool, a scuffed leather jerkin laced over it, a leather bracer on the bow arm,
+wrapped calves, soft boots, all laid over the wearer's own body (gb/garb.py), so his barrel chest and her waist and
+hips show through.
 A yew longbow nearly as tall as its archer, held upright in the bow hand so its whole arc shows; a spare arrow in the
 other hand, low, the way the Fighter holds his blade; arrows in a back quiver whose fletchings (grey goose, the cock
 feather oxblood: the company's colour) stand over the right shoulder; a long knife at the hip. Tarnished gold only as
@@ -17,8 +18,9 @@ shot): dead men's gear — a mail mantle under the capelet, a blackened steel br
 Revenant: the same kit drained to grave-grey, violet light in the cracks and the eyes.
 Weapons: the bow, or (one Ranger in three rolls one) a boar spear held upright, with the quiver left behind.
 
-Under the hood a head keeps what shows: the crown styles (topknot, bun, braided crown) flatten under it, hanging hair
-keeps what falls out through the opening, and a ponytail is brought forward over the shoulder (add_head).
+Under the hood a head keeps what fits: the crown styles (topknot, bun, braided crown) flatten under it, hair keeps what
+fits inside it or falls out through the opening, and a ponytail comes out under the jaw and forward over the shoulder
+(add_head).
 """
 import math
 
@@ -65,10 +67,10 @@ def head_frame(sex, portrait=False):
 
 
 def _tail_path(cape, H):
-    """A ponytail under the hood, in head space: tied low behind the left ear, just in front of the hood's edge, then
-    brought forward over the capelet on the left shoulder."""
+    """A ponytail under the hood, in head space: tied low behind the left ear, brought forward inside the hood along
+    the neck and out of its opening under the jaw, then over the capelet on the left shoulder."""
     Hi = H.inverted()
-    pts = [Vector((0.07, 0.036, -0.046)), Vector((0.096, 0.004, -0.1))]
+    pts = [Vector((0.058, 0.05, -0.06)), Vector((0.085, 0.005, -0.125)), Vector((0.062, -0.05, -0.18))]
     zc = cape.Z
     for a, t, lift in ((-44.0, 0.0, 0.02), (-54.0, 0.28, 0.015), (-63.0, 0.6, 0.014), (-69.0, 0.9, 0.012)):
         z = float(zc[0] + (zc[-1] - zc[0]) * t) + (0.006 if t == 0.0 else 0.0)     # over the collar's edge, then down

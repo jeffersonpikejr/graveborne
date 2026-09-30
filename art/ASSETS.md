@@ -61,9 +61,10 @@ the Line-Breaker concept art and briefs:
   own surface, so a jack, a jerkin or breeches show his barrel chest and her waist, hips and seat with nothing redrawn;
   capes and cloaks drape from their top edge over whatever of the body stands out and flare toward a ragged hem; a
   surcoat or a robe is belted, pulled in to the waist and hanging afresh below it (so hers flares over her hips). A
-  hood is worn up but **pulled back off the brow**, so the face, the hairline and the beard read and every soldier
-  stays their own: hair that gathers on the crown or the nape flattens under it, hanging hair keeps what falls out
-  through the opening, and a ponytail is brought forward over the shoulder. A class that rolls more than one weapon
+  hood is worn **low** (set on the Acolyte review, for every hooded class): close over the skull, not standing off
+  it, its front coming out over the brow like a visor to a soft point, so the eyes sit in its shadow and the jaw, the
+  mouth and the beard carry the soldier; hair keeps only what fits under it or falls out through the opening, and a
+  ponytail comes out under the jaw and forward over the shoulder. A class that rolls more than one weapon
   gets a kit per weapon (`ranger_spear_*`); its silhouette weapon is the default.
 - **The Blight is worn in the flesh, and its light is kept violet** (the Ash Acolyte, `grit.graft`): a graft is flesh
   gone ash-grey and bruised violet, split by veins whose light dies away from the graft into the wearer's own skin. Blight

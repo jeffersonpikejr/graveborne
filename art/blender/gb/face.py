@@ -770,18 +770,25 @@ def _hang(g, L, style, noise, hood=False):
 
 
 # ------------------------------------------------------------------------------------------------ under a hood
-# A hood pulled back off the brow (garb.hood builds it; the head fits its hair under it). Head space, an unscaled
-# head: roomy over the skull and any hairstyle on the widest, longest face the looks deal, falling loose round the
-# neck. Its opening's edge runs over the crown just behind the hairline, behind the ears, and round to the throat.
-HOOD_C, HOOD_R = (0.0, 0.022, 0.02), (0.114, 0.138, 0.136)
-HOOD_PEAK = ((0.0, 0.08, 0.1), (0.0, 0.17, 0.035), 0.05, 0.016)       # the hood's point, falling behind
-HOOD_NECK = ((0.0, 0.034, -0.06), (0.0, 0.028, -0.3), 0.1)
-HOOD_EDGE = ([-0.3, -0.2, -0.13, -0.06, 0.0, 0.06, 0.12, 0.17], [-0.075, -0.06, 0.0, 0.036, 0.046, 0.03, 0.002, -0.014])
+# A hood worn low (garb.hood builds it; the head fits its hair under it). Head space, an unscaled head: close over the
+# skull and a crop, falling loose round the neck; tilted forward so its front comes out over the brow like a visor, a
+# soft ridge down its middle to a point, the eyes in its shadow; its opening frames the face in a rounded arch from the
+# point down past the cheekbones to the jaw.
+# The opening is measured as an angle either side of straight ahead about a vertical axis through y = HOOD_AXIS:
+# HOOD_OPEN gives that half-angle (degrees) by height, negative where the hood closes over the head.
+HOOD_C, HOOD_R, HOOD_TILT = (0.0, 0.009, 0.014), (0.093, 0.116, 0.112), 10.0    # tilted forward: a cowl over the brow
+HOOD_BEAK = ((0.0, -0.035, 0.117), (0.0, -0.106, 0.034), 0.008)      # a soft ridge down the front to the peak's point
+HOOD_PEAK = ((0.0, 0.07, 0.06), (0.0, 0.15, 0.0), 0.04, 0.013)       # the hood's point, falling behind
+HOOD_NECK = ((0.0, 0.03, -0.06), (0.0, 0.026, -0.3), 0.097)
+HOOD_AXIS = 0.012
+HOOD_OPEN = ([-0.4, -0.14, -0.08, -0.025, 0.0, 0.01, 0.016, 0.035], [50.0, 52.0, 55.0, 50.0, 40.0, 26.0, 0.0, -20.0])
 
 
 def hood_inner(P):
     """Signed distance (head space) to the inside of the hood: negative within it."""
-    head = _ell(P, np.array(HOOD_C, np.float32), np.array(HOOD_R, np.float32))
+    head = _ell(P, np.array(HOOD_C, np.float32), np.array(HOOD_R, np.float32), M=_R(rx=HOOD_TILT))
+    a, b, r = HOOD_BEAK
+    head = _smin(head, _cap(P, np.array(a, np.float32), np.array(b, np.float32), r), 0.018)
     a, b, ra, rb = HOOD_PEAK
     head = _smin(head, _cap(P, np.array(a, np.float32), np.array(b, np.float32), ra, rb), 0.035)
     neck = _cap(P, np.array(HOOD_NECK[0], np.float32), np.array(HOOD_NECK[1], np.float32), HOOD_NECK[2])
@@ -789,8 +796,11 @@ def hood_inner(P):
 
 
 def hood_front(P):
-    """Negative in front of the hood's opening: the face side of its edge (head space)."""
-    return P[:, 1] - np.interp(P[:, 2], *HOOD_EDGE)
+    """Negative in the hood's opening: the face side of its edge (head space), as an arc distance round the head."""
+    q = P[:, 1] - HOOD_AXIS
+    rho = np.sqrt(P[:, 0] ** 2 + q ** 2)
+    th = np.arctan2(np.abs(P[:, 0]), -q)                    # 0 straight ahead, pi straight behind
+    return (th - np.radians(np.interp(P[:, 2], *HOOD_OPEN))) * rho
 
 
 def _under_hood(P):
@@ -1049,10 +1059,10 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
     scar_kind: one of SCARS; crooked: a once-broken nose's sideways kink (m); greying: a second hair material for
     the beard (a veteran); gaze: degrees the eyes turn toward the viewer (+ toward the head's +X side); bust, yoke:
     how much of the neck and shoulders come with the head (see field).
-    hood: the head wears a hood pulled back off the brow (hood_inner): what gathers on the crown or at the nape (a
-    topknot, a bun, a braided crown) is flattened under it, hanging hair keeps only what fits inside it or falls out
-    through its opening, and a ponytail comes forward over the shoulder if hood is a dict with its 'tail' path (head
-    space; the kit knows where its cloak lies), else stays under the hood."""
+    hood: the head wears a hood low over the brow (hood_inner): what gathers on the crown or at the nape (a topknot, a
+    bun, a braided crown) is flattened under it, any hair keeps only what fits inside it or falls out through its
+    opening, and a ponytail comes forward out of it under the jaw and over the shoulder if hood is a dict with its
+    'tail' path (head space; the kit knows where its cloak lies), else stays under the hood."""
     if isinstance(beard, bool):
         beard = 'full' if beard else None
     tail_path = tuple(tuple(round(float(c), 5) for c in p) for p in hood.get('tail', ())) if isinstance(hood, dict) else ()
@@ -1071,8 +1081,11 @@ def head(name, sex, skin, lips, hair, eye_mat, dark, beard=True, hair_style='cro
         if hair_style in HANGING:
             geo['hair'] = _hang(g, L, hair_style, noise, hood=bool(hood))
         elif hair_style not in CLIPPED:
-            geo['hair'] = _nets(g.shell(_thick_hair(hair_style, L, noise, recede), _region_hair(hair_style, L, noise, recede)),
-                                g.lo, g.h)
+            region = _region_hair(hair_style, L, noise, recede)
+            if hood:     # under a low hood the hair keeps only what fits inside it
+                grown = region
+                region = lambda P: np.maximum(grown(P), _under_hood(P))      # noqa: E731
+            geo['hair'] = _nets(g.shell(_thick_hair(hair_style, L, noise, recede), region), g.lo, g.h)
         if beard in ('full', 'short'):
             trim = 1.0 if beard == 'full' else 0.5
             geo['beard'] = _nets(g.shell(_thick_beard(L, noise, trim), _region_beard(L, noise, trim),

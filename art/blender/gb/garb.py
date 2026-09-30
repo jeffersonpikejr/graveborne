@@ -4,7 +4,7 @@ Clothes are layers offset from the posed body's own surface (Dressed.layer), the
 skull, so every garment follows its wearer: his barrel chest and heavy arms, her waist, hips and seat, with nothing
 redrawn per body. What hangs free is draped (Drape): a capelet or a cloak falls from its top edge, rests on whatever
 of the body stands out beneath it, and hangs on, flaring toward the hem. The hood is its own shell round the head
-(hood), pulled back off the brow (face.HOOD_*: the head fits its hair under the same shape). And a skirmisher's gear:
+(hood), worn low over the brow (face.HOOD_*: the head fits its hair under the same shape). And a skirmisher's gear:
 a yew longbow, arrows and a quiver, a boar spear, a long knife.
 
 Figure space as in body.py: metres, feet on z = 0, facing -Y, the figure's left on +X. Angles round the body are
@@ -251,10 +251,10 @@ class Drape:
 
 # ------------------------------------------------------------------------------------------------ the hood
 def hood(name, H, z_bot, mat, thick=0.0065, grid=0.0025, seed=0, tris=9000):
-    """A hood pulled back off the brow round a head placed by H (the head's frame, figure space, its scale in it:
-    body.Frame.head_frame): roomy over the skull, its opening's edge over the crown, behind the ears and round to the
-    throat (face.HOOD_*), a rolled hem along it, soft folds hanging from the crown; it ends at z_bot (head space),
-    tucked into whatever is worn over the shoulders."""
+    """A hood worn low round a head placed by H (the head's frame, figure space, its scale in it:
+    body.Frame.head_frame): close over the skull, its peak forward over the brow in a rolled lip that puts the eyes in
+    shadow, its opening framing the face down to the jaw (face.HOOD_*), a rolled hem along it, soft folds hanging from
+    the crown; it ends at z_bot (head space), tucked into whatever is worn over the shoulders."""
     Hm = np.array(H, np.float32)
     Hi = np.linalg.inv(Hm)
     s = float(np.cbrt(abs(np.linalg.det(Hm[:3, :3]))))
@@ -268,8 +268,8 @@ def hood(name, H, z_bot, mat, thick=0.0065, grid=0.0025, seed=0, tris=9000):
         P = to_head(Q)
         th = np.arctan2(P[:, 0], P[:, 1] - 0.02)
         fall = np.clip((0.07 - P[:, 2]) / 0.2, 0.0, 1.0)
-        d = F.hood_inner(P) + (0.0035 * np.sin(th * 7.0 + 2.5 * noise(P, 16.0)) * fall
-                               + 0.0018 * (noise(P, 32.0) - 0.5))
+        d = F.hood_inner(P) + (0.0045 * np.sin(th * 7.0 + 2.5 * noise(P, 16.0)) * fall
+                               + 0.0022 * (noise(P, 32.0) - 0.5))
         return d * s
 
     def t(Q):

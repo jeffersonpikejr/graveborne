@@ -5,10 +5,10 @@ novice, the one survivor of a cohort) who carries the Blight in one arm and spen
 armour of the Conclave's own make, taken when they ran. A cuirass of boiled leather moulded to the chest with a keel
 down its middle, over a fauld of overlapping bands, scorched ash-black, worn ash-grey at every edge and dusted pale on
 the shoulders; a skirt of hardened leather strips to mid-thigh over the company's oxblood, riveted at their feet; a high
-standing collar, open at the throat, that the hood tucks into (the hood up but pulled back off the brow, so the face
-and the hair show and every soldier stays their own); on the sword arm a leather spaulder of three lames and a
-vambrace; breeches, tall strapped boots, leather knee cops; a broad belt, and the company's oxblood again as a sash
-knotted at the hip. The left arm is bare
+standing collar, open at the throat, that the hood tucks into (the hood worn low, its front out over the brow so the
+eyes sit in its shadow and the jaw and the mouth carry the soldier); on the sword arm a leather spaulder of three
+lames and a vambrace; breeches, tall strapped boots, leather knee cops; a broad belt, and the company's oxblood again
+as a sash knotted at the hip. The left arm is bare
 from the shoulder for the graft: the flesh gone ash-grey and bruised violet and split by veins of violet light from the
 palm up, bound in a harness of buckled straps, a broken Conclave manacle still locked on the wrist. Over the open palm
 floats the ashfire: a white heart in a knot of violet flame, embers and flakes of ash turning round it, its light on
@@ -85,10 +85,10 @@ def head_frame(sex, portrait=False):
 
 
 def _tail_path(collar, D, H, hf):
-    """A ponytail under the hood, in head space: tied low behind the left ear, just in front of the hood's edge, then
-    brought forward over the collar and down the cuirass on the left of the chest."""
+    """A ponytail under the hood, in head space: tied low behind the left ear, brought forward inside the hood along
+    the neck and out of its opening under the jaw, then over the collar and down the cuirass on the left of the chest."""
     Hi = H.inverted()
-    pts = [Vector((0.07, 0.036, -0.046)), Vector((0.096, 0.004, -0.1))]
+    pts = [Vector((0.058, 0.05, -0.06)), Vector((0.085, 0.005, -0.125)), Vector((0.062, -0.05, -0.18))]
     for a, z, lift in ((-44.0, 1.6 * hf + 0.006, 0.02), (-54.0, 1.535 * hf, 0.016)):
         pts.append(Hi @ collar.point(a, z, lift=lift)[0])
     for a, z, clear in ((-62.0, 1.44 * hf, 0.042), (-68.0, 1.34 * hf, 0.04)):
