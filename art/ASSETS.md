@@ -116,7 +116,9 @@ Status: ✅ approved · 🔍 in review · ⏳ queued
 | 5 | Underkingdom Shade — black leathers, twin daggers (rare Cinderling recruit) | same matrix | 2×2×2 = 8 | ⏳ |
 
 ### Wave 2 — The Enemy (one style for the whole board; fill the three missing designs)
-Ordered by how often each appears across contract pools and pod doctrines, with missing art weighted up.
+Ordered by how often each appears across contract pools and pod doctrines, with missing art weighted up. The
+[enemy plan](#the-enemy-plan-wave-2) below gives each one its signature and the shared kit it is built from, and
+regroups them into a build order.
 | # | Asset | Why here | Score | Status |
 |---|---|---|---|---|
 | 6 | Husk | in 7 of 8 contract pools + 4 doctrines — the most common foe | 3×2×3 = 18 | ⏳ |
@@ -176,6 +178,107 @@ Ordered by how often each appears across contract pools and pod doctrines, with 
 | 40 | UI kit: panel frames, banner emblem, button plates (9-slice) | | 2×1×1 = 2 | ⏳ |
 | 41 | Spell FX flipbooks | CSS/SVG may stay the better tool here | 1×1×1 = 1 | ⏳ |
 | 42 | Palace stealth tileset | | 1×1×1 = 1 | ⏳ |
+
+## The enemy plan (Wave 2)
+
+The company's quality, at a fraction of its cost per model: every foe is built from the kit the company already
+proved (the body dial and its poses, clothes laid on the body, draped cloth, the hood, the plate shells and the great
+shield, the grit materials, the looks genome), and new work goes into a few shared pieces that each unlock several
+foes. Each foe still gets one signature of its own.
+
+### What a foe sprite is
+
+- **Whole sprites only.** Foes don't persist, so a foe needs no body and head layers and no 48 heads. It ships a
+  few whole sprites, picked per unit from its id: two looks for each form of a humanoid (a corpse's look is its
+  corruption), two seeds for a beast. That is about 4 renders a foe against 128 for a company class.
+- **The company's contract.** The same camera, scale, canvas, anchor and grade. The team ring in CSS carries the
+  side: red for the living, the game's green for the undead, violet for a revenant. Files are
+  `foe_<key>[_<tag>]_<n>_<m|f>.webp`, and the procedural SVG stays the fallback.
+- **One signature per foe, read at 26 px.** A silhouette element no other unit has comes first, and a faction palette
+  second. No two foes share a signature, and no foe borrows the company's: the oxblood is the company's colour, and
+  the violet belongs to the Blight.
+
+### Five factions, each with a palette and a construction
+
+| Faction | Foes | Palette | Built from | Faces |
+|---|---|---|---|---|
+| **Brigands** | Brigand, Brigand Archer, Cutthroat, Hound-Rider | faded ochre and mustard rags, raw leather, rust; no oxblood | the Ranger's garment layers, torn cloth panels, scavenged mismatched plate | shown, from an enemy look pool; masks on some |
+| **Karsk** | Shieldman, Levy Pikeman; the Deserter is Karsk kit gone bad | slate blue and white livery, grey iron | the Fighter's plate shells and great shield, quilted levy jacks, kettle hats | helmeted, in shadow |
+| **The Conclave** | Conclave Acolyte, Blight-Mage, Blight-Sorcerer, the Grey Envoy | ash-grey robes, bone, violet | the Acolyte's revision-1 robe, hood and mantle (the robe the company's runaway threw off is the Conclave's uniform), the graft and the ashfire, grafts growing with rank | bone masks |
+| **The Risen** | Husk, Graveguard, Blight-Troll; the revenants' Still Sworn | corpse grey-green, rot, black corroded iron, violet light | a corpse material mode on the same bodies; the Fighter's plate corroded for the Graveguard | none: the eyes are violet points |
+| **Beasts** | Blight-hound, the Hound-Rider's mount | mangy grey-green, bone, violet | a quadruped rig | none |
+
+### Shared pieces to build (each unlocks several foes)
+
+| Piece | Unlocks | Size |
+|---|---|---|
+| **Corpse material mode** (`mat.set_mode`): desiccated, mottled skin, bone showing through, violet cracks | Husk, Graveguard, Troll, hound | M |
+| **Headgear and masks** (`armor.py`): kettle hat, nasal helm, sallet, great helm with a violet slit, face-wrap, bone mask. Covered faces read as enemies and save the face budget | every human foe, the Graveguard | M |
+| **Weapons**: halberd, pike, greataxe, hunting bow, round shield, a Karsk heater (the axe, mace, spear, broadsword and longbow exist) | eight foes | S |
+| **Poses** (`body.py`, beyond `reach`): a spine and knee bend for a hunched shamble, a crouch, an archer's half-draw, a shield set, a levelled pike, a casting stance, a seat for the rider | every humanoid foe | M |
+| **Enemy look pool** (`looks.py`): its own seeded pool, so a foe never wears a soldier's face | the brigands, the Deserter | S |
+| **Quadruped rig**: body.py's construction for a hound: a deep chest, digitigrade legs, a muzzle, the tail | Blight-hound, the Hound-Rider's mount (×1.4) | L |
+| **Brute anchor**: a third end on the body dial: wide, hunched, huge hands, a small head | Blight-Troll, later bosses | M |
+| **Leader kit**: one mark per faction for any ♛ leader (a brigand trophy standard, a Karsk captain's plume, a Conclave staff, the Risen's iron crown), and bespoke story leaders | Magister Vell, The Magister's Blade, The Grey Envoy | S each |
+| **Tier looks** (one piece each, from `TIER_UPGRADES`): an Ironbound husk in scrap plates, a Bloated husk swollen on the dial, a Hardened brigand in a helmet, a Dread graveguard with a crest and a stronger glow, an Elder mage's bone crown, a Feral hound's spines | the late game | S each |
+
+### Each foe: its signature, and what it's built from
+
+| # | Foe | Signature at 26 px | Built from | New for it |
+|---|---|---|---|---|
+| 6 | Husk | a hunched corpse dragging an axe, two violet eye points | body dial (both forms), shamble, corpse mode, burial rags | corpse mode, the shamble |
+| 7 | Cutthroat | a low crouch, a black face-wrap and a trailing scarf, blades reversed | brigand kit, masks | the crouch |
+| 8 | Shieldman | a tall Karsk heater in slate and white, braced behind it, a kettle hat | the great shield re-liveried, plate shells, mail | Karsk livery, kettle hat |
+| 9 | Blight-hound | the dog: ribs, spines, violet eyes | corpse mode | quadruped rig |
+| 10 | Brigand | an ochre rag mask, a patched gambeson, a round shield and a shortsword | the Ranger's garments, torn panels | brigand kit, round shield |
+| 11 | Graveguard | a black-iron knight: a great helm with a violet slit, a halberd | the Fighter's plate corroded, corpse mode | great helm, halberd |
+| 12 | Conclave Acolyte | a grey robe, a deep hood over a bone mask, a violet graft, a bow at half-draw | the Acolyte's robe, hood, graft and ashfire; the Ranger's bow | bone mask, half-draw |
+| 13 | Levy Pikeman | the pike, twice their height, levelled; a slate levy jack | Karsk kit | pike, the pike pose |
+| 14 | Brigand Archer | a short ochre cowl, a hunting bow at half-draw (the Ranger's rests upright) | brigand kit, the hood | hunting bow |
+| 15 | Deserter | Karsk kit gone bad: the device cut out of the slate tabard, a dented kettle hat, an axe | Karsk kit, torn panels | — |
+| 16 | Hound-Rider | a bowman riding a great hound, over the edge of the tile | the hound rig, brigand kit, bow | the seat |
+| 17 | Blight-Mage | a bone staff crowned with ashfire, both arms grafted | Conclave kit | the staff |
+| 18 | Blight-Sorcerer | a crown of bone horns, three ashfires orbiting, a trailing robe | Conclave kit | the crown |
+| 19 | Blight-Troll | its size: 1.8 tiles, hunched, Blight crystals through the back, a greataxe | brute anchor, corpse mode | the brute, crystals |
+| 21 | Blight-menhir | a cracked standing stone veined in violet | the graft's vein material, the ashfire's glow | the stone |
+| 22 | Blight-nest | a pulsing flesh pod split with violet | the same | the pod |
+
+### Build order (shared piece first, then screen time)
+
+1. **The contract and the Risen's base**: the foe sprite hook in the in-game preview, the corpse mode, the shamble,
+   the **Husk** and its tier looks. The most common foe, and it unlocks the Risen.
+2. **Brigands**: the brigand kit and the enemy look pool, then the **Brigand**, **Cutthroat** and **Archer**. The
+   patrol contract and the Warband doctrine are complete.
+3. **Karsk**: the livery, the kettle hat and the heater, then the **Shieldman**, **Pikeman** and **Deserter**. The
+   Shieldwall doctrine.
+4. **The Conclave**: the robe back from git (`26d1aca`), then the **Conclave Acolyte**, **Blight-Mage**,
+   **Blight-Sorcerer** and the Grey Envoy.
+5. **The Graveguard**, with Magister Vell and The Magister's Blade. The Risen Tide doctrine.
+6. **Beasts**: the quadruped rig, the **Blight-hound**, then the **Hound-Rider**. The Outriders doctrine.
+7. **The Blight-Troll**: the brute anchor. The Warhost doctrine.
+8. **Props**: the Blight-menhir (drawn as a nest today) and the Blight-nest.
+
+After each step, one review, as for the company: the doctrine staged in the game against the company, the 26-px
+ladder of every foe so far beside the company, a board section, then approve and ship.
+
+### Cost
+
+- **Rendering:** about 5 whole sprites per foe, plus its leader and tier looks, at 20 to 30 minutes each. The wave
+  is about 90 sprites, roughly 6 hours of rendering and 2 MB of WebP; one company class takes about 2.5 hours.
+- **Building:** the effort sits in the shared pieces. The quadruped rig and the brute are the large ones, the corpse
+  mode and the poses mid-sized; most foes after them are kit variants.
+- **Pipeline:** unchanged: a script per foe in `blender/assets/`, `render.py`, `post.py ship`, the in-game preview
+  and the board.
+
+### Open calls
+
+1. **Faces**: masks and helmets on most foes, with faces only on the brigands (recommended), or faces on every
+   human foe.
+2. **Forms**: his and hers for every humanoid foe (the house rule, nearly free on the body dial), the undead
+   included; the Troll and the beasts as one.
+3. **Variety**: two looks per form per foe (4 sprites), or one.
+4. **Karsk livery**: slate blue and white, apart from the company's oxblood and the brigands' ochre.
+5. **The Troll's size**: 1.8 tiles, over its neighbours.
 
 ## Integration plan (after approvals, not before)
 
