@@ -270,7 +270,8 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
         bone = G.cloth('bone', color='#b9ae95', blood=0.2, mud=0.3, grime=0.8, kind='bone', seed=seed + 4)
         oxblood = G.cloth('company_rag', color='#551714', blood=0.2, mud=0.4, grime=0.6, seed=seed + 5)
         cordm = G.cloth('cord', color='#2e271e', blood=0.0, mud=0.2, seed=seed + 6)
-        parts += GB.trophy_standard('standard', (0.03, yb + 0.03, 0.9 * hf), (0.05, yb + 0.09, 2.28 * hf), mt['wood'],
+        top = min(2.28 * hf, 2.1)         # (m) high over the head, but inside the sprite's canvas
+        parts += GB.trophy_standard('standard', (0.03, yb + 0.03, 0.9 * hf), (0.05, yb + 0.09, top), mt['wood'],
                                     slate, bone, oxblood, cordm, seed=seed)
         rp, rn = D.ring(1.28 * hf - fr.spine[2] * 0.3, 0.03, n=48, arms=False)
         parts += A.strap('standard_strap', rp, rn, 0.03, 0.005, mt['raw'], mt['iron'], rivet_every=0.3, closed=True)
