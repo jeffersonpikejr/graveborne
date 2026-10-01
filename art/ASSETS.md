@@ -251,7 +251,7 @@ foes. Each foe still gets one signature of its own.
    patrol contract and the Warband doctrine are complete. Planned in detail below
    ([Step 2: the brigand pass](#step-2-the-brigand-pass)).
 3. **Karsk**: the livery, the kettle hat and the heater, then the **Shieldman**, **Pikeman** and **Deserter**. The
-   Shieldwall doctrine.
+   Shieldwall doctrine. Planned in detail below ([Step 3: the Karsk pass](#step-3-the-karsk-pass)).
 4. **The Conclave**: the robe back from git (`26d1aca`), then the **Conclave Acolyte**, **Blight-Mage**,
    **Blight-Sorcerer** and the Grey Envoy.
 5. **The Graveguard**, with Magister Vell and The Magister's Blade. The Risen Tide doctrine.
@@ -285,7 +285,8 @@ ladder of every foe so far beside the company, a board section, then approve and
 
 Three foes: the **Brigand**, the **Cutthroat** and the **Brigand Archer**. With them come the Brigand's tier look
 and a Captain for when a brigand leads. The pass completes the Warband doctrine (`brigand, cutthroat, archer,
-brigand`, fought on patrol, hunt and hold contracts) and the Road Patrol pool, bar the Deserter (step 3). The
+brigand`, met as pods on patrol and hunt contracts; it lists hold too, but Hold the Line's objectives never deploy
+pods) and the Road Patrol pool, bar the Deserter (step 3). The
 brigand kit it builds dresses the Hound-Rider in step 6.
 
 ### The faction read
@@ -362,6 +363,103 @@ brigand kit it builds dresses the Hound-Rider in step 6.
 2. **The Captain:** built in this pass.
 3. **Weapon upgrades:** not drawn.
 4. **The oxblood trophy:** one strip on the Captain's standard.
+
+## Step 3: the Karsk pass
+
+Three foes: the **Shieldman**, the **Levy Pikeman** and the **Deserter**. With them come the Deserter's tier look and
+a Captain for when a Shieldman leads. The pass completes the Karsk Shieldwall doctrine (`shieldman, pikeman,
+shieldman, pikeman`, met as pods on patrols) and, with step 2, the Road Patrol pool. The Shieldman has the most screen
+time of the three: the purge, hold and reclaim pools, the Shieldwall, the two guards that ring every skittish ♛ (the
+Quarry), and the lead in most patrol assassinations (below).
+
+### The faction read
+
+- **Palette:** the Crown's slate-blue livery (the slate the brigands loot, `#56626b`), a cool chalk white for its
+  device (not the company's warm bone-white), grey iron kept bright, black leather. No ochre, no oxblood, no violet.
+- **The kettle hat is the Karsk mark:** all three wear one, and a brim reads at 26 px as no other head on the board
+  does.
+- **Helmeted, in shadow:** from the battle camera the brim shades the eyes, and a coif closes round the face; the
+  enemy look pool still deals the mouth and chin. The Deserter has thrown the coif away, and the face shows.
+
+### The three foes
+
+| Foe | In the game | Signature at 26 px | Kit | Pose | Looks |
+|---|---|---|---|---|---|
+| **Shieldman** | 13 HP, armour 2, Mace & Shield, holds its ground (`anchor`); the purge, hold and reclaim pools, the Shieldwall, the Quarry's guards | a **tall slate heater with the white device**, braced, under a **kettle hat** | a mail hauberk under a slate tabard bearing the device; the Fighter's plate on the arms, and gauntlets; a mail coif worn up under the hat; the Fighter's great shield painted in the livery; the Cleric's mace | the shield set: the heater forward on the left arm, the body braced behind it, the mace raised over the rim | two per form: the hat bare iron, or painted slate |
+| **Levy Pikeman** | 11 HP, armour 1, a spear the game upgrades to a War Pike; the hold pool, the Shieldwall | **the pike**, the longest weapon on the board, slanting corner to corner across the sprite | a quilted levy jack (the Ranger's quilting) with the device on the breast, a padded coif under the hat; breeches, leg wraps, turnshoes; a long knife | the pike set against a charge: the butt grounded by the right foot, both hands on the shaft, the point high to the left and leaning toward you | two per form: the jack in slate, or undyed under a slate sash |
+| **Deserter** | 11 HP, armour 1, War Axe; the patrol pool | the **slate tabard with its device cut out**, a **dented kettle hat**, an **axe**; the face shown | the Shieldman's tabard, the device cut out and its edge fraying, over a stained jack; no coif; the hat dented and rusting; a war axe; a bedroll slung across the back | wary: the axe low in the right hand, the weight back | two per form: the hat worn, or slung at the back by its strap |
+
+### Tier and leader looks
+
+- **Hardened Deserter** (tier 2, `Hardened`): a looted breastplate (the Fighter's shell, unpainted and rusting)
+  strapped on over the cut tabard. 2 sprites.
+- **Karsk Captain** (the ♛ when a Shieldman leads): Cut Off the Head marks the toughest foe on the field, and at 13 HP
+  the Shieldman outweighs every other patrol foe. A Shieldman therefore leads whenever a Shieldwall is among a
+  patrol's pods: about 45% of patrol assassinations at one skull, 75% at three. The Brigand Captain of step 2 leads
+  only when every pod is a Warband (about one in five at one skull, rarely at more), and the Hound-Rider leads most of
+  the rest, so its leader look belongs to step 6. The look: the Shieldman with a white plume on a painted hat and a
+  slate cloak from the shoulders, the heater and the mace kept. One look serves the Butcher (greataxe) and the Quarry,
+  and the unit card names the weapon. 2 sprites.
+- **Not drawn:** the weapon upgrades (Flanged Mace & Shield, War Pike, Greataxe) and the Shieldman's armour tier,
+  which carries no tag.
+
+### New pieces
+
+| Piece | Where | Reused by | Size |
+|---|---|---|---|
+| **The kettle hat**: a riveted bowl and a brim sloping down all round; bare, painted or dented; fitted as the nasal helm is (the hair under it), over a coif or bare, or slung at the back by its strap | `armor.py`, `face.py` | all three, the Captain | M |
+| **A coif worn up**: the hood's construction cut close, round the face from the brow to the chin, in mail or padded cloth; a beard clipped under it | `garb.py`, `face.py` | the Graveguard's, under its great helm (step 5) | S |
+| **The Karsk livery**: a device painted on cloth and on painted steel; the tabard (the Cleric's surcoat, cut short at the thigh), and the device cut out of it, its edge frayed | `grit.py`, `garb.py` | all three, the Captain's cloak | S |
+| **The heater**: the Fighter's great shield painted in the livery, its iron cross left off | `armor.py` | the Shieldman, the Captain | S |
+| **The pike**: an ash shaft of about 3.4 m, a small head on long langets | `kit.py` | the Graveguard's halberd (the langets) | S |
+| **Three poses**: the shield set, the pike set, the Deserter's wary stance (by `reach` and `hunch`) | the foes' scripts | the pike set for the Graveguard's halberd | S |
+| **A plume**: white feathers bound to the hat's crown | `garb.py` | Karsk leaders | S |
+| **A clip check**: `post.py ship` flags a sprite with opaque pixels on its canvas's edge (the Brigand Captain's standard was caught by eye) | `tools/post.py` | every sprite | S |
+| **The Shieldwall in the preview**: `--foes shieldwall,deserter` stages the doctrine's pod and its ♛, then the Deserter and its Hardened look | `ingame.mjs` | every step | S |
+
+### Sprites and cost
+
+- **16 whole sprites:** the Shieldman 4, the Captain 2, the Pikeman 4, the Deserter 4, Hardened 2. About an hour of
+  rendering and 300 KB of WebP.
+- **Building:** the kettle hat is the mid-sized piece; the rest re-cut what exists (the hood, the surcoat, the great
+  shield, the spear, the mace, the axe, the plate).
+
+### Order
+
+1. **A kit sheet first:** the kettle hat (bare, painted, dented, slung) on two looks, over a coif and bare; the heater
+   and the tabard in the livery, and the tabard defaced; the pike; the three poses, bare and dressed. One review
+   render before any foe.
+2. **The Shieldman, the Pikeman, the Deserter** in turn, each tested at the battle camera beside the Warband, the
+   Husk and the company.
+3. **The Captain and the Hardened Deserter.**
+4. **Production:** the Shieldwall and its ♛ in the game before the company, the Deserter beside them, the board
+   section with the 26-px ladder, then commit.
+
+### Risks
+
+- **The Shieldman against the Fighter:** two tall shields. Their values are inverted (a dark field with a white mark
+  against a white field with a dark cross), and a brim meets a bare head, a mace a sword. Check them side by side at
+  26 px.
+- **The brim from above:** at the battle camera's 45° a flat brim reads as a plate; the kettle hat's slopes down, so
+  its outline stays a hat. It should shade the face without blacking it out: the key light still catches the chin.
+- **The pike in the canvas:** cap its length at what the canvas holds (the clip check), and keep the shaft clear of
+  the hat.
+- **Two Karsk at a glance:** the Shieldman and the Pikeman share the hat and the slate; the shield and the pike tell
+  them apart.
+- **The Deserter against the Brigand:** both living, both faces shown; the slate, the hat and the axe against the
+  ochre, the mask and the round shield.
+
+### Open calls
+
+1. **The Karsk device:** a white chevron on the slate (recommended: one bold shape, the inverse of the Fighter's white
+   shield and dark cross, and one the Deserter can cut out); a white crown (a soldier sworn to Karsk swears to the
+   Crown, but it reads only zoomed in); or the field halved slate and white.
+2. **The pike:** set at a slant inside the sprite, about 3.4 m, nearly twice their height (recommended); or levelled
+   at the company from the shoulder, which runs into the next tile and needs the larger canvas the Troll will.
+3. **The Captain:** built in this pass, keeping the heater and the mace (recommended); built with the Butcher's
+   greataxe like the Brigand Captain, losing the shield; or deferred.
+4. **The Deserter's looks:** the hat worn, or slung at the back (recommended: the Brigand's mask up and down,
+   again); or the hat worn in both.
 
 ## Integration plan (after approvals, not before)
 
