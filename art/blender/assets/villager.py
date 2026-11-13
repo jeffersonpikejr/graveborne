@@ -1,7 +1,7 @@
 """VILLAGER. The Protect objective's charge: an unarmed peasant, to be kept alive.
 
 Brief: nobody's soldier. A plain smock to the knee, undyed linen or brown wool, belted with a rope; hose and turnshoes;
-no weapon, no iron, no livery. The hands empty and held out low (1), or clutching a bundle of what could be carried
+no weapon, no iron, no livery. The hands empty and hanging open before the hips (1), or clutching a bundle of what could be carried
 to the chest (2). Stooped a little, the feet together: someone who would rather be anywhere else. At 26 px a Villager
 is a pale, unarmed figure with nothing in its hands or a bundle in its arms.
 
@@ -31,11 +31,11 @@ for _f, _sex in (('m', 'male'), ('f', 'female')):
     for _n in (1, 2):
         VARIANTS[f'prop_villager_{_n}_{_f}'] = dict(sex=_sex, n=_n)
 
-SMOCK = {1: '#9a8f78', 2: '#6b5843'}        # undyed linen; brown wool
+SMOCK = {1: '#857a63', 2: '#6b5843'}        # undyed linen; brown wool
 
 
 def pose(sex, n=1):
-    """Stooped, the feet near together. 1: the empty hands held out low before the body. 2: both arms round a bundle
+    """Stooped, the feet near together. 1: the empty hands hanging a little before the hips. 2: both arms round a bundle
     held to the chest (fr.bundle: its centre)."""
     fr = BD.Frame(sex)
     fr.sex = sex
@@ -49,10 +49,8 @@ def pose(sex, n=1):
         fr.reach('r', c + np.array((-0.09, -0.11, -0.08), np.float32), pole=(-0.9, 0.2, -0.7))
         fr.bundle = c
     else:
-        fr.reach('l', (sh_l[0] + 0.03, sh_l[1] - 0.2 * hf, 1.04 * hf), pole=(0.6, 0.4, -1.0))
-        fr.reach('r', (sh_r[0] - 0.03, sh_r[1] - 0.18 * hf, 1.02 * hf), pole=(-0.6, 0.4, -1.0))
-        fr.open_hand('l', (-0.15, -0.8, 0.35), (-0.2, 0.3, 1.0))
-        fr.open_hand('r', (0.15, -0.8, 0.35), (0.2, 0.3, 1.0))
+        fr.reach('l', (sh_l[0] + 0.045, sh_l[1] - 0.13 * hf, 0.97 * hf), pole=(0.5, 0.5, -1.0))
+        fr.reach('r', (sh_r[0] - 0.04, sh_r[1] - 0.1 * hf, 0.95 * hf), pole=(-0.5, 0.5, -1.0))
     return fr
 
 
@@ -93,13 +91,13 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
                          tris=13000, smooth=45))
     _, tf95, tb95 = (float(x) for x in fr.torso(0.95))
     hr = fr.hips() + 0.014
-    sy = ((tf95 + tb95) / 2.0 + 0.014) / hr
+    sy = (max(tf95, tb95) + 0.03) / hr       # deep enough before for the forward thigh
     oy = (tb95 - tf95) / 2.0
 
     def hem(i, a):
         return (0.006 * math.sin(a * 6.0 + i + seed),
                 (0.014 * math.sin(a * 7.0 + 1.1 + seed) + 0.006 * math.sin(a * 19.0)) if i == 0 else 0.0)
-    sk = K.lathe('smock_skirt', [(hr + 0.055, 0.55 * hf - drop), (hr + 0.035, 0.72 * hf - drop),
+    sk = K.lathe('smock_skirt', [(hr + 0.065, 0.55 * hf - drop), (hr + 0.04, 0.72 * hf - drop),
                                  (hr + 0.008, 0.9 * hf - drop), (hr - 0.012, 1.0 * hf - drop)], smock, seg=40, sy=sy,
                  loc=(0.0, oy - 0.01, 0.0), cap_bottom=False, cap_top=False, jitter=hem)
     A.solid(sk, 0.007)

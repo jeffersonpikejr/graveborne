@@ -154,7 +154,7 @@ def menhir(n):
     rnd = np.random.default_rng(700 + n)
     nz = T.Field(120 + n)
     acc, small, dry = T.Acc(), T.Acc(), T.Acc()
-    veins = dict(glow=9.0, scale=3.0, width=0.045, z0=0.05, z1=1.15, fade=0.55)
+    veins = dict(glow=5.0, scale=1.7, width=0.022, z0=0.05, z1=1.15, fade=0.5, spread=0.5)
     m = T.stone(f'menhir_{n}', color='#4d4a55', color2='#2b2930', moss=0.0, lichen=0.25, cracks=1.0, seed=80 + n,
                 scale=1.3, veins=veins, mud_h=0.1, soot=0.5)
     parts = []
@@ -168,8 +168,8 @@ def menhir(n):
         V, F = T.rock(rnd, (0.3, 0.32, 1.1), n=18, cuts=4, rough=0.05, nz=nz, crag=0.04)
         acc.add(_rot(V, _ry(0.24), (0.17, 0.02, 0.33)), F)
         heart = T.Acc()
-        heart.add(*T.ellipsoid((0.0, 0.0, 0.3), (0.035, 0.07, 0.3), seg=12, rings=10, nz=nz, rough=0.3, scale=9.0))
-        ob = heart.obj('heart', M.emissive('menhir_heart', '#b98cf0', 5.0))
+        heart.add(*T.ellipsoid((0.0, 0.0, 0.3), (0.022, 0.06, 0.27), seg=12, rings=10, nz=nz, rough=0.5, scale=14.0))
+        ob = heart.obj('heart', M.emissive('menhir_heart', '#a070e8', 2.2))
         ob.visible_shadow = False
         parts.append(ob)
         light_at = (0.0, -0.22, 0.4)
@@ -183,10 +183,10 @@ def menhir(n):
         a = rnd.uniform(0, 6.283)
         _tuft(dry, rnd, (math.cos(a) * 0.36, math.sin(a) * 0.4, 0.0), n=8, h=(0.04, 0.1))
     parts += [acc.obj('menhir', m), dry.obj('dead_grass', T.foliage('blight_grass', color='#221d22', tip='#4a4046', seed=4), smooth=False)]
-    parts.append(K.glow('menhir_light', light_at, T.BLIGHT, 2.5, radius=0.05))
-    parts.append(K.glow('menhir_light2', (light_at[0] + 0.25, 0.1, light_at[2] + 0.4), T.BLIGHT, 1.2, radius=0.05))
-    hz = K.sphere('menhir_bloom', (0.0, 0.0, 0.55), 0.46, M.halo('menhir_bloom', '#a070e8', 0.55, 0.16, falloff=2.2), seg=24, rings=14)
-    hz.scale = (0.8, 0.8, 1.45)
+    parts.append(K.glow('menhir_light', light_at, T.BLIGHT, 1.0, radius=0.05))
+    parts.append(K.glow('menhir_light2', (light_at[0] + 0.25, 0.1, light_at[2] + 0.4), T.BLIGHT, 0.5, radius=0.05))
+    hz = K.sphere('menhir_bloom', (0.0, 0.0, 0.55), 0.4, M.halo('menhir_bloom', '#a070e8', 0.5, 0.07, falloff=2.4), seg=24, rings=14)
+    hz.scale = (0.8, 0.8, 1.3)
     hz.visible_shadow = False
     parts.append(hz)
     return T.parent(parts, T.root('menhir'))
@@ -231,8 +231,8 @@ def nest(n=1):
     pod.add(V, F[fin <= 0.45], mi=0)
     pod.add(V, F[fin > 0.45], mi=1)
     src = (R * 0.8 * math.sin(th0), -R * 0.8 * math.cos(th0), H * 0.45)
-    fl = T.flesh('nest_flesh', src, reach=0.5, glow=6.0, color='#513a45', seed=90)
-    core = M.emissive('nest_core', '#b98cf0', 3.2)
+    fl = T.flesh('nest_flesh', src, reach=0.4, glow=3.0, color='#4a343c', seed=90)
+    core = M.emissive('nest_core', '#a070e8', 2.2)
     # tendrils rooting it, and climbing it
     for j in range(9):
         a = 2.0 * math.pi * j / 9 + rnd.uniform(-0.25, 0.25)
@@ -259,8 +259,8 @@ def nest(n=1):
     dk.apply(None, (0, 0, 0), FIG)
     parts.append(bn.obj('bones', T.bone('nest_bone', seed=3)))
     parts.append(dk.obj('sockets', G.flat('socket', '#0b0908')))
-    parts.append(K.glow('nest_light', (src[0] * 1.6, src[1] * 1.6, src[2]), T.BLIGHT, 2.0, radius=0.05))
-    hz = K.sphere('nest_bloom', (src[0] * 0.9, src[1] * 0.9, src[2]), 0.3, M.halo('nest_bloom', '#a070e8', 0.6, 0.2, falloff=2.2), seg=24, rings=14)
+    parts.append(K.glow('nest_light', (src[0] * 1.6, src[1] * 1.6, src[2]), T.BLIGHT, 0.8, radius=0.05))
+    hz = K.sphere('nest_bloom', (src[0] * 0.9, src[1] * 0.9, src[2]), 0.3, M.halo('nest_bloom', '#a070e8', 0.5, 0.08, falloff=2.4), seg=24, rings=14)
     hz.scale = (0.8, 0.8, 1.3)
     hz.visible_shadow = False
     parts.append(hz)
@@ -309,8 +309,8 @@ def wagon(n=1):
     q0 = (i * nv + k).ravel()
     tilt = T.Acc()
     tilt.add(P, np.concatenate((np.column_stack((q0, q0 + nv, q0 + nv + 1)), np.column_stack((q0, q0 + nv + 1, q0 + 1)))))
-    canvas = G.cloth('wagon_tilt', color='#8d846c', blood=0.0, mud=0.6, grime=0.9, seed=8,
-                     patches=(0.2, 0.22, ('#6f6753', '#7a6c50', '#5d574a')))
+    canvas = G.cloth('wagon_tilt', color='#7d745e', blood=0.0, mud=1.0, grime=1.0, seed=8,
+                     patches=(0.26, 0.1, ('#6b634f', '#73674e')))
     tilt_ob = tilt.obj('tilt', canvas)
     so = tilt_ob.modifiers.new('solid', 'SOLIDIFY')
     so.thickness = 0.012
@@ -327,7 +327,7 @@ def wagon(n=1):
     sack_m = G.cloth('sack', color='#75684f', blood=0.0, mud=0.8, grime=0.9, seed=9)
     parts = [body.obj('wagon_body', wood_m, weld=0.0005), wh.obj('wagon_wheels', [wheel_m, iron]), tilt_ob,
              hoops.obj('hoops', wood_m), load.obj('load', sack_m)]
-    return _scaled(parts, 0.55, turn=14.0, at=(-0.2, -0.02))
+    return _scaled(parts, 0.52, turn=14.0, at=(-0.15, -0.02))
 
 
 # ================================================================ a supply cache
@@ -370,7 +370,7 @@ def cache(n=1):
     sack(load, nz, (-0.66, 0.05, 0.0), size=(0.23, 0.21, 0.27), yaw=0.3)
     sack(load, nz, (0.5, -0.46, 0.0), size=(0.22, 0.2, 0.3), yaw=0.5, lying=True)
     sack(load, nz, (-0.5, -0.36, 0.0), size=(0.19, 0.18, 0.22), yaw=1.9)
-    parts.append(load.obj('sacks', G.cloth('sack', color='#7b6d53', blood=0.0, mud=1.2, grime=0.9, seed=9)))
+    parts.append(load.obj('sacks', G.cloth('sack', color='#6b5e48', blood=0.0, mud=1.4, grime=1.0, seed=9)))
     bw, bi = barrel(nz, r=0.15, h=0.42, staves=12)
     for a_ in (bw, bi):
         a_.apply(None, (0.66, 0.1, 0.0))
@@ -412,11 +412,11 @@ def drape(prims, nz, bounds, hem, res=0.014, tent=14, wrinkle=0.022, seed_off=0.
     Zb = _height(prims, X, Y)
     Z = Zb.copy()
     for _ in range(tent):
-        Z = np.maximum(Z, _blur(Z) * 0.985)
+        Z = np.maximum(Z, _blur(Z) * 0.992)
     for _ in range(2):
         Z = _blur(Z)
     P = np.column_stack((X.ravel(), Y.ravel(), np.zeros(X.size)))
-    wr = (nz(P + seed_off, 7.0, 3) - 0.5) * 2.0 * wrinkle + (nz(P * (3.0, 1.0, 1.0) + 7.0 + seed_off, 9.0, 2) - 0.5) * wrinkle
+    wr = (nz(P + seed_off, 7.0, 3) - 0.5) * 2.0 * wrinkle + (0.5 - np.abs(nz(P * (3.5, 1.0, 1.0) + 7.0 + seed_off, 6.0, 3) - 0.5) * 4.0).clip(-1, 1) * wrinkle * 0.6
     Zf = Z.ravel()
     Zf = np.maximum(Zf + wr * np.clip(Zf / 0.05, 0.0, 1.0) * (0.4 + 0.6 * np.clip(1.0 - Zb.ravel() / 0.12, 0.0, 1.0)), 0.0) + 0.006
     rag = (nz(P + 11.0 + seed_off, 11.0, 3) - 0.5) * 0.09
@@ -458,7 +458,7 @@ def corpse(n):
             if on.sum() > 3:
                 P = np.column_stack((xs[on], np.full(on.sum(), yy) + 0.02 * np.sin(xs[on] * 9.0), zz[on] + 0.012))
                 cords.add(*T.tube(P[::2], 0.011, seg=5))
-        cloth_m = G.cloth('shroud', color='#a69c84', blood=1.4, mud=2.2, grime=1.0, seed=21)
+        cloth_m = G.cloth('shroud', color='#a69c84', blood=1.2, mud=0.45, grime=1.0, seed=21)
         parts.append(cords.obj('cords', G.cloth('rope', color='#5f5443', blood=0.1, mud=1.0, grime=0.6, seed=61)))
         sh = K.kite_shield('shield', 0.5, 0.82, G.planks('corpse_shield', paint='#5d2a22', wood='#55412d', plank=0.1, chip=0.6, blood=0.5, mud=1.4, seed=23),
                            G.steel('shield_rim', color='#4f4d4a', rust=1.0, blood=0.3, seed=24), thick=0.016, curve=1.2)
@@ -473,9 +473,9 @@ def corpse(n):
         hem_y = -0.42 if n == 1 else -0.62
         V, F, _g = drape(prims, nz, (-0.62, 0.72, -0.85, 1.08),
                          lambda X, Y: np.minimum(Y - hem_y + 0.25 * np.abs(X), 0.6 - np.abs(X) - 0.2 * np.clip(Y - 0.6, 0, 1)),
-                         tent=16, wrinkle=0.028, seed_off=n * 5.0)
+                         tent=44, wrinkle=0.05, seed_off=n * 5.0)
         cloth.add(V, F)
-        cloth_m = G.cloth(f'cloak_{n}', color=('#3f3a34', '', '#4a211c')[n - 1], blood=0.9, mud=2.0, grime=0.9, seed=20 + n)
+        cloth_m = G.cloth(f'cloak_{n}', color=('#3f3a34', '', '#4a211c')[n - 1], blood=0.8, mud=0.5, grime=0.9, seed=20 + n)
         for (a, b) in shins:        # shins and boots
             P = np.array(((a[0], a[1], 0.07), ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0.06), (b[0], b[1], 0.055)))
             limbs.add(*T.tube(P[:2], (0.075, 0.065), seg=10))
@@ -484,10 +484,10 @@ def corpse(n):
             boots.add(*T.ellipsoid((b[0] + dx * 0.6, b[1] - 0.03, 0.05), (0.1, 0.055, 0.05), seg=12, rings=8))
         a1, a2 = np.array((*arm_out[1], 0.05)), np.array((*arm_out[2], 0.035))
         limbs.add(*T.tube(np.array((a1, a2)), (0.055, 0.045), seg=10))
-        skin_a.add(*T.ellipsoid(a2 + (a2 - a1) / np.linalg.norm(a2 - a1) * 0.05, (0.05, 0.06, 0.022), seg=12, rings=8))
-        parts.append(limbs.obj('limbs', G.cloth('corpse_wool', color='#2d2a26', blood=0.5, mud=2.4, grime=0.9, seed=25)))
-        parts.append(boots.obj('boots', G.leather('corpse_boots', color='#2a1f17', mud=1.8, seed=26)))
-        parts.append(skin_a.obj('hand', G.flat('dead_hand', '#7d7867', rough=0.7)))
+        skin_a.add(*T.ellipsoid(a2 + (a2 - a1) / np.linalg.norm(a2 - a1) * 0.05, (0.042, 0.055, 0.02), seg=12, rings=8))
+        parts.append(limbs.obj('limbs', G.cloth('corpse_wool', color='#2d2a26', blood=0.5, mud=0.8, grime=0.9, seed=25)))
+        parts.append(boots.obj('boots', G.leather('corpse_boots', color='#2a1f17', mud=0.7, seed=26)))
+        parts.append(skin_a.obj('hand', G.flat('dead_hand', '#5a5547', rough=0.8)))
         steel = G.steel('corpse_steel', color='#5a5b5c', rust=0.5, blood=0.8, seed=27)
         if n == 1:      # his sword, a hand's breadth from his fingers
             parts += K.sword('sword', Vector((0.52, 1.02, 0.02)), (-0.9, 0.35, 0.0),
@@ -516,7 +516,7 @@ def corpse(n):
     pob = pl.obj('blood', T.gore())
     pob.visible_shadow = False
     parts.append(pob)
-    return _scaled(parts, FIG, turn=(-24.0, 18.0, 30.0)[n - 1], at=((0.02, -0.02), (-0.06, 0.0), (0.02, 0.0))[n - 1])
+    return _scaled(parts, FIG, turn=(-24.0, 18.0, 30.0)[n - 1], at=((0.02, 0.12), (-0.06, 0.14), (0.02, 0.12))[n - 1])
 
 
 # ================================================================ the scatter kit

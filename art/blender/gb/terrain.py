@@ -425,10 +425,13 @@ def stone(name, color='#67645d', color2=None, moss=0.0, lichen=0.4, cracks=0.6, 
         d2 = _math(nt, 'ABSOLUTE', _math(nt, 'SUBTRACT', n2, 0.5))
         zone = _maprange(nt, _math(nt, 'ADD', g.wz, _math(nt, 'MULTIPLY', _math(nt, 'SUBTRACT', g.noise(4.0 * scale, w=96.0), 0.5), 0.5)),
                          veins.get('z0', 0.0), veins.get('z1', 0.6), 1.0, veins.get('fade', 0.25))
-        core = _math(nt, 'MAXIMUM', _maprange(nt, d1, 0.0, width * 0.4, 1.0, 0.0),
-                     _math(nt, 'MULTIPLY', _maprange(nt, d2, 0.0, width * 0.3, 1.0, 0.0), zone))
-        halo = _math(nt, 'MAXIMUM', _maprange(nt, d1, 0.0, width * 1.6, 1.0, 0.0),
-                     _math(nt, 'MULTIPLY', _maprange(nt, d2, 0.0, width * 1.2, 1.0, 0.0), zone))
+        patch = _maprange(nt, g.noise(1.4 * scale, detail=2.0, w=97.0), 0.5 - 0.12 * veins.get('spread', 0.5),
+                          0.58 - 0.12 * veins.get('spread', 0.5))                     # veined in places, not all over
+        fine_on = _math(nt, 'MULTIPLY', zone, patch)
+        core = _math(nt, 'MAXIMUM', _math(nt, 'MULTIPLY', _maprange(nt, d1, 0.0, width * 0.4, 1.0, 0.0), patch),
+                     _math(nt, 'MULTIPLY', _maprange(nt, d2, 0.0, width * 0.3, 1.0, 0.0), fine_on))
+        halo = _math(nt, 'MAXIMUM', _math(nt, 'MULTIPLY', _maprange(nt, d1, 0.0, width * 1.6, 1.0, 0.0), patch),
+                     _math(nt, 'MULTIPLY', _maprange(nt, d2, 0.0, width * 1.2, 1.0, 0.0), fine_on))
         col = _mix(nt, 'MIX', col, g.col('#2a1236', 'stone'), _math(nt, 'MULTIPLY', halo, 0.85))
         glow = veins.get('glow', 4.0)
         em = _math(nt, 'MULTIPLY', _math(nt, 'ADD', _math(nt, 'MULTIPLY', core, glow), _math(nt, 'MULTIPLY', halo, glow * 0.12)), zone)
@@ -572,14 +575,15 @@ def flesh(name, source, reach=0.4, glow=4.0, color='#4a3540', seed=39, light=BLI
     mott = g.noise(6.0 * scale, detail=6.0, rough=0.65, w=1.0)
     col = _mix(nt, 'MIX', g.col(color, 'skin'), g.col('#2a1d26', 'skin'), _maprange(nt, mott, 0.3, 0.7))
     col = _mix(nt, 'MIX', col, g.col('#6b4a52', 'skin'), _maprange(nt, g.noise(14.0 * scale, detail=6.0, w=2.0), 0.55, 0.75, 0.0, 0.7))
-    col = _mix(nt, 'MIX', col, g.col('#5a3f66', 'skin'), _math(nt, 'MULTIPLY', near, 0.6))
+    col = _mix(nt, 'MIX', col, g.col('#4a3358', 'skin'), _math(nt, 'MULTIPLY', near, 0.45))
 
     def net(sc, width, w):
         n = g.noise(sc * scale, detail=3.0, rough=0.55, distort=0.45, vec=g.stretched(1.0, 1.0, 0.45), w=w)
         d = _math(nt, 'ABSOLUTE', _math(nt, 'SUBTRACT', n, 0.5))
         return _maprange(nt, d, 0.0, width, 1.0, 0.0), _maprange(nt, d, 0.0, width * 0.4, 1.0, 0.0)
-    big, big_c = net(5.0, 0.04, 93.0)
-    fin, fin_c = net(13.0, 0.03, 95.0)
+    big, big_c = net(3.2, 0.026, 93.0)
+    fin, fin_c = net(9.0, 0.02, 95.0)
+    fin_c = _math(nt, 'MULTIPLY', fin_c, near)
     veins = _math(nt, 'MAXIMUM', big, _math(nt, 'MULTIPLY', fin, near))
     col = _mix(nt, 'MIX', col, _mix(nt, 'MIX', g.col('#1d1420', 'skin'), g.col('#3a1650', 'skin'), near), _math(nt, 'MULTIPLY', veins, 0.85))
     col = _mix(nt, 'MIX', col, g.col('#120c0e', 'skin'), _math(nt, 'MULTIPLY', g.cavity, 0.7))
@@ -587,12 +591,12 @@ def flesh(name, source, reach=0.4, glow=4.0, color='#4a3540', seed=39, light=BLI
     core = _math(nt, 'MAXIMUM', big_c, fin_c)
     lit = _math(nt, 'MULTIPLY', near, near)
     em = _math(nt, 'ADD', _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', core, lit), glow),
-               _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', lit, near), glow * 0.06))
+               _math(nt, 'MULTIPLY', _math(nt, 'MULTIPLY', lit, near), glow * 0.015))
     b = g.bsdf
     b.inputs['Emission Color'].default_value = (*hexlin(light), 1.0)
     g.L.new(em, b.inputs['Emission Strength'])
     b.inputs['Specular IOR Level'].default_value = 0.6
-    b.inputs['Coat Weight'].default_value = 0.25
+    b.inputs['Coat Weight'].default_value = 0.12
     b.inputs['Coat Roughness'].default_value = 0.25
     g.bump(veins, 5.0)
     g.bump(mott, 4.0)
@@ -612,8 +616,8 @@ def gore(name='blood_pool', color='#3a0806', seed=41):
     nt = g.nt
     n = g.noise(9.0, detail=6.0, w=1.0)
     col = _mix(nt, 'MIX', g.col(color, 'cloth'), g.col('#140403', 'cloth'), _maprange(nt, n, 0.3, 0.7))
-    g.bsdf.inputs['Specular IOR Level'].default_value = 0.7
-    m = g.finish(col, _maprange(nt, n, 0.35, 0.65, 0.12, 0.55), 0.0)
+    g.bsdf.inputs['Specular IOR Level'].default_value = 0.25
+    m = g.finish(col, _maprange(nt, n, 0.35, 0.65, 0.3, 0.6), 0.0)
     _CACHE[key] = m
     return m
 

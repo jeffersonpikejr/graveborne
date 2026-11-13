@@ -319,7 +319,7 @@ def horn_crown(name, H, bone_mat, band_mat, size=1.0, seed=0):
         d0 = (rad * lean + Vector((0.0, 0.0, 0.55))).normalized()
         ob = horn(f'{name}_horn{k}', base, d0, Vector((0.0, 0.0, 1.0)) - rad * 0.15, ln * size * rnd.uniform(0.94, 1.06),
                   curl, r0 * size, 0.0025, bone_mat, n=12, seg=8, flat=0.85)
-        ob.matrix_world = T @ ob.matrix_world
+        ob.matrix_world = Matrix.Translation(c) @ T @ Matrix.Translation(-c) @ ob.matrix_world
         parts.append(ob)
     for ob in parts:
         ob.matrix_world = H @ ob.matrix_world
@@ -343,7 +343,7 @@ def bone_circlet(name, H, bone_mat, band_mat, n=9, seed=0):
         front = 0.5 + 0.5 * max(0.0, -math.sin(a))
         ob = horn(f'{name}_tine{k}', base, (rad * 0.35 + Vector((0.0, 0.0, 1.0))).normalized(), -rad,
                   (0.075 + 0.05 * front) * rnd.uniform(0.9, 1.1), 0.35, 0.011, 0.003, bone_mat, n=6, seg=6)
-        ob.matrix_world = T @ ob.matrix_world
+        ob.matrix_world = Matrix.Translation(c) @ T @ Matrix.Translation(-c) @ ob.matrix_world
         parts.append(ob)
     for ob in parts:
         ob.matrix_world = H @ ob.matrix_world
