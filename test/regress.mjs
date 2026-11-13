@@ -164,14 +164,42 @@ await fresh('sprites');
 const sp = await page.evaluate(async () => { const R = S.roster; R[1].level = 5; R[2].weapon = 'spear'; R.push(makeSoldier('shade'));
   const con = { id: nid(), type: 'patrol', regionId: 1, pay: 10, danger: 1, obj: 'slay', layout: 'fields', expires: 99, q: S.caravan.q, r: S.caravan.r };
   startBattle(con, R.slice(0, 5).map(s => s.id)); activeModal = null; modalQ.length = 0; const B = S.battle; for (const t of B.tiles) B.seen[t.x + ',' + t.y] = 1; render();
-  const imgs = [...document.querySelectorAll('#grid .unit.sprited img.sp')];
+  const imgs = [...document.querySelectorAll('#grid .unit.pc.sprited img.sp')];
   await Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
   const shade = B.units.find(u => u.kind === 'pc' && soldierById(u.ref) && soldierById(u.ref).cls === 'shade');
-  const out = { sprited: document.querySelectorAll('#grid .unit.sprited').length, broken: imgs.filter(i => !i.naturalWidth).length, imgs: imgs.length,
+  const out = { sprited: document.querySelectorAll('#grid .unit.pc.sprited').length, broken: imgs.filter(i => !i.naturalWidth).length, imgs: imgs.length,
     shadeSvg: !!document.querySelector(`#grid .unit[data-uid="${shade.uid}"] svg`), vet: imgs.some(i => /_veteran_/.test(i.src)), spear: imgs.some(i => /_spear/.test(i.src)) };
-  PREFS.sprites = false; render(); out.classic = document.querySelectorAll('#grid .unit.sprited').length; PREFS.sprites = true; return out; });
+  PREFS.sprites = false; render(); out.classic = document.querySelectorAll('#grid .unit.sprited').length; PREFS.sprites = true; S.battle = null; clearStashedBattle(); return out; });
 check('sprites: four sprited classes drawn body+head, all images load, Classic and the Shade fall back to SVG',
   sp.sprited === 4 && sp.imgs === 8 && sp.broken === 0 && sp.shadeSvg && sp.vet && sp.spear && sp.classic === 0, sp);
+
+// 21. v0.72 — the rest of the field is rendered: every file the manifest names exists; a foe with sprites is drawn from its
+//     own pool (its tier's looks by the tag in its name, the ♛ from the captain's); every tile lies on painted ground and
+//     every image on the field loads; the march map is painted; Classic puts all of it back to the drawn art
+await fresh('art72');
+const art = await page.evaluate(async () => {
+  const out = {};
+  const miss = []; for (const n of SPR_MAN.whole) { const r = await fetch(SPR_ROOT + n + '.webp', { method: 'HEAD' }); if (!r.ok) miss.push(n); } out.miss = miss;
+  out.mapPainted = /url\(#mp-/.test(document.querySelector('#mapwrap svg').innerHTML);
+  const con = { id: nid(), type: 'patrol', regionId: 1, pay: 10, danger: 1, obj: 'slay', layout: 'river', expires: 99, q: S.caravan.q, r: S.caravan.r };
+  startBattle(con, S.roster.slice(0, 4).map(s => s.id)); activeModal = null; modalQ.length = 0; const B = S.battle;
+  const foes = B.units.filter(u => u.kind === 'foe' && !u.prop);
+  const h = foes[0], h2 = foes[1], b = foes[2]; h.ekey = 'husk'; h.name = 'Ironbound Husk'; h2.ekey = 'husk'; h2.name = 'Husk'; b.ekey = 'brigand'; b.name = 'Brigand'; B.leaderUid = b.uid;
+  out.tier = /foe_husk_ironbound_/.test(foeSprite(h) || ''); out.base = /foe_husk_\d/.test(foeSprite(h2) || ''); out.captain = /foe_brigand_captain_/.test(foeSprite(b) || '');
+  out.none = foeSprite({ ekey: 'nosuchfoe', name: 'X', uid: 1 }) === null;
+  for (const t of B.tiles) B.seen[t.x + ',' + t.y] = 1; computeVis = function (B) { const v = new Set(); for (const t of B.tiles) v.add(t.x + ',' + t.y); return v; };
+  render();
+  const tiles = [...document.querySelectorAll('#grid .tile')]; out.tiles = tiles.length; out.painted = tiles.filter(t => t.classList.contains('gt')).length;
+  out.edges = document.querySelectorAll('#grid .ge').length; out.foeSprited = document.querySelectorAll('#grid .unit.sprited:not(.pc)').length;
+  const imgs = [...document.querySelectorAll('#grid img')]; await Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
+  out.broken = imgs.filter(i => !i.naturalWidth).map(i => i.src.split('/').pop()).slice(0, 4);
+  const bg = getComputedStyle(document.querySelector('#grid .tile.gt')).backgroundImage; out.bg = /ground_[a-z]+\.webp/.test(bg);   // asked of the live grid: a redraw during the await detaches the old tiles
+  PREFS.sprites = false; render(); out.classic = document.querySelectorAll('#grid .gt, #grid img.sp, #grid img.ts, #grid .ge').length;
+  out.classicMap = /url\(#mp-/.test(hexSvg()); out.classicFace = /<svg/.test(portrait(S.roster[0], 46)); PREFS.sprites = true;
+  out.face = /spr-card pt/.test(portrait(S.roster[0], 46)); S.battle = null; clearStashedBattle(); return out; });
+check('rendered field: manifest files exist, foes drawn from their own tier/captain pools, painted ground and edges, all images load, painted map, Classic restores the drawn art',
+  art.miss.length === 0 && art.mapPainted && art.tier && art.base && art.captain && art.none && art.painted === art.tiles && art.edges > 0 && art.foeSprited >= 3
+  && art.broken.length === 0 && art.bg && art.classic === 0 && !art.classicMap && art.classicFace && art.face, art);
 
 check('no uncaught page errors', errors.length === 0, errors.slice(0, 3));
 console.log(results.join('\n'));

@@ -453,7 +453,7 @@ def crag(seed):
 # the march map: the same earth seen from far higher (a quarter of the scale), one sheet per kind of country
 MAP = {'plains': 'heath', 'forest': 'forest', 'hills': 'stony', 'marsh': 'mire', 'mountain': None, 'blight': 'ashen', 'setl': 'dirt'}
 MAP_TINT = {'plains': (1.0, 1.0, 1.0), 'forest': (0.72, 0.86, 0.72), 'hills': (1.12, 1.04, 0.92), 'marsh': (0.9, 1.0, 1.0),
-            'mountain': (1.0, 1.0, 1.0), 'blight': (1.05, 0.9, 1.25), 'setl': (1.15, 1.08, 0.95)}
+            'mountain': (0.8, 0.79, 0.76), 'blight': (1.05, 0.9, 1.25), 'setl': (1.15, 1.08, 0.95)}
 
 
 def map_sheets(out, made, px=320):
