@@ -103,6 +103,60 @@ const l1 = await page.evaluate(() => { const s = S.roster[0], old = s.weapon; co
   return { now: wpnName(s.weapon, s.wAff), back: S.stash.some(i => i.k === 'w' && i.key === old), dmg: wOf({ weapon: s.weapon, wAff: s.wAff, feats: [] }).lo }; });
 check('wagons: equipping returns the old weapon; a unique answers to its name', l1.now === 'Widow’s Tithe' && l1.back && l1.dmg === 5, l1);
 
+// ---- found by an independent review of the v0.70 diff, each reproduced before it was fixed ----
+// 12. a lost story contract goes to ground for a week: no re-fighting it at once for XP and a fresh cache
+await fresh('farm');
+await page.evaluate(() => { S.story.stage = 3; postCourierContract(); const con = S.contracts.find(x => x.story === 'courier'); S.caravan = { q: con.q, r: con.r }; startBattle(con, S.roster.map(s => s.id)); activeModal = null; modalQ.length = 0; S.battle.round = 2; endBattle('retreat'); activeModal = null; modalQ.length = 0; modalHold = 0; });
+const f1 = await page.evaluate(() => { const con = S.contracts.find(x => x.story === 'courier'); TAKE(con.id); const blocked = !S.battle && !activeModal; S.week++; TAKE(con.id); const open = !!activeModal; S.roster.slice(0, partyCap()).forEach(x => TOG(x.id)); activeModal.btns[0].fn(); const B = S.battle;
+  return { blocked, open, retry: B && B.retry, caches: B ? B.tiles.filter(t => t.cache).length : -1 }; });
+check('story retry: gone to ground until the week turns, and the field is picked clean', f1.blocked && f1.open && f1.retry === true && f1.caches === 0, f1);
+
+// 13. sellable wagons keep an empty banner alive
+await fresh('stashover');
+const g1 = await page.evaluate(() => { S.roster = []; S.coin = 8; stashAdd({ k: 'w', key: 'longsword', mod: 0, aff: { uq: 'widowstithe' } }); checkGameOver(); const alive = !S.over; S.stash = []; checkGameOver(); return { alive, overWithout: S.over }; });
+check('game over: what is in the wagons counts toward the next hire', g1.alive && g1.overWithout, g1);
+
+// 14. a charm's hit points are not banked
+await fresh('ring');
+const h1 = await page.evaluate(() => { const s = S.roster[0]; s.trinket = 'weddingiron'; s.hp = 5; const con = { id: nid(), type: 'patrol', regionId: 1, pay: 10, danger: 1, obj: 'slay', layout: 'fields', expires: 99, q: S.caravan.q, r: S.caravan.r };
+  startBattle(con, [s.id]); activeModal = null; modalQ.length = 0; const u = S.battle.units.find(z => z.kind === 'pc'); const inField = u.hp; S.battle.round = 2; endBattle('retreat'); return { inField, after: s.hp }; });
+check('Wedding-Iron Ring: +3 on the field, nothing carried home', h1.inField === 8 && h1.after === 5, h1);
+
+// 15. the first-strike bonus is spent by an ability that rolls to hit
+await fresh('opener');
+const p1 = await page.evaluate(() => { S.doctrines = ['firstblood']; const con = { id: nid(), type: 'patrol', regionId: 1, pay: 10, danger: 1, obj: 'slay', layout: 'fields', expires: 99, q: S.caravan.q, r: S.caravan.r };
+  startBattle(con, S.roster.map(s => s.id)); activeModal = null; modalQ.length = 0; const B = S.battle, u = B.units.find(z => z.kind === 'pc'); u.weapon = 'axe';
+  const fs = B.units.filter(z => z.kind === 'foe' && !z.prop), f = fs[0]; f.x = u.x + 1 < GW ? u.x + 1 : u.x - 1; f.y = u.y; f.hp = 60; f.maxhp = 60; for (const o of fs.slice(1)) { o.x = 0; o.y = 0; }
+  const before = hitChance(B, u, f); execAbility(B, u, { k: 'cleave' }, f); return { before, after: hitChance(B, u, f) }; });
+check('First Blood: used up by a Cleave, not kept all battle', p1.before - p1.after === 15, p1);
+
+// 16. a nemesis that took a trophy still drops the steel it started with
+await fresh('trophy');
+const t1 = await page.evaluate(() => { S.week = 6; let n = null; for (let i = 0; i < 40 && !n; i++) n = nemesisSpawn(); n.wpn = 'longsword'; n.aff = { uq: 'widowstithe' }; n.trophy = { key: 'armingsword', aff: null, name: 'Morwen’s Arming Sword', from: 'Morwen' }; nemesisPost(n);
+  const con = S.contracts.find(x => x.nemId === n.id); startBattle(con, S.roster.map(s => s.id)); activeModal = null; modalQ.length = 0; const B = S.battle, lead = B.units.find(z => z.uid === B.leaderUid);
+  const wields = wpnName(lead.weapon, lead.wAff); lead.hp = 0; creditKill(B, B.units.find(z => z.kind === 'pc'), lead); activeModal = null; modalQ.length = 0;
+  return { wields, over: !S.battle, hasUnique: S.stash.some(i => i.aff && i.aff.uq === 'widowstithe'), hasTrophy: S.stash.some(i => i.name === 'Morwen’s Arming Sword'), state: n.state }; });
+check('nemesis: its own named steel drops even when it was swinging a trophy', t1.over && t1.hasUnique && t1.hasTrophy && t1.state === 'dead', t1);
+
+// 17. two weeks turning at once do not send two collectors
+await fresh('debt');
+const d1 = await page.evaluate(() => { S.debt = { amt: 120, week: 2 }; S.coin = 36; S.week = 2; debtModal(); activeModal.btns.find(x => /Pay what is in the box/.test(x.label)).fn(); debtModal(); return { amt: S.debt && S.debt.amt, due: S.debt && S.debt.week, second: !!activeModal }; });
+check('Undercrown debt: a part-payment is not followed by a second demand', d1.amt === 105 && d1.due === 6 && !d1.second, d1);
+
+// 18. backing out of an event fight is not a brigand robbery
+await fresh('evflee');
+const e1 = await page.evaluate(() => { const coin = S.coin, prov = S.prov; evFight('What Was Under the Field', ['husk', 'husk']); const labels = activeModal.btns.map(x => x.label); activeModal.btns.find(x => !/^March/.test(x.label)).fn(); return { labels, coin: coin - S.coin, prov: prov - S.prov }; });
+check('event fight: backing away costs nerve, not a wagon', e1.coin === 0 && e1.prov === 0 && !e1.labels.some(l => /wagon/.test(l)), e1);
+
+// 19. a road modal queued behind an event does not open on top of the event's battle
+await fresh('roadq');
+const q1 = await page.evaluate(() => { const con = S.contracts.find(x => x.q !== S.caravan.q || x.r !== S.caravan.r); evShow({ t: 'An event', b: '<p>x</p>', o: [{ l: 'Fight', f: () => evFight('Event Fight', ['husk', 'husk']) }] });
+  S.caravan = { q: con.q, r: con.r };                                  // an arrival modal queues behind the event, as a multi-week march would do
+  queueModal(() => { if (S.battle || S.over || !S.contracts.includes(con)) { closeModal(); return; } showModal('On the ground', '<p>x</p>', [{ label: 'Muster and fight', fn: () => {} }]); activeModal.road = true; });
+  activeModal.btns[0].fn(); const cap = partyCap(); [...S.roster].slice(0, cap).forEach(s => TOG(s.id)); activeModal.btns.find(x => /^March/.test(x.label)).fn();
+  return { battle: S.battle && S.battle.cname, modal: activeModal ? activeModal.title : null }; });
+check('modal queue: marching into an event fight is not interrupted by a queued arrival', q1.battle === 'Event Fight' && q1.modal !== 'On the ground', q1);
+
 check('no uncaught page errors', errors.length === 0, errors.slice(0, 3));
 console.log(results.join('\n'));
 console.log(failed ? `\n${failed} regression(s) FAILED` : '\nPASS — ' + results.length + ' checks');

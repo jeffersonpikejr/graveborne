@@ -1172,7 +1172,7 @@ const TRINKETS={
 const SUPPLIES={
  draught:{n:'Healing Draught',ic:'🧪',cost:18,d:'Drink it, or hand it to someone beside you: +6 HP.'},
  firepot:{n:'Firepot',ic:'🔥',cost:24,d:'Throw within 3: 3–5 fire to the target and everyone beside it, friend or foe (armor is no help). The ground burns two rounds.'},
- salt:{n:'Blessed Salt',ic:'🧂',cost:20,d:'Scatter within 2: the dead caught in it (3×3) take 2 and lose their next turn, and the blight is scoured off the ground.'},
+ salt:{n:'Blessed Salt',ic:'🧂',cost:20,d:'Throw at an enemy within 2: the dead caught in it (3×3) take 2 and lose their next turn, and the blight is scoured off the ground there.'},
 };
 const RARITY=[{n:'Common',c:'#b8ad97'},{n:'Fine',c:'#8fb0cf'},{n:'Masterwork',c:'#e8c65a'},{n:'Relic',c:'#e0763f'}];
 function trkOf(u){ return (u&&TRINKETS[u.trk||u.trinket])||null; }
@@ -1205,8 +1205,8 @@ function itemSell(it){
   if(it.k==='w'){ const w=WEAPONS[it.key]||{tier:1}, a=it.aff||{}; v=4+((w.tier||1)-1)*8+(a.pre?8:0)+(a.suf?10:0)+(a.uq?45:0)+(it.mod||0)*6; }
   else if(it.k==='k')v=10+((TRINKETS[it.key]||{}).r||1)*10;
   else if(it.k==='t')v=15;
-  else if(it.k==='r')return 25+(S.rep&&S.rep.conclave>=25?10:0)+(S.story&&S.story.heir==='casmir'?10:0)+(doc('ashbargain')?15:0);
-  if(omen('steelglut'))v=Math.round(v*0.75);
+  else if(it.k==='r')v=25+(S.rep&&S.rep.conclave>=25?10:0)+(S.story&&S.story.heir==='casmir'?10:0)+(doc('ashbargain')?15:0);
+  if(omen('steelglut')&&(it.k==='w'||it.k==='t'))v=Math.round(v*0.75);
   if(doc('salvagers'))v=Math.round(v*1.25);
   return Math.max(1,v);
 }
@@ -1250,6 +1250,7 @@ function openCache(B,u,t){
   blog(B,`${u.name} breaks open a cache — ${got.join(', ')}. Into the wagons.`);
 }
 function placeCaches(B,contract){
+  if(B.retry)return;
   const region=connRegion(B), sp=B.spawn||{x:1,y:1};
   let n=(chance(55)?1:0)+(chance(22)?1:0)+((B.type==='delve'||B.mapTheme==='crypt'||B.mapTheme==='ruins')?1:0)+(doc('salvagers')&&chance(70)?1:0);
   if(S.cacheTip===B.regionId){ n+=2; S.cacheTip=null; }
@@ -2354,22 +2355,24 @@ function interceptEncounter(a,flavor){
     const g=S.graves.find(g=>g.id===a.graveId);
     queueModal(()=>showModal(`${g.name}, Returned`,
       `<p>${flavor||'On the road ahead:'} a figure in your old colors, waiting. She knew you’d come this way.</p><p class="hint">Put her down: ${putdownPay(g)}c and a story closed. Or turn away.</p>`,
-      [{label:'Face her',cls:'danger',fn:()=>{closeModal(); pickSquad(sq=>startBattle(agentContract(a),sq));}},
+      [{label:'Face her',cls:'danger',fn:()=>{activeModal=null; pickSquad(sq=>startBattle(agentContract(a),sq));}},
        {label:'Turn away',fn:()=>{closeModal(); log(`You leave ${g.name} to her ground. She’ll keep.`,'blight');}}]));
   } else {
     const desc=a.kind==='horde'?'A Blight horde is on the caravan. No pay for this one — just survival.'
       :a.kind==='hunters'?'Grey riders, Collegium steel. They are not here to rob you. They are here to erase you.'
       :'A brigand warband is on the caravan — and the wagons are what they came for. Lose them and the provisions go with them.';
-    queueModal(()=>showModal('Intercepted!',
+    queueModal(()=>{ if(S.battle||S.over||!S.agents.includes(a)){ closeModal(); return; }
+      showModal('Intercepted!',
       `<p>${flavor||''} ${desc}</p>`,
-      [{label:'Stand and fight',cls:'danger',fn:()=>{closeModal(); pickSquad(sq=>startBattle(agentContract(a),sq),{forced:a});}},
-       {label:fleeLabel(a),fn:()=>{closeModal(); fleeAmbush(a);}}]));
+      [{label:'Stand and fight',cls:'danger',fn:()=>{activeModal=null; pickSquad(sq=>startBattle(agentContract(a),sq),{forced:a});}},
+       {label:fleeLabel(a),fn:()=>{closeModal(); fleeAmbush(a);}}]); activeModal.road=true; });
   }
   pumpModals();
 }
 // Running from an interception is allowed — and it is never free. What it costs depends on who was chasing.
-function fleeLabel(a){ return a.kind==='brigands'?'Cut a wagon loose and run — they came for the cargo':a.kind==='hunters'?'Scatter into the dark — some of you will be ridden down':'Run — the slow ones pay for it'; }
+function fleeLabel(a){ return a.kind==='event'?'Think better of it and back away (−1 resolve, everyone)':a.kind==='brigands'?'Cut a wagon loose and run — they came for the cargo':a.kind==='hunters'?'Scatter into the dark — some of you will be ridden down':'Run — the slow ones pay for it'; }
 function fleeAmbush(a){
+  if(a.kind==='event'){ S.roster.forEach(s=>s.res=Math.max(10,s.res-1)); log('The company backs away from it. Nobody is proud of that, and nobody is dead of it.','bad'); save(); render(); return; }
   a.cool=S.day+2;                                           // they are busy with what you left them
   if(a.kind==='brigands'){ const pv=Math.min(S.prov,6), cn=Math.min(S.coin,Math.round(S.coin*0.2));
     S.prov-=pv; S.coin-=cn; log(`You cut a wagon loose and run. The brigands take ${pv} provisions and ${cn}c and do not bother to follow.`,'bad'); }
@@ -2448,13 +2451,14 @@ function travelTo(q,r,contractId){
   if(contractId&&S.roster.length){   // (a company that deserted on the road has no one to muster — the wagons turn for a town below)
     const c=S.contracts.find(x=>x.id===contractId);
     if(!c){ log('You arrive to find the job gone — the war moved faster than the caravan.','bad'); }
-    else queueModal(()=>showModal('On the ground',
+    else queueModal(()=>{ if(S.battle||S.over||!S.contracts.includes(c)||S.caravan.q!==c.q||S.caravan.r!==c.r){ closeModal(); return; }   // something else already happened on the way
+      showModal('On the ground',
       `<p>${esc(CONTRACT_TYPES[c.type].desc.replace('{r}',S.regions[c.regionId].name))}</p>
        <p style="color:#c9b48a">⚑ <b>${OBJECTIVES[c.obj||'slay'].n}</b> — ${esc(OBJECTIVES[c.obj||'slay'].d)}</p>
        <p class="hint"><span class="pay">${c.pay}c</span> on completion. Danger ${'☠'.repeat(c.danger)}.</p>
        ${S.graves.some(g=>g.state==='risen'&&g.regionId===c.regionId)?`<p style="color:#b08bc9">⚰ Your dead walks ${esc(S.regions[c.regionId].name)} — it may rise into this fight, beyond the skulls.</p>`:''}`,
-      [{label:'Muster and fight',cls:'primary',fn:()=>{closeModal(); pickSquad(sq=>startBattle(c,sq));}},
-       {label:'Not today',fn:()=>closeModal()}]));
+      [{label:'Muster and fight',cls:'primary',fn:()=>{activeModal=null; pickSquad(sq=>startBattle(c,sq));}},
+       {label:'Not today',fn:()=>closeModal()}]); activeModal.road=true; });
   } else {
     log(`The caravan makes camp: ${hexDesc(hex(S.caravan.q,S.caravan.r))}.`);
   }
@@ -2560,7 +2564,7 @@ function weeklyTick(){
 }
 // Undercrown Runners begin in hock. The Undercrown always collects — the only question is in what.
 function debtModal(){
-  const D=S.debt; if(!D){ closeModal(); return; }
+  const D=S.debt; if(!D||S.week<D.week){ closeModal(); return; }   // (two weeks turning in one march queued two collectors)
   showModal('The Undercrown Collects',
     `<p>A quiet man is sitting on the wagon-tongue when the camp wakes. He has a ledger of his own, and your name is in it in a better hand than yours.</p>
      <p>“<b>${D.amt} coin</b>. It was always going to be today.”</p>`,
@@ -2631,7 +2635,7 @@ function checkGameOver(){
   }
   // Hires cost 20-35 and the pool refreshes weekly; with an empty roster coin
   // cannot decrease, so the run is only dead when the cheapest possible hire is out of reach.
-  if(S.roster.length===0&&S.coin<hireCost({cost:20})){   // 20 is the floor of a hire's asking price; standing with the Folk moves it
+  if(S.roster.length===0&&S.coin+(S.stash||[]).reduce((a,i)=>a+itemSell(i),0)<hireCost({cost:20})){   // what is in the wagons counts: one sale in town can raise a banner again —   // 20 is the floor of a hire's asking price; standing with the Folk moves it
     S.over=true;
     log('The banner falls. No one is left to carry it.','bad');
     legacyRecordRun('fell');
@@ -3212,6 +3216,7 @@ function startBattle(contract,squadIds){
            :(chance(omen('longrain')?28:12)?'fog':null));
   B.rain=!B.weather&&chance(omen('longrain')?70:22);      // atmospheric drizzle on some clear-weather maps — purely visual, no penalty
   if(contract.layout)B.mapTheme=contract.layout;             // an authored contract may name its ground (the courier's pass; the harness, any of them)
+  B.retry=(contract.tries||0)>0;                              // a field already fought over has been picked clean
   genBattleMap(B,bhex,region);
   // escort lays a road lane across the field (bridging any water on it)
   if(B.obj==='escort'){
@@ -3901,7 +3906,8 @@ function maybeRiposte(B,def,att){
   if(B._noRipo||def.kind!=='pc'||def.hp<=0||!def.feats.includes('riposte')||def.riposted)return;
   if(att.hp<=0||wOf(att).rng>1||!adjacent(def,att))return;
   def.riposted=true; B._noRipo=true; blog(B,`${def.name} answers the opening — riposte!`);
-  if(ri(1,100)<=hitChance(B,def,att)){ const rd=dmgOf(B,def,att); att.hp-=rd;
+  const rh=hitChance(B,def,att); def.opened=true;
+  if(ri(1,100)<=rh){ const rd=dmgOf(B,def,att); att.hp-=rd;
     fx.push({type:'flash',uid:att.uid},{type:'float',x:att.x,y:att.y,txt:'-'+rd,color:'#c9a227'});
     blog(B,`${def.name} ripostes ${att.name} for ${rd}.`);
     if(att.hp<=0)creditKill(B,def,att); }   // counterattack: the DEFENDER is the killer here
@@ -4178,7 +4184,7 @@ function endUnitTurn(){ endPlayerPhase(); }   // legacy: the "End Turn" control 
 function peekToggle(){ const B=S.battle; if(!B)return; B.peek=!B.peek; if(!B.peek)B.peekTile=null; B.aim=null; render(); }
 function defend(){ const B=S.battle; const u=activeUnit(B); if(!u||u.kind!=='pc'||u.acted||(u.strikes||0)>0||B.phase!=='player')return;
   B._undo=null; u.defending=true; u.rattled=Math.max(0,u.rattled-1); u.acted=true; B.aim=null;
-  blog(B,`${u.name} braces — −10 to be hit, +2 armor, nerves steadied, until their next turn.`); afterPcAct(u); }
+  blog(B,`${u.name} braces — −${doc('shielddrill')?15:10} to be hit, +${doc('shielddrill')?3:2} armor, nerves steadied, until their next turn.`); afterPcAct(u); }
 function unitAbilities(u){
   // ALL abilities a unit can use — the action bar shows one button per ability so a soldier who knows
   // several (e.g. Sanctuary + an Ash graft) can pick any of them, not just the highest-priority one.
@@ -4239,6 +4245,10 @@ function useAbility(k){
 function afterAbility(B,u){ if(!B.over)afterPcAct(u); }
 function execAbility(B,u,ab,t){
   B._undo=null;
+  execAbilityInner(B,u,ab,t);
+  if(['disarm','trip','cleave','marrowreap'].includes(ab.k))u.opened=true;   // these roll to hit: First Blood / the Pilgrim's Badge are used up by them too
+}
+function execAbilityInner(B,u,ab,t){
   if(t&&t.kind==='foe')noticeAttack(B,u,t);   // bone-spears/bash/hook on a patroller wakes its pod
   const corrupt=()=>{ if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} };
   if(ab.item){
@@ -4730,7 +4740,7 @@ function endBattleInner(outcome){
     if(u.kind!=='pc')continue;
     if(isSword(u)){ swordSync(B,u,outcome); continue; }   // swords take no XP, no traits, no bonds — their track is the tier
     const s=soldierById(u.ref);
-    if(s){ s.hp=Math.min(s.maxhp,Math.max(0,u.hp));        // a charm's borrowed hit points stay on the field
+    if(s){ s.hp=u.hp>0?clamp(u.hp-((TRINKETS[u.trk]||{}).hp||0),1,s.maxhp):0;   // a charm's borrowed hit points stay on the field — they are the last she has, not three she keeps
       if(u.hp>0){ if(s.hp<=Math.ceil(s.maxhp/3))R.wounded.push(s.name);
         deployed.push(s); s.battles++; s.lastFieldedWeek=S.week; grantXp(s,outcome==='victory'?2:(B.round>1?1:0));
         // battle leaves marks — one per fight, good or bad
@@ -4877,7 +4887,8 @@ function endBattleInner(outcome){
   // a fought contract is consumed — won, lost, or fled. EXCEPT the spine: a courier you failed to kill still rides,
   // and an heir's price is still owed. (Before v0.70 losing either deleted the only door to the next act.)
   S.contracts=S.contracts.filter(c=>c.id!==B.contractId||(c.story&&outcome!=='victory'));
-  if(contract&&contract.story&&outcome!=='victory')log(`${contract.cname||'The work'} is still out there. The mark stays on the map.`,'wk');
+  if(contract&&contract.story&&outcome!=='victory'){ contract.notBefore=S.week+1; contract.tries=(contract.tries||0)+1;   // …but not for free: the trail is cold until the week turns
+    log(`${contract.cname||'The work'} is still out there — gone to ground until next week. The mark stays on the map.`,'wk'); }
   // a beaten map agent is gone from the map
   if(B.agentId&&outcome==='victory')S.agents=S.agents.filter(a=>a.id!==B.agentId);
   if(S._cmdrLost){ const nm=S._cmdrLost; S._cmdrLost=null; queueModal(()=>bannerPassesModal(nm,'fell')); }
@@ -5387,7 +5398,7 @@ function startFinale(){
      <p>“You mistake me for a traitor. I am the only loyalist left. The kingdom dies in war within two generations — I have read the numbers. Better a still, painless world than a burning one. Your ${S.story.heir==='maren'?'princess':S.story.heir==='aldric'?'prince':'Casmir'} cannot stop the arithmetic. Neither can you.”</p>
      ${risen.length?`<div class="callout">Behind him, in your old colors: ${risen.slice(0,3).map(g=>esc(g.name)).join(', ')}. The dead you never laid to rest. He kept them for exactly this.</div>`:`<p class="hint">Your graveyard is quiet. Every soldier you lost, you laid to rest — and Vell stands with only his own dead to hide behind.</p>`}
      <p class="hint">⚑ Cut Off the Head — kill <b>Magister Vell</b>. Your unresolved dead fight for him.</p>`,
-    [{label:'End the argument',cls:'danger',fn:()=>{closeModal(); pickSquad(sq=>startBattle({
+    [{label:'End the argument',cls:'danger',fn:()=>{activeModal=null; pickSquad(sq=>startBattle({
         id:nid(),type:'putdown',cname:'The Throne of Karsk',regionId:3,pay:0,danger:3,obj:'assassinate',story:'finale',
         comp:['acolyte','acolyte','graveguard','graveguard'],leader:'graveguard',leaderName:'Magister Vell',leaderStyle:'bruiser',
         weatherLock:'ashhaze',layout:'pass',reckoning:true},sq));}},
@@ -5430,7 +5441,7 @@ function checkBarrow(){
     `<p>Below the mound: lantern-light, two parties, one table of stone. A grey rider of the Magister’s — and across from him, robes the color of a bruise. The Conclave sent an Envoy.</p>
      <p>They are trading names for bodies. Yours is one of the names.</p>
      <p class="hint">⚑ Cut Off the Head — kill <b>The Grey Envoy</b>. The escort is half the Magister’s, half the grave’s.</p>`,
-    [{label:'Go down into the dark',cls:'danger',fn:()=>{closeModal(); pickSquad(sq=>startBattle({
+    [{label:'Go down into the dark',cls:'danger',fn:()=>{activeModal=null; pickSquad(sq=>startBattle({
         id:nid(),type:'putdown',cname:'The Barrow Meeting',regionId:hex(S.caravan.q,S.caravan.r).region,
         pay:150,danger:3,obj:'assassinate',story:'barrow',
         comp:['acolyte','acolyte','husk','husk','graveguard'],leader:'acolyte',leaderName:'The Grey Envoy',
@@ -5510,7 +5521,7 @@ function evShow(E){
 function evFight(cname,comp,extra){
   activeModal=null;                                       // (not closeModal: that would pump the next queued modal under the muster)
   const reg=evHere();
-  pickSquad(sq=>startBattle(Object.assign({id:nid(),type:'patrol',regionId:reg.id,pay:0,danger:clamp(dangerOf(reg),1,3),obj:'slay',ambush:true,comp,cname},extra||{}),sq),{forced:{kind:'brigands'}});
+  pickSquad(sq=>startBattle(Object.assign({id:nid(),type:'patrol',regionId:reg.id,pay:0,danger:clamp(dangerOf(reg),1,3),obj:'slay',ambush:true,comp,cname},extra||{}),sq),{forced:{kind:'event'}});
   return false;
 }
 const EVENTS=[
@@ -5746,6 +5757,7 @@ function nemesisAfter(B,outcome,R){
     n.state='dead'; S.renown++; legacyMark('nemesis');
     log(`☠ ${n.name} is dead. The roads will say who did it (+1 renown).`,'good');
     S.chronicle.push(`Week ${S.week}: the company took the head of ${n.name}.`);
+    if(n.trophy)R.items.push(stashAdd({k:'w',key:n.wpn,mod:0,aff:n.aff||null}));   // it was carrying your dead soldier's blade — its own was on its back
     R.notes.push(`<b>${esc(n.name)}</b> is dead. What it carried is in the wagons.`);
     return;
   }
@@ -6647,7 +6659,7 @@ function selectedPanel(){
       <div class="bg" style="color:#c9b48a">⚑ ${ob.n} — ${esc(ob.d)}</div>
       <div class="statline">Danger <span class="skull">${'☠'.repeat(c.danger)}</span> · <span class="pay">${c.pay}c</span> · ${here?'you are here':dys+' day'+(dys>1?'s':'')+' away'}</div>
       ${S.graves.some(g=>g.state==='risen'&&g.regionId===c.regionId)?`<div class="bg" style="color:#b08bc9">⚰ Your dead walks ${esc(reg.name)} — it may rise into this fight, beyond the skulls.</div>`:''}
-      <button class="primary" ${S.roster.length?'':'disabled'} onclick="TAKE(${c.id})">${here?'Muster and fight':'Take contract — ride out'}</button></div>`;
+      <button class="primary" ${S.roster.length&&!((c.notBefore||0)>S.week)?'':'disabled'} onclick="TAKE(${c.id})">${(c.notBefore||0)>S.week?'Gone to ground — next week':here?'Muster and fight':'Take contract — ride out'}</button></div>`;
   }
   if(!here&&!c)html+=`<div style="margin-top:6px"><button onclick="TRAVEL(${q},${r})" ${p&&S.roster.length?'':'disabled'}>${p?`Travel here (${dys} day${dys>1?'s':''})`:'No road leads there'}</button></div>`;
   html+='</div>';
@@ -6656,6 +6668,7 @@ function selectedPanel(){
 window.HEX=function(q,r){ const h=hex(q,r); if(!h||h.prov===-1)return; const k=hexKey(q,r); sel=(sel===k)?null:k; render(); };
 window.TAKE=function(cid){
   const c=S.contracts.find(x=>x.id===cid); if(!c)return;
+  if((c.notBefore||0)>S.week){ log(`${c.cname||'That work'} has gone to ground since you last tried it. The trail is cold until the week turns.`,'bad'); render(); return; }
   if(S.caravan.q===c.q&&S.caravan.r===c.r){ pickSquad(sq=>startBattle(c,sq)); return; }
   travelTo(c.q,c.r,cid);
 };
@@ -6663,7 +6676,7 @@ window.TRAVEL=function(q,r){ travelTo(q,r,null); };
 function partyCap(){ return 4+(S.partyUp||0); } // base 4; quartermaster upgrades raise it to 5 then 6
 function pickSquad(cb,opts){
   opts=opts||{};
-  if(activeModal){ const cur=activeModal; modalQ.unshift(()=>{ activeModal=cur; render(); }); activeModal=null; }   // closeModal() may have pumped the next queued modal — keep it for after the muster
+  if(activeModal){ const cur=activeModal; modalQ.unshift(()=>{ if(cur.road&&(S.battle||S.over)){ closeModal(); return; } activeModal=cur; render(); }); activeModal=null; }   // something was showing: keep it for after the muster (unless it was a road modal the fight has overtaken)
   const picked=new Set();
   const loadout={kit:false,horn:false};
   const build=()=>{
@@ -6682,7 +6695,7 @@ function pickSquad(cb,opts){
     if(picked.has(id))picked.delete(id); else if(picked.size<partyCap())picked.add(id); activeModal.html=build(); render(); };
   window.LOAD=function(k){ loadout[k]=!loadout[k]; activeModal.html=build(); render(); };
   showModal('Muster the squad',build(),[
-    {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; S._loadout={kit:loadout.kit&&(S.kits||0)>0,horn:loadout.horn&&(S.horns||0)>0}; closeModal(); cb([...picked]); }},
+    {label:'March',cls:'primary',fn:()=>{ if(!picked.size)return; S._loadout={kit:loadout.kit&&(S.kits||0)>0,horn:loadout.horn&&(S.horns||0)>0}; activeModal=null; cb([...picked]); render(); pumpModals(); }},   // not closeModal(): that pumped whatever was queued (an arrival, an interception) on top of the battle being started
     opts.forced?{label:fleeLabel(opts.forced),fn:()=>{closeModal(); fleeAmbush(opts.forced);}}:{label:'Not yet',fn:()=>closeModal()}]);
 }
 const TILE_BG={grass:'#28241b',road:'#37301f',bridge:'#463829',brush:'#262b1a',tree:'#1d2615',mire:'#1f2019',boulder:'#3c362c',rubble:'#332e27',column:'#332e27',stone:'#2e2a23',water:'#161c23',chasm:'#070809'};
@@ -6967,7 +6980,7 @@ function renderBattle(){
   const nextBtn=actedTurn?`<button ${anyAvail?'':'disabled'} onclick="NEXTUNIT()" title="Jump to the next soldier who still has a move or action left (Tab)">Next ▶</button>`:'';
   const undoBtn=(isPC&&B._undo&&B._undo.uid===u.uid)?`<button onclick="UNDO()" title="Take that step back — allowed while it revealed nothing and woke no one (U)">↶ Undo</button>`:'';
   // Actions roll up into one dropdown (spells / grafts / supplies / brace) instead of a row of buttons
-  const actList=[...abs.map(a=>({k:a.k,label:a.label,tip:a.tip})),{k:'__brace',label:'🛡 Brace',tip:'Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled).'}];
+  const actList=[...abs.map(a=>({k:a.k,label:a.label,tip:a.tip})),{k:'__brace',label:'🛡 Brace',tip:`Spend your action: −${doc('shielddrill')?15:10} to be hit and +${doc('shielddrill')?3:2} armor until your next turn; steadies nerves (−1 rattled).`}];
   let actionsBtn='';
   if(isPC){ if(aimActive)actionsBtn=`<button class="danger" onclick="ACTMENU(1)" title="Cancel targeting (Esc)">✖ Cancel</button>`;
     else if(canAbil)actionsBtn=`<button class="${B._actMenu?'primary':''}" onclick="ACTMENU()" title="Spells, grafts, supplies, and brace">✦ Actions ▾</button>`; }

@@ -60,7 +60,9 @@ The biggest build since the realm opened. Four things at once: the engine stops 
 - A **title screen**, settings, and how-to-play.
 
 ### Under the hood
-Save shape 67 → 70 through the v0.67 registry: old records get a stream, a company name, empty wagons, and credit in the Hall for what they already did. `test/` gains a **fuzz harness** (a bot plays whole campaigns: on the shipped build, 18 campaigns, 387 battles, 455 weeks, the authored spine through to the reveal, zero errors) and a **regression suite** (16 checks; the six that test a v0.67 bug were each confirmed failing on v0.67).
+Save shape 67 → 70 through the v0.67 registry: old records get a stream, a company name, empty wagons, and credit in the Hall for what they already did. `test/` gains a **fuzz harness** (a bot plays whole campaigns — 29 campaigns and 551 battles over this build's verification, the last 11 campaigns on the shipped code, the authored spine through to the reveal, zero errors) and a **regression suite** (24 checks; the six that test a v0.67 bug were each confirmed failing on v0.67).
+
+An independent read of the diff then found eleven things random play had not, all fixed and each now a regression check where it can be: a lost story contract could be re-fought at once for XP and a fresh cache (it now goes to ground for a week, and the field stays picked clean); game over ignored a wagon full of sellable steel; marching into an event's fight could be interrupted — and replaced — by an arrival modal queued behind it; a nemesis that took a trophy destroyed its own named weapon; First Blood was never used up by Cleave, Trip, Disarm or a riposte; the Wedding-Iron Ring healed three real hit points a battle; two weeks turning at once sent two debt collectors; backing out of an event fight was billed as a brigand robbery.
 
 ## v0.67 (2026-09-04) — One Record, One Road Through It
 Nothing you can see. Everything the next twenty versions stand on.
