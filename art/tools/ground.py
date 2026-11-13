@@ -301,7 +301,7 @@ def road(seed):
     rng = np.random.default_rng(seed)
     big, mid, fine = fbm(rng, 2.6, 1, 12), fbm(rng, 2.0, 8, 80), fbm(rng, 1.1, 50, 450)
     h = big * 0.4 + mid * 0.4 + fine * 0.2
-    rgb = ramp(norm(mid * 0.55 + fine * 0.45), [(0, '#2a241a'), (0.45, '#3f3626'), (0.8, '#4f4531'), (1, '#5a4f39')])
+    rgb = ramp(norm(mid * 0.55 + fine * 0.45), [(0, '#352d20'), (0.45, '#4d4230'), (0.8, '#5f533b'), (1, '#6b5f45')])
     rgb *= np.clip(shade(h, 0.22), 0.6, 1.35)[..., None]
     pool = smooth(0.30, 0.2, big * 0.55 + mid * 0.45)
     rgb = mix(rgb, np.broadcast_to(hexc('#1d1d1b'), rgb.shape), pool * 0.8)

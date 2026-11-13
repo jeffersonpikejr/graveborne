@@ -66,6 +66,16 @@ def _tuft(acc, rnd, at, n=14, h=(0.06, 0.14), spread=0.5, width=0.012, base_r=0.
     acc.add(*T.blades(P, D, Nn, L, width, bend=rnd.uniform(0.1, 0.5, n)))
 
 
+def _fit_screen(accs, top):
+    """Scale Accs about the origin so nothing stands higher up the screen than `top` tiles above the tile centre
+    (the canvas ends 1.11 above it)."""
+    P = np.concatenate([a.points() for a in accs if not a.empty()])
+    s = float((P[:, 1] + P[:, 2]).max()) * math.sqrt(0.5)
+    if s > top:
+        for a in accs:
+            a.apply(None, (0.0, 0.0, 0.0), top / s)
+
+
 # ================================================================ trees
 def tree(n):
     rnd = np.random.default_rng(100 + n)
@@ -94,7 +104,8 @@ def tree(n):
             T.branching(wood, rnd, nz, (0.0, 0.0, 0.0), (0.06, 0.0, 1.0), 0.5, 0.075, 5, gnarl=0.3, lift=0.2,
                         shrink=0.68, kids=(2, 3), seg=10, tips=tips, snap=0.09)
             T.roots(wood, rnd, nz, (0.0, 0.0), 0.075, n=6, reach=0.2)
-            print('fit', T.fit([wood], h_max=1.3, r_max=0.62))
+            T.fit([wood], h_max=1.3, r_max=0.62)
+            _fit_screen([wood], 0.98)
         else:
             bark = T.bark('oak_bark', color='#372d25', seed=8, moss=0.45, ridges=7.0, grain=2.0, lichen=0.5)
             T.branching(wood, rnd, nz, (0.0, 0.0, 0.0), (-0.1, 0.0, 1.0), 0.5, 0.1, 4, gnarl=0.36, lift=0.13,
@@ -104,7 +115,10 @@ def tree(n):
                 if rnd.uniform() < 0.7:
                     T.leaf_cluster(green, rnd, p + d * 0.02, n=int(rnd.integers(30, 60)), spread=(0.15, 0.15, 0.08),
                                    size=(0.035, 0.06), width=0.6)
-            print('fit', T.fit([wood, green], h_max=1.3, r_max=0.66))
+            T.fit([wood, green], h_max=1.3, r_max=0.56)
+            _fit_screen([wood, green], 0.98)
+            for a_ in (wood, green):        # a step west: its shadow falls east, and must end inside the canvas
+                a_.apply(None, (-0.08, 0.0, 0.0))
             leaf = T.foliage('oak_leaves', color='#1f2614', tip='#414a25', seed=11, dead='#4f3a1f', dead_share=0.3)
             parts.append(green.obj('leaves', leaf, smooth=False))
         parts.append(wood.obj('trunk', bark))
@@ -127,23 +141,25 @@ def boulder(n):
     if n == 1:          # one great boulder
         V, F = T.rock(rnd, (1.02, 1.1, 0.95), n=18, cuts=4, rough=0.07, nz=nz, crag=0.05)
         acc.add(_rot(V, _rz(0.3), (0.0, -0.05, 0.25)), F)
-        _pebbles(small, rnd, nz, 7, 0.4, 0.5, size=(0.04, 0.12))
+        _pebbles(small, rnd, nz, 7, 0.4, 0.5, size=(0.04, 0.12), sy=1.0)
     elif n == 2:        # an outcrop: tilted slabs breaking out of the ground
         for (x, y, sx, sy, sz, tilt, turn) in ((-0.14, 0.1, 0.55, 0.6, 1.0, 0.3, 0.2), (0.2, -0.1, 0.5, 0.6, 0.7, -0.25, -0.5),
                                                (-0.22, -0.3, 0.42, 0.42, 0.42, 0.4, 1.0), (0.24, 0.3, 0.4, 0.5, 0.5, 0.2, 2.0)):
             V, F = T.rock(rnd, (sx, sy, sz), n=12, cuts=4, rough=0.06, nz=nz, crag=0.08, smooth=1)
             acc.add(_rot(V, _rz(turn) @ _ry(tilt), (x, y, sz * 0.22)), F)
-        _pebbles(small, rnd, nz, 6, 0.38, 0.5, size=(0.04, 0.1))
+        _pebbles(small, rnd, nz, 6, 0.38, 0.5, size=(0.04, 0.1), sy=1.0)
     else:               # a low boulder split in two, mossed over
         for (x, sx, turn) in ((-0.2, 0.5, 0.1), (0.24, 0.42, -0.2)):
             V, F = T.rock(rnd, (sx, 0.95, 0.6), n=16, cuts=4, rough=0.07, nz=nz, crag=0.03)
             acc.add(_rot(V, _rz(turn) @ _ry(0.12 * np.sign(x)), (x, -0.02, 0.16)), F)
-        _pebbles(small, rnd, nz, 8, 0.1, 0.5, size=(0.04, 0.11))
+        _pebbles(small, rnd, nz, 8, 0.1, 0.5, size=(0.04, 0.11), sy=1.0)
     P = acc.points()
     acc.V = [np.column_stack((v[:, 0], v[:, 1], np.maximum(v[:, 2], -0.01))) for v in acc.V]
     for _ in range(8):
         a = rnd.uniform(0, 6.283)
-        _tuft(grass, rnd, (math.cos(a) * 0.44, math.sin(a) * 0.56, 0.0), n=10, h=(0.05, 0.12))
+        _tuft(grass, rnd, (math.cos(a) * 0.44, math.sin(a) * 0.5, 0.0), n=10, h=(0.05, 0.12))
+    for a_ in (acc, small, grass):      # a step north and a little smaller: the canvas ends 0.39 tile below the tile centre
+        a_.apply(None, (0.0, 0.085, 0.0), 0.94)
     moss = (0.35, 0.2, 0.75)[n - 1]
     rock_m = T.stone(f'boulder_{n}', color=('#6b6860', '#5d5b57', '#66645a')[n - 1], color2='#3b3a37', moss=moss,
                      lichen=0.7, cracks=0.9, seed=20 + n, scale=1.0, mud_h=0.12)
