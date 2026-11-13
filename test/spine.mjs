@@ -1,4 +1,4 @@
-// v0.67 save-spine smoke: fresh stamp → legacy record walks the gauntlet once → one-shot versioned backup →
+// Save-spine smoke (v0.67, version-agnostic since v0.70): fresh stamp → legacy record walks the gauntlet once → one-shot versioned backup →
 // both stash shapes resume (twice) → resume path snapshots → corrupt main save recovers → new banner from recovery.
 const { chromium } = await import(process.env.PW_MODULE || 'playwright');   // PW_MODULE=/path/to/playwright/index.mjs if not installed locally
 const BASE = process.env.GB_URL || 'http://localhost:8931/';                 // python3 -m http.server 8931 --directory . in the repo root
@@ -14,13 +14,17 @@ await page.addInitScript(() => {
   const job = localStorage.getItem('__test_stash_job'); if (!job) return;
   localStorage.removeItem('__test_stash_job');
   const j = JSON.parse(job);
-  if (j.dropBackup) localStorage.removeItem('graveborne_pre_v67');
+  if (j.dropBackup) for (const k of Object.keys(localStorage)) if (/^graveborne_pre_v\d+$/.test(k)) localStorage.removeItem(k);
   const d = JSON.parse(localStorage.getItem('graveborne_active_v01') || 'null'); if (!d) return;
   if (j.stripVer) delete d.S.ver;
   if (j.legacyDims) { d.GW = d.S.battle.gw; d.GH = d.S.battle.gh; delete d.S.battle.gw; delete d.S.battle.gh; }
   localStorage.setItem('graveborne_active_v01', JSON.stringify(d));
 });
-const boot = async () => { await page.goto(BASE, { waitUntil: 'load' }); await page.waitForTimeout(500); };
+// Since v0.70 a loaded record waits behind the title screen; "Continue" is what a player would press. A resumed
+// battle and the recovery modal both skip the title, so pressing it is conditional.
+const boot = async () => { await page.goto(BASE, { waitUntil: 'load' }); await page.waitForTimeout(500);
+  await page.evaluate(() => { if (G.screen === 'title' && G.state && typeof TCONT === 'function') TCONT(); }); await page.waitForTimeout(100); };
+let VER = 0, BK = '';
 const job = async (j) => page.evaluate((j) => localStorage.setItem('__test_stash_job', JSON.stringify(j)), j);
 const dismissModals = async () => {
   for (let i = 0; i < 12; i++) {
@@ -31,37 +35,44 @@ const dismissModals = async () => {
 
 // 1. fresh record is born stamped, and survives a plain save/load
 await boot();
+VER = await page.evaluate(() => G.SAVE_VER); BK = 'graveborne_pre_v' + VER;
 await page.evaluate(() => { localStorage.clear(); G.newGame(); });
 await dismissModals();
 const fresh = await page.evaluate(() => { G.save(); return { ver: G.state.ver, raw: localStorage.getItem('graveborne_v01'), face: !!G.state.graves[0].face }; });
-if (fresh.ver !== 67) fail('fresh ver: ' + fresh.ver);
+if (fresh.ver !== VER) fail('fresh ver: ' + fresh.ver);
 if (!fresh.face) fail('founding grave has no face on a fresh record');
 await boot();
-const reloaded = await page.evaluate(() => ({ ver: G.state.ver, backup: localStorage.getItem('graveborne_pre_v67') }));
-if (reloaded.ver !== 67) fail('ver after reload: ' + reloaded.ver);
+const reloaded = await page.evaluate((BK) => ({ ver: G.state.ver, backup: localStorage.getItem(BK) }), BK);
+if (reloaded.ver !== VER) fail('ver after reload: ' + reloaded.ver);
 if (reloaded.backup) fail('a current-shape save must NOT write a pre-migration backup');
 
 // 2. legacy record (no ver, fields the gauntlet restores stripped) walks once, gets stamped, gets backed up
 const legacyRaw = await page.evaluate((raw) => {
   const d = JSON.parse(raw); const S = d.S;
   delete S.ver; delete S.unlocks; delete S.kits; delete S.horns; delete S.mapWide; delete S.crossTried; delete S.deedPrimerSeen; delete S.pendingSwordFate;
-  for (const s of S.roster) { delete s.deeds; delete s.retinue; delete s.oath; }
+  delete S.rng; delete S.seedText; delete S.origin; delete S.omens; delete S.cname; delete S.doctrines; delete S.stash; delete S.sup; delete S.evSeen; delete S.nemeses; delete S.flags;   // the v0.70 shape
+  S.deserters = [{ name: 'A released stub', level: 3, town: 0, released: true }];                                          // the pre-v0.70 oath-release record that corrupted a roster on buy-back
+  for (const s of S.roster) { delete s.deeds; delete s.retinue; delete s.oath; delete s.trinket; delete s.hookDone; }
   const out = JSON.stringify(d); localStorage.setItem('graveborne_v01', out); return out;
 }, fresh.raw);
 await boot();
-const mig = await page.evaluate(() => {
+const mig = await page.evaluate((BK) => {
   const S = G.state; return { ver: S.ver, unlocks: !!S.unlocks, kits: S.kits, mapWide: S.mapWide, deeds: Array.isArray(S.roster[0].deeds), retinue: Array.isArray(S.roster[0].retinue),
-    savedVer: JSON.parse(localStorage.getItem('graveborne_v01')).S.ver, backup: localStorage.getItem('graveborne_pre_v67') };
-});
-if (mig.ver !== 67 || mig.savedVer !== 67) fail('legacy record not stamped/saved: ' + JSON.stringify(mig));
+    stash: Array.isArray(S.stash), rng: typeof S.rng, cname: S.cname, doctrines: Array.isArray(S.doctrines), trinket: S.roster[0].trinket,
+    savedVer: JSON.parse(localStorage.getItem('graveborne_v01')).S.ver, backup: localStorage.getItem(BK) };
+}, BK);
+if (mig.ver !== VER || mig.savedVer !== VER) fail('legacy record not stamped/saved: ' + JSON.stringify(mig));
 if (!mig.unlocks || mig.kits !== 0 || mig.mapWide !== false || !mig.deeds || !mig.retinue) fail('legacy gauntlet did not restore fields: ' + JSON.stringify(mig));
+if (!mig.stash || mig.rng !== 'number' || !mig.cname || !mig.doctrines || mig.trinket !== null) fail('v0.70 migration did not build the run/wagons: ' + JSON.stringify(mig));
+const stub = await page.evaluate(() => G.state.deserters.length);
+if (stub !== 0) fail('the released-oath deserter stub survived migration');
 if (mig.backup !== legacyRaw) fail('pre-migration backup must equal the untouched legacy record');
 
 // 3. the backup is one-shot per target: a second legacy record must not overwrite it
 await page.evaluate((raw) => { const d = JSON.parse(raw); delete d.S.ver; d.S.coin = 9999; localStorage.setItem('graveborne_v01', JSON.stringify(d)); }, fresh.raw);
 await boot();
-const oneShot = await page.evaluate(() => ({ coin: G.state.coin, ver: G.state.ver, backup: localStorage.getItem('graveborne_pre_v67') }));
-if (oneShot.coin !== 9999 || oneShot.ver !== 67) fail('second legacy load wrong: ' + JSON.stringify(oneShot));
+const oneShot = await page.evaluate((BK) => ({ coin: G.state.coin, ver: G.state.ver, backup: localStorage.getItem(BK) }), BK);
+if (oneShot.coin !== 9999 || oneShot.ver !== VER) fail('second legacy load wrong: ' + JSON.stringify(oneShot));
 if (oneShot.backup !== legacyRaw) fail('backup was overwritten by a later legacy load');
 
 // 4a. v0.67 stash with its ver stripped: the battle carries gw/gh; the RESUME path migrates and stamps
@@ -72,7 +83,7 @@ await dismissModals();
 await job({ stripVer: true });
 await boot(); await dismissModals();
 const r1 = await page.evaluate(() => { const B = G.state.battle; return { resumed: !!B, ver: G.state.ver, gw: B && B.gw, tiles: B && B.tiles.length, grid: !!document.getElementById('grid') }; });
-if (!r1.resumed || r1.ver !== 67 || !r1.grid) fail('v0.67 stash resume: ' + JSON.stringify(r1));
+if (!r1.resumed || r1.ver !== VER || !r1.grid) fail('v0.67 stash resume: ' + JSON.stringify(r1));
 
 // 4b. an older build's stash kept GW/GH beside S — must resume, adopt them, and resume AGAIN from its own re-stash
 await job({ legacyDims: true });
@@ -86,8 +97,8 @@ if (!r2c.resumed || r2c.gw * r2c.gh !== r2c.tiles || r2c.top !== undefined) fail
 // 4c. the RESUME path must take the pre-migration snapshot too (main record on disk = clean pre-battle save)
 await job({ stripVer: true, dropBackup: true });
 await boot(); await dismissModals();
-const snap = await page.evaluate(() => ({ backup: !!localStorage.getItem('graveborne_pre_v67'), ver: G.state.ver, resumed: !!G.state.battle }));
-if (!snap.resumed || snap.ver !== 67 || !snap.backup) fail('resume path did not snapshot before migrating: ' + JSON.stringify(snap));
+const snap = await page.evaluate((BK) => ({ backup: !!localStorage.getItem(BK), ver: G.state.ver, resumed: !!G.state.battle }), BK);
+if (!snap.resumed || snap.ver !== VER || !snap.backup) fail('resume path did not snapshot before migrating: ' + JSON.stringify(snap));
 
 // 5. recovery: corrupt main save + a versioned backup present → modal offers restore → restore works
 await page.evaluate(() => { G.state.battle = null; localStorage.removeItem('graveborne_active_v01'); localStorage.setItem('graveborne_v01', '{"S":{"broken":'); });   // no live battle, or pagehide re-stashes it and boot never reads the main save
@@ -97,13 +108,13 @@ if (!rec || !rec.includes('Restore the company and reload')) fail('recovery moda
 await page.evaluate(() => { const b = [...document.querySelectorAll('#modal button')].find(x => x.textContent.includes('Restore')); b.click(); });
 await page.waitForTimeout(900);
 const after = await page.evaluate(() => ({ ver: G.state.ver, roster: G.state.roster.length, battle: !!G.state.battle }));
-if (after.ver !== 67 || !after.roster || after.battle) fail('restore from backup failed: ' + JSON.stringify(after));
+if (after.ver !== VER || !after.roster || after.battle) fail('restore from backup failed: ' + JSON.stringify(after));
 
 // 5b. from the recovery modal with NO company loaded, "Raise a new banner" must work (was a TypeError on null S)
 await page.evaluate(() => { G.state.battle = null; localStorage.removeItem('graveborne_active_v01'); localStorage.setItem('graveborne_v01', '{"S":{"broken":'); });
 await boot();
 const nb = await page.evaluate(() => { const b = [...document.querySelectorAll('#modal button')].find(x => x.textContent.includes('Raise a new banner')); if (!b) return 'no-button'; b.click(); return { s: !!G.state, ver: G.state && G.state.ver, roster: G.state && G.state.roster.length }; });
-if (nb === 'no-button' || !nb.s || nb.ver !== 67 || !nb.roster) fail('"Raise a new banner" from recovery with no company loaded: ' + JSON.stringify(nb));
+if (nb === 'no-button' || !nb.s || nb.ver !== VER || !nb.roster) fail('"Raise a new banner" from recovery with no company loaded: ' + JSON.stringify(nb));
 
 const unexpected = errors.filter(e => !e.includes('Failed to load resource'));
 if (unexpected.length) fail('unexpected page errors: ' + JSON.stringify(unexpected, null, 1));
