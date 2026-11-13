@@ -1110,7 +1110,7 @@ function legacyRecordRun(how){
     heir:(S.story&&S.story.heir)||null,act:(S.story&&S.story.stage>=10)?1:0,docs:(S.doctrines||[]).slice()});
   L.runs=L.runs.slice(0,30);
   const worst=walking.filter(g=>g.snap&&!g.seed&&!g.heirloom).sort((a,b)=>((b.snap.level||1)+(b.iter||0))-((a.snap.level||1)+(a.iter||0)))[0];
-  if(worst)L.dead={name:worst.name,face:worst.face,bg:worst.bg,company:S.cname||'the old company',hook:worst.hook,
+  if(worst)L.dead={name:worst.name,face:worst.face,look:worst.look||null,bg:worst.bg,company:S.cname||'the old company',hook:worst.hook,
     snap:{maxhp:Math.min(worst.snap.maxhp,16),skl:Math.min(worst.snap.skl,5),spd:Math.min(worst.snap.spd,5),weapon:worst.snap.weapon,wMod:Math.min(worst.snap.wMod||0,1),
       wAff:worst.snap.wAff||null,aAff:null,armor:Math.min(worst.snap.armor||0,1),feats:(worst.snap.feats||[]).slice(0,2),level:2,cls:worst.snap.cls||'fighter',commander:false,deeds:[],retinue:[]}};
   legacySave(L);
@@ -1346,6 +1346,36 @@ function aarModal(R){
 const SKINS=['#c9a184','#a9825f','#8a6a4f','#e0b89a'];
 const HAIRC=['#2b2118','#54381f','#6b4a2a','#8a8578','#40404a'];
 function makeFace(){return{skin:ri(0,3),hair:ri(0,5),hc:ri(0,4),eyes:ri(0,2),mouth:ri(0,2),extra:ri(0,9)};}
+/* ---- v0.69 LOOKS: every soldier's own rendered head. The art pipeline rolls a pool of heads per form from a seeded
+   genome (art/blender/gb/looks.py: face shape, hair, beard, colouring, age, scars) and renders each one. A soldier is
+   dealt one look id ('f07') at creation and keeps it for life and into the grave. Never two alike among the living
+   (roster, hire pool, deserters and every sworn sword); the dead's heads are avoided while the pool allows. Each
+   entry is what the procedural face shows for that head: [skin, hair colour, hair] (SKINS, HAIRC, faceInner's HAIR).
+   The first LOOKS.founders of each form carry the founding scar and go only to a founding Commander. Must equal
+   art/sprites/heads/looks.json, which the pipeline writes (test/spine.mjs checks). ---- */
+const LOOKS={founders:2,
+  m:[[0,0,5],[1,2,5],[3,1,0],[1,0,0],[0,2,0],[2,4,4],[2,1,3],[3,1,3],[0,0,5],[0,2,2],[2,0,5],[0,2,2],[1,1,5],[0,0,5],[0,0,3],[3,2,4],[3,4,5],[1,0,0],[1,0,2],[2,4,5],[1,1,2],[2,2,0],[0,1,5],[0,0,5]],
+  f:[[0,0,4],[0,1,4],[0,0,1],[0,1,4],[2,2,1],[2,4,4],[0,4,0],[0,2,1],[1,0,1],[1,2,0],[2,1,4],[3,3,4],[1,2,0],[0,0,1],[0,0,1],[2,4,4],[1,1,4],[2,1,4],[0,1,2],[3,0,2],[0,2,1],[3,2,2],[2,2,4],[1,0,0]]};
+const LOOK_F=0.5;   // the share of new soldiers dealt a female head
+function lookId(form,n){ return form+(n<10?'0':'')+n; }
+function lookEntry(id){ return (id&&LOOKS[id[0]])?LOOKS[id[0]][+id.slice(1)]:null; }
+function looksHeld(){
+  const live=new Set(), dead=new Set(), add=(set,p)=>{ if(p&&p.look)set.add(p.look); };
+  for(const arr of [S.roster,S.hirePool,S.deserters]) for(const p of (arr||[])){ add(live,p); for(const w of (p&&p.retinue)||[]) if(w.alive!==false)add(live,w); }
+  for(const g of (S.graves||[])){ add(dead,g); for(const w of ((g.snap&&g.snap.retinue)||[])) add(dead,w); }
+  return {live,dead};
+}
+function lookIds(form,founder){ return LOOKS[form].map((_,n)=>n).filter(n=>founder?n<LOOKS.founders:n>=LOOKS.founders).map(n=>lookId(form,n)); }
+function makeLook(founder){
+  const {live,dead}=looksHeld(), pref=chance(LOOK_F*100)?'f':'m', other=pref==='f'?'m':'f';
+  for(const [form,shunDead] of [[pref,true],[pref,false],[other,true],[other,false]]){
+    const free=lookIds(form,founder).filter(id=>!live.has(id)&&!(shunDead&&dead.has(id)));
+    if(free.length)return pick(free);
+  }
+  return pick(lookIds(pref,founder));   // more of the living than heads: a double, never a crash
+}
+// the procedural face that agrees with a head: its skin, hair colour and hair; eyes, mouth and marks still rolled
+function faceFor(look){ const f=makeFace(), e=lookEntry(look); if(e){ f.skin=e[0]; f.hc=e[1]; f.hair=e[2]; } return f; }
 function faceSvg(f,o){ o=o||{}; const size=o.size||46; return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${faceInner(f,o)}</svg>`; }
 // grimdark board token: the soldier's own face framed in class-distinct armour + weapon (fighter/ranger/cleric/ash-acolyte/shade),
 // with a banner if they carry it. Reads by silhouette & colour when zoomed out, by detail when zoomed in.
@@ -1660,6 +1690,7 @@ function newGame(opts){
   S.caravan={q:realmQ(1),r:realmR(1)};
   O.squad.forEach(c=>S.roster.push(makeSoldier(c)));       // the founding spread — who it is depends on who raised the banner
   S.roster[0].commander=true;
+  S.roster[0].look=makeLook(true); S.roster[0].face=faceFor(S.roster[0].look);   // the founder wears the founding scar
   S.story={stage:0};
   S.rep={karsk:0,folk:0,conclave:0};
   // The founding grave: the company already has one debt walking. Guarantees the signature loop fires by week ~3
@@ -1667,11 +1698,12 @@ function newGame(opts){
   const inherited=(L.dead&&L.dead.snap&&WEAPONS[L.dead.snap.weapon])?L.dead:null;
   const foundGrave=(heir)=>{
     if(heir){ if(!S.usedNames.includes(heir.name))S.usedNames.push(heir.name);
-      S.graves.push({id:nid(),soldierId:-nid(),name:heir.name,bg:clamp(heir.bg|0,0,BACKSTORIES.length-1),face:heir.face||makeFace(),snap:heir.snap,
+      const hl=(heir.look&&lookEntry(heir.look)&&!looksHeld().live.has(heir.look))?heir.look:makeLook();
+      S.graves.push({id:nid(),soldierId:-nid(),name:heir.name,bg:clamp(heir.bg|0,0,BACKSTORIES.length-1),face:heir.face||faceFor(hl),look:hl,snap:heir.snap,
         bonds:[S.roster[0].id],state:'lost',regionId:0,weekDied:0,iter:0,hook:heir.hook||'left walking by the last banner',seed:true,heirloom:true,from:heir.company});
       return S.graves[S.graves.length-1]; }
     const fd=makeSoldier();
-    S.graves.push({id:nid(),soldierId:fd.id,name:fd.name,bg:fd.bg,face:fd.face,
+    S.graves.push({id:nid(),soldierId:fd.id,name:fd.name,bg:fd.bg,face:fd.face,look:fd.look,
       snap:{maxhp:fd.maxhp,skl:fd.skl,spd:fd.spd,weapon:fd.weapon,wMod:1,armor:fd.armor,feats:['duelist'],level:2,cls:fd.cls,commander:!!fd.commander},
       bonds:[S.roster[0].id],state:'lost',regionId:0,weekDied:0,iter:0,hook:bgOf(fd).hook,seed:true});
     return S.graves[S.graves.length-1];
@@ -1707,10 +1739,10 @@ function makeSoldier(clsKey){
   if(!choices.length)choices=all.filter(i=>!S.usedBg.includes(i));
   if(!choices.length)choices=all;
   const bgIdx=pick(choices); S.usedBg.push(bgIdx);
-  const maxhp=ri(C.hp[0],C.hp[1]);
+  const maxhp=ri(C.hp[0],C.hp[1]), look=makeLook();
   return {id:nid(),name,cls,bg:bgIdx,hp:maxhp,maxhp,skl:ri(C.skl[0],C.skl[1]),spd:ri(C.spd[0],C.spd[1]),res:ri(C.res[0],C.res[1]),
           weapon:pick(C.wpns),wMod:0,wName:null,wAff:null,aAff:null,armor:ri(C.arm[0],C.arm[1]),feats:(C.start?[C.start]:[]),xp:0,level:1,bonds:[],battles:0,
-          rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0,
+          rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:faceFor(look),look,traits:[],corr:0,
           deeds:[],retinue:[],oath:null,bannerWeek:0,trinket:null,hookDone:false};
 }
 function makeCinderling(){ // the rare underkingdom smoke-runner: fights as a guest, joins if they live
@@ -1754,6 +1786,7 @@ function noteKill(att,def){
   else if(def.ekey==='blightsorc')m.push('sorc');
 }
 function isSword(u){ return !!(u&&u.sword); }
+function swordOf(u){ const o=soldierById(u.ownerId), w=o&&(o.retinue||[]).find(x=>x.id===u.swordId); return w||{cls:(WEAPONS[u.weapon]||{}).rng>1?'ranger':'fighter',face:null}; }
 // Name Levels are earned, never bought with XP. L6 needs three tellings, one of them hers alone.
 function nameEligible(s){
   if(!s||!s.alive||s.guest)return 0;
@@ -1766,8 +1799,8 @@ function livingSwords(s){ return ((s&&s.retinue)||[]).filter(w=>w.alive); }
 function makeSword(){
   const cls=chance(70)?'fighter':'ranger', C=CLASSES[cls];
   const name=freshName();
-  const hookId=ri(0,SWORD_HOOKS.length-1), maxhp=12+ri(0,2);
-  return {id:nid(),name,face:makeFace(),cls,weapon:pick(C.wpns),wMod:0,wAff:null,aAff:null,armor:1,
+  const hookId=ri(0,SWORD_HOOKS.length-1), maxhp=12+ri(0,2), look=makeLook();
+  return {id:nid(),name,face:faceFor(look),look,cls,weapon:pick(C.wpns),wMod:0,wAff:null,aAff:null,armor:1,
     hp:maxhp,maxhp,skl:C.skl[0]+1,spd:C.spd[0],res:20,
     tier:0,battlesWith:0,alive:true,joined:S.week,hookId};
 }
@@ -1781,7 +1814,7 @@ function bgOf(s){return BACKSTORIES[s.bg];}
 function refreshHirePool(){
   // whoever was not hired walks back out of the story — and hands their name and their past back to the roll
   for(const h of (S.hirePool||[])){ releaseName(h.name); if(S.usedBg){ const i=S.usedBg.indexOf(h.bg); if(i>=0)S.usedBg.splice(i,1); } }
-  S.hirePool=[makeSoldier(),makeSoldier()];
+  S.hirePool=[]; for(let i=0;i<2;i++)S.hirePool.push(makeSoldier());   // one at a time: each new head is dealt knowing the last
   for(const h of S.hirePool){
     if(doc('oldhands')){ h.level=2; h.xp=XP_LVL[1]; h.maxhp+=2; h.cost+=8; const f=offerFeats(h)[0]; if(f)h.feats.push(f); }
     h.hp=omen('plagueyear')?Math.ceil(h.maxhp*0.75):h.maxhp;
@@ -1801,10 +1834,12 @@ function save(){ if(!S||S.battle) return; try{ localStorage.setItem('graveborne_
    hand-synced migration lists (and drifted once: a version bump landing while a battle was stashed resumed into
    a save with no deeds). To change the save shape: bump SAVE_VER and append {to:SAVE_VER, run}. Never edit a
    shipped entry — it has already run on someone's record. ---- */
-const SAVE_VER=70;
+const SAVE_VER=71;
 const MIGRATIONS=[
   {to:67, run:migrateLegacy},   // everything from v0.1 to v0.66, as it always ran
   {to:70, run:migrateV070},     // the run (seed stream, origin, omens, doctrines), the wagons, charms, the muster roll
+  {to:71, run:migrateV071},     // the graphics overhaul: every soldier, sword and grave is dealt a head (LOOKS); and the
+                                // oath-release stubs swept from the ROSTER too, where a buy-back had already carried one
 ];
 // v0.70 — a record from before the run existed becomes one: it gets a stream of its own (unseeded — its world is already
 // drawn), a name, empty wagons, and credit in the Hall for what it has already done. Presence-tested, like every entry.
@@ -1913,6 +1948,57 @@ function migrateV063(){
   if(S.crossTried===undefined)S.crossTried={};
   if(S.actOneClosed===undefined)S.actOneClosed=!!(S.story&&S.story.stage>=10);
   return true;
+}
+// v0.68: releasing a soldier in an oath crisis used to push a stub {name,level,town,released:true} into S.deserters.
+// It was never a soldier: with no weekGone it never expired and showed "NaN wk to find them"; it kept a dead run
+// alive at the game-over check; and buying it back put it on the roster, where its card threw on the missing
+// bonds. A release is final (the chronicle keeps it), so the stubs go, from the deserters and from any roster a
+// buy-back already carried one into. The v0.67 walk may have stamped a class and oath fields onto them; the
+// `released` flag survives that, and nothing else ever set it.
+function migrateReleasedStubs(){
+  let touched=false;
+  const stub=p=>!!p&&p.released===true;
+  for(const key of ['deserters','roster']){
+    if(!Array.isArray(S[key]))continue;
+    const kept=S[key].filter(p=>!stub(p));
+    if(kept.length!==S[key].length){ S[key]=kept; touched=true; }
+  }
+  return touched;
+}
+// v0.69: a company already on the books is dealt heads that match the faces it has worn all along (the skin first,
+// then the hair colour, then the hair), the living before the dead, so the living claim the closest heads. The
+// founder gets a founder's head: the first Commander to fall, else one who deserted with the banner, else the one
+// who holds it now. A record that somehow holds two of the living in one head has the later one re-dealt.
+function lookMatching(face,founder){
+  const {live,dead}=looksHeld(), beard=!!face&&face.hair===5;
+  for(const strict of [true,false]){    // a beard on the face means a beard on the head, and none means none, while any are free
+    let best=null, top=-1;
+    for(const form of ['m','f']) for(const id of lookIds(form,founder)){
+      const e=lookEntry(id);
+      if(live.has(id)||dead.has(id)||(strict&&(e[2]===5)!==beard))continue;
+      const sc=(face?(e[0]===face.skin?4:0)+(e[1]===face.hc?2:0)+(e[2]===face.hair?1:0):0)+rnd()*0.5;
+      if(sc>top){ top=sc; best=id; }
+    }
+    if(best)return best;
+  }
+  return makeLook(founder);
+}
+function migrateV071(){ const a=migrateReleasedStubs(), b=migrateLooks(); return a||b; }
+function migrateLooks(){
+  let touched=false;
+  const living=[], dead=[];
+  for(const arr of [S.roster,S.hirePool,S.deserters]) for(const p of (arr||[])){ if(!p)continue; living.push(p); for(const w of (p.retinue||[]))living.push(w); }
+  for(const g of (S.graves||[])){ dead.push(g); for(const w of ((g.snap&&g.snap.retinue)||[]))dead.push(w); }
+  const founder=(S.graves||[]).find(g=>g.snap&&g.snap.commander)||(S.deserters||[]).find(p=>p&&p.wasCommander)
+    ||S.roster.find(p=>p.commander)||null;
+  const seen=new Set();
+  for(const p of living){
+    if(p.look&&!seen.has(p.look)&&lookEntry(p.look)){ seen.add(p.look); continue; }
+    if(p.look){ p.look=null; }                                    // a double among the living (or a head the pool lost)
+    p.look=lookMatching(p.face,p===founder); seen.add(p.look); touched=true;
+  }
+  for(const g of dead){ if(!g.look){ g.look=lookMatching(g.face,g===founder); touched=true; } }
+  return touched;
 }
 function migrateV060(){
   let touched=false;
@@ -3484,7 +3570,7 @@ function spawnRevenantRetinue(B,rev,revLvl,it){
     h.podId=pod.id; h.undead=true; h.revguard=true;   // rides on top of the power budget, like the revenant itself
     h.hp+=bump; h.maxhp+=bump; h.skl+=1;
     if(revLvl>=5&&WEAPONS[h.weapon]&&WEAPONS[h.weapon].up)h.weapon=WEAPONS[h.weapon].up;
-    if(rw){ h.name=rw.name+', Still Sworn'; h.face=rw.face; h.stillSworn=true;
+    if(rw){ h.name=rw.name+', Still Sworn'; h.face=rw.face; h.look=rw.look; h.stillSworn=true;
             if(rw.weapon)h.weapon=rw.weapon; h.hp+=2*(rw.tier||0); h.maxhp+=2*(rw.tier||0); }
     else h.name=(revLvl>=6?'Dread ':'Risen ')+h.name.replace(/^Dread /,'');   // (a tier-upgraded Dread Graveguard was coming out "Dread Dread")
     pod.members.push(h.uid);
@@ -4066,10 +4152,10 @@ function killSoldier(s){
               // her whole retinue is captured here because the soldier object leaves the roster with her;
               // endBattle then PRUNES every sword that survived (walked or stayed). Only the ones who fell
               // beside her remain — which is what rises with her. Skipping the prune is the double-life bug.
-              retinue:(s.retinue||[]).map(w=>({id:w.id,name:w.name,face:w.face,cls:w.cls,weapon:w.weapon,tier:w.tier,hookId:w.hookId}))};
+              retinue:(s.retinue||[]).map(w=>({id:w.id,name:w.name,face:w.face,look:w.look,cls:w.cls,weapon:w.weapon,tier:w.tier,hookId:w.hookId}))};
   const bonds=s.bonds.map(b=>b.id);
   S.graves.push({id:nid(),soldierId:s.id,name:s.name,bg:s.bg,snap,bonds,state:'field',regionId:S.battle?S.battle.regionId:0,
-                 weekDied:S.week,iter:0,hook:s.ashPromised?'a promise to the Ash, unkept':(s.hookDone?'nothing — she saw to it herself':bgOf(s).hook),settled:!!s.hookDone&&!s.ashPromised,face:s.face});
+                 weekDied:S.week,iter:0,hook:s.ashPromised?'a promise to the Ash, unkept':(s.hookDone?'nothing — she saw to it herself':bgOf(s).hook),settled:!!s.hookDone&&!s.ashPromised,face:s.face,look:s.look});
   if(s.commander){ s.commander=false; ensureCommander(); if(S.story)S._cmdrLost=s.name; log('The Commander has fallen with the banner in hand.','bad'); }
   S.chronicle.push(`Week ${S.week}: ${s.name} (${bgOf(s).tag}) fell — ${bgOf(s).hook}.`);
   // bonded survivors take it hard — and carry it until she rests
@@ -6952,10 +7038,10 @@ function renderBattle(){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
       const badge=un.sanctuary>0?'<span class="stx" style="color:#e6d98a">☨</span>':un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
-      if(un.kind==='pc'){ const ps=un.sword?{cls:(WEAPONS[un.weapon]||{}).rng>1?'ranger':'fighter',face:null}:soldierById(un.ref); inner=ps?pcTopDown(ps,fsz):esc(un.name[0]); }
+      if(un.kind==='pc'){ const ps=un.sword?swordOf(un):soldierById(un.ref); inner=ps?pcTopDown(ps,fsz):esc(un.name[0]); }
       else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):villagerTopDown(un,fsz);
       else if(un.prop)inner=un.ekey==='menhir'?menhirSvg(fsz):nestSvg(fsz);
-      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcTopDown({cls:(g2.snap&&g2.snap.cls),face:g2.face,commander:g2.snap&&g2.snap.commander},fsz,{revenant:true}):esc(un.name[0]); }
+      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcTopDown({cls:(g2.snap&&g2.snap.cls),face:g2.face,look:g2.look,commander:g2.snap&&g2.snap.commander},fsz,{revenant:true}):esc(un.name[0]); }
       else inner=foeTopDown(un,fsz);
       const cls2=un.kind==='ally'?'ally':cls;
       const crown=(B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
@@ -6983,7 +7069,7 @@ function renderBattle(){
   let showFace='';
   if(show){
     if(show.kind==='pc'){const ps=soldierById(show.ref); if(ps)showFace=`<div class="face" style="float:right">${pcTopDown(ps,48)}</div>`;}
-    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcTopDown({cls:g2.snap&&g2.snap.cls,face:g2.face,commander:g2.snap&&g2.snap.commander},48,{revenant:true})}</div>`;}
+    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcTopDown({cls:g2.snap&&g2.snap.cls,face:g2.face,look:g2.look,commander:g2.snap&&g2.snap.commander},48,{revenant:true})}</div>`;}
     else if(!show.prop)showFace=`<div class="face" style="float:right">${enemyFace(show.ekey,44)}</div>`;
   }
   const showTrk=show&&TRINKETS[show.trk];
