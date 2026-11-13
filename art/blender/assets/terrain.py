@@ -6,7 +6,11 @@ A blighted northern land: ragged dark conifers, a gnarled broadleaf holding a fe
 lichened rock; walls of coursed rough stone, broken down, their tops a litter of rubble.
 
 Walls fill their tile exactly (x in [-0.5, 0.5], y in [-0.707, 0.707] on the ground) with flush faces, so the sprites
-of neighbouring wall tiles butt into one wall; they carry no ground shadow (it would fall on the neighbours).
+of neighbouring wall tiles butt into one wall; they carry no ground shadow (it would fall on the neighbours). The
+east and west faces run SEAM (0.006 tile, 1.5 px of a shipped sprite) past x = +-0.5, so the antialiased edges of
+two neighbours overlap instead of leaving a hairline of ground between them. The house canvas ends 0.39 tile below
+the tile centre, so the lowest 0.11 tile (on screen) of a wall's south face is cropped: its foot shows 0.11 tile above the tile's
+south edge.
 """
 import math
 
