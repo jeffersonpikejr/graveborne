@@ -345,7 +345,9 @@
   #grid .ge-s{-webkit-mask-image:url(assets/sprites/ground_edge_s.webp);mask-image:url(assets/sprites/ground_edge_s.webp)}
   #grid .ge-w{-webkit-mask-image:url(assets/sprites/ground_edge_w.webp);mask-image:url(assets/sprites/ground_edge_w.webp)}
   #grid .gbl{animation:bpulse 3.2s ease-in-out infinite}
-  #grid .gbr{box-shadow:inset 0 calc(var(--ts)*.07) 0 #1a120a,inset 0 calc(var(--ts)*-.07) 0 #1a120a,inset 0 calc(var(--ts)*.1) 0 rgba(120,96,66,.5),inset 0 calc(var(--ts)*-.1) 0 rgba(0,0,0,.5)}
+  #grid .grl{position:absolute;pointer-events:none;background:linear-gradient(#3a2a19,#1a120a);box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 6px rgba(0,0,0,.6)}
+  #grid .grl-n{left:0;right:0;top:0;height:calc(var(--ts)*.085)} #grid .grl-s{left:0;right:0;bottom:0;height:calc(var(--ts)*.085)}
+  #grid .grl-w{top:0;bottom:0;left:0;width:calc(var(--ts)*.085)} #grid .grl-e{top:0;bottom:0;right:0;width:calc(var(--ts)*.085)}
   #grid .gbr.ns{transform:rotate(90deg)} #grid .tile.g-planks.gt:has(.gbr.ns){background-image:none}
   #grid .gbr.ns{background:url(assets/sprites/ground_planks.webp) 0 0/calc(var(--ts)*8) calc(var(--ts)*8)}
   #grid img.ts{position:absolute;max-width:none;pointer-events:none;width:calc(var(--ts)*1.5);height:calc(var(--ts)*1.5);left:calc(var(--ts)*-0.25);top:calc(var(--ts)*-0.61);-webkit-user-drag:none}
@@ -1598,9 +1600,12 @@ function tileRendered(B,x,y,t,gk){
     const nk=groundKind(B,nb); if(nk===gk||nk==='planks'||!groundOn(nk))continue;
     if((GROUND_PRIO[nk]==null?5:GROUND_PRIO[nk])>my)s+=`<i class="ge ge-${side} g-${nk}"></i>`;
   }
-  if(t.t==='bridge'){ const wet=(dx,dy)=>{ const nb=tileAt(B,x+dx,y+dy); return !!nb&&(nb.t==='water'||nb.t==='chasm'); };
-    const ns=(wet(-1,0)||wet(1,0))&&!(wet(0,-1)||wet(0,1));           // water to the sides: the bridge runs north-south
-    s+=`<i class="gbr ${ns?'ns':''}"></i>`; }
+  if(t.t==='bridge'){ const wet=(dx,dy)=>{ const nb=tileAt(B,x+dx,y+dy); return nb&&(nb.t==='water'||nb.t==='chasm')?1:0; };
+    const br=(dx,dy)=>{ const nb=tileAt(B,x+dx,y+dy); return nb&&nb.t==='bridge'?1:0; };
+    const a=wet(-1,0)+wet(1,0)+br(0,-1)+br(0,1), b=wet(0,-1)+wet(0,1)+br(-1,0)+br(1,0);
+    const ns=a>b||(a===b&&br(0,-1)+br(0,1)>0);        // water to the sides, deck ahead and behind: the bridge runs north-south
+    s+=`<i class="gbr ${ns?'ns':''}"></i>`;
+    for(const [dx,dy,side] of (ns?[[-1,0,'w'],[1,0,'e']]:[[0,-1,'n'],[0,1,'s']]))if(!br(dx,dy))s+=`<i class="grl grl-${side}"></i>`; }   // a rail on each open side
   if(t.blighted&&t.t!=='water'&&t.t!=='chasm'&&groundOn('blight'))s+=`<i class="ge g-blight gbl"></i>`;
   const tk=TERR_SPR[t.t], src=tk?sprOf(tk,x,y):null;
   if(src)s+=sprImg(src,'ts'+(t.t==='rubble'?' tw':''));

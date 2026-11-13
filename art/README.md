@@ -33,7 +33,8 @@ Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 
 phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/path/to/playwright/index.mjs`).
 `index.html` is not modified until an asset is approved.
 
-    python3 art/tools/wire.py fighter ranger cleric acolyte   # ship: copy those classes to assets/sprites, rewrite the manifest
+    .bvenv/bin/python art/tools/ground.py                     # paint the ground sheets, edge masks, map sheets and UI grain (no Blender)
+    python3 art/tools/wire.py fighter ranger cleric acolyte foe prop terr deco ground map ui   # ship: copy those to assets/sprites, rewrite the manifest
     python3 art/tools/wire.py --check                         # the page's manifest matches assets/sprites exactly
 
 `wire.py` is the last step: it copies the named classes from `art/sprites` to `assets/sprites` (the only sprite folder

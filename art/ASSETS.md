@@ -113,6 +113,26 @@ game's hand-drawn top-down SVG until Wave 2 is done, so the enemy side keeps one
 kit, so a Fighter carrying a mace, axe or spear still draws with the broadsword and shield; per-weapon Fighter kits
 (like the Ranger's spear kit) are the fix.
 
+**v0.72:** everything else on the battlefield and the march is wired in the same way (2026-11-13, at the owner's
+call to refresh all the graphics): all 14 foes, the objective props, terrain, a scatter kit, painted ground and the
+painted march map. **All of it is 🔍: built and shipped without a review pass**, to be reviewed in the game.
+What was built against this plan, and where it falls short of it:
+- **Foes 8, 11–13, 15–19** were built in one pass each from the kit (new modules `gb/karsk.py`, `gb/conclave.py`,
+  `gb/risen.py`, `gb/beast.py`), two looks per form (two seeds for the beasts and the Troll). No tier or leader looks
+  for them yet (Hardened Deserter, the deserters' Captain, Dread, Elder, Feral): those foes draw their base look.
+  The Hound, Hound-Rider and Troll are the roughest (the first quadruped and brute); the Troll fills the standard
+  canvas rather than the planned 1.8 tiles. Known flaws per foe are listed in the v0.72 notes in `README.md`.
+- **Ground (26, 30)** is painted, not rendered: `art/tools/ground.py` builds seamless 8-tile sheets from periodic
+  noise (eight earths by battlefield theme, road, mire, water, bridge planks, chasm, the Blight's stain) and the
+  ragged masks one ground takes where it runs over its neighbour.
+- **Walls (27)** are four full-tile blocks that butt together, not a 16-piece autotile.
+- **Fallen soldier (20)** is three generic shrouded bodies, not one per class. **Scatter (32)** is 12 pieces.
+- **March map (33, 34)**: painted sheets under the hexes (the battlefield's earths seen from higher), the battle's
+  trees and rocks as hex glyphs, and the tokens as miniatures of the battle sprites. The Karsk column borrows the
+  Shieldman (a deserter, his mark scraped off) until the Crown's own are drawn with the mark whole.
+- **Not done:** the Shade (5), objective ground (25), elevation restyle (31), settlements and features (35–37),
+  portrait busts (38: cards now crop each soldier's battle sprite instead), a 9-slice UI kit (40: the chrome is CSS).
+
 ### Wave 1 — The Company (style anchor + every unit you control)
 | # | Asset | Variants | Score | Status |
 |---|---|---|---|---|
@@ -128,47 +148,47 @@ Ordered by how often each appears across contract pools and pod doctrines, with 
 regroups them into a build order.
 | # | Asset | Why here | Score | Status |
 |---|---|---|---|---|
-| 6 | Husk | in 7 of 8 contract pools + 4 doctrines — the most common foe | 3×2×3 = 18 | 🔍 |
-| 7 | Cutthroat | **no art today**; patrol + hunt pools, Warband | 3×3×2 = 18 | 🔍 |
-| 8 | Shieldman | **no art today**; purge/hold/reclaim pools, Shieldwall | 3×3×2 = 18 | ⏳ |
-| 9 | Blight-hound | hunt/purge/hold/delve pools, Outriders; first quadruped rig | 3×2×3 = 18 | ⏳ |
-| 10 | Brigand | patrol pool ×2, Warband | 3×2×2 = 12 | 🔍 |
-| 11 | Graveguard | hold/delve/reclaim, Risen/Conclave/Warhost | 3×2×2 = 12 | ⏳ |
-| 12 | Conclave Acolyte | six contract pools | 3×2×2 = 12 | ⏳ |
-| 13 | Levy Pikeman | **no art today**; hold pool, Shieldwall | 2×3×2 = 12 | ⏳ |
-| 14 | Brigand Archer | patrol pool, Warband | 2×2×2 = 8 | 🔍 |
-| 15 | Deserter | patrol pool | 2×2×2 = 8 | ⏳ |
-| 16 | Hound-Rider | Outriders (reuses hound + humanoid rigs) | 2×2×2 = 8 | ⏳ |
-| 17 | Blight-Mage | Ebon Coven VIP | 1×2×2 = 4 | ⏳ |
-| 18 | Blight-Sorcerer | Conclave Circle VIP | 1×2×2 = 4 | ⏳ |
-| 19 | Blight-Troll | Warhost VIP, 34 HP — should look it (overflows its tile) | 1×2×2 = 4 | ⏳ |
+| 6 | Husk | in 7 of 8 contract pools + 4 doctrines — the most common foe | 3×2×3 = 18 | 🔍 🎮 |
+| 7 | Cutthroat | **no art today**; patrol + hunt pools, Warband | 3×3×2 = 18 | 🔍 🎮 |
+| 8 | Shieldman | **no art today**; purge/hold/reclaim pools, Shieldwall | 3×3×2 = 18 | 🔍 🎮 |
+| 9 | Blight-hound | hunt/purge/hold/delve pools, Outriders; first quadruped rig | 3×2×3 = 18 | 🔍 🎮 |
+| 10 | Brigand | patrol pool ×2, Warband | 3×2×2 = 12 | 🔍 🎮 |
+| 11 | Graveguard | hold/delve/reclaim, Risen/Conclave/Warhost | 3×2×2 = 12 | 🔍 🎮 |
+| 12 | Conclave Acolyte | six contract pools | 3×2×2 = 12 | 🔍 🎮 |
+| 13 | Levy Pikeman | **no art today**; hold pool, Shieldwall | 2×3×2 = 12 | 🔍 🎮 |
+| 14 | Brigand Archer | patrol pool, Warband | 2×2×2 = 8 | 🔍 🎮 |
+| 15 | Deserter | patrol pool | 2×2×2 = 8 | 🔍 🎮 |
+| 16 | Hound-Rider | Outriders (reuses hound + humanoid rigs) | 2×2×2 = 8 | 🔍 🎮 |
+| 17 | Blight-Mage | Ebon Coven VIP | 1×2×2 = 4 | 🔍 🎮 |
+| 18 | Blight-Sorcerer | Conclave Circle VIP | 1×2×2 = 4 | 🔍 🎮 |
+| 19 | Blight-Troll | Warhost VIP, 34 HP — should look it (overflows its tile) | 1×2×2 = 4 | 🔍 🎮 |
 
 ### Wave 3 — Bodies & objective props (what the fight is about)
 | # | Asset | Why | Score | Status |
 |---|---|---|---|---|
-| 20 | **Fallen soldier**, per class | today a ☠ glyph; bodies are the game's core loop | 2×3×3 = 18 | ⏳ |
-| 21 | Blight-menhir | **wrong art today** (draws as a nest); menhir-field objective | 2×3×2 = 12 | ⏳ |
-| 22 | Blight-nest | Burn the Nest objective | 2×2×2 = 8 | ⏳ |
-| 23 | Escort wagon | Escort objective | 2×2×2 = 8 | ⏳ |
-| 24 | Villager charge | Protect objective (today a face) | 2×2×1 = 4 | ⏳ |
+| 20 | **Fallen soldier**, per class | today a ☠ glyph; bodies are the game's core loop | 2×3×3 = 18 | 🔍 🎮 |
+| 21 | Blight-menhir | **wrong art today** (draws as a nest); menhir-field objective | 2×3×2 = 12 | 🔍 🎮 |
+| 22 | Blight-nest | Burn the Nest objective | 2×2×2 = 8 | 🔍 🎮 |
+| 23 | Escort wagon | Escort objective | 2×2×2 = 8 | 🔍 🎮 |
+| 24 | Villager charge | Protect objective (today a face) | 2×2×1 = 4 | 🔍 🎮 |
 | 25 | Objective ground / rite shrine | Seize the Ground, Hold the Rite | 2×2×1 = 4 | ⏳ |
 
 ### Wave 4 — The Battlefield (largest area on screen)
 | # | Asset | Notes | Score | Status |
 |---|---|---|---|---|
-| 26 | Ground set: grass-mud, road, mire, blighted | tileable, 3–4 variants each to kill repetition | 3×2×3 = 18 | ⏳ |
-| 27 | Ruined walls — 16-piece autotile | matches `wallArt`'s N/S/E/W exposure logic | 3×2×2 = 12 | ⏳ |
-| 28 | Trees & brush | cover reads as cover | 3×2×2 = 12 | ⏳ |
-| 29 | Boulders, standing stones, fallen columns | line-of-sight blockers | 3×2×2 = 12 | ⏳ |
-| 30 | Water, chasm edge, bridge | river / cliffs maps | 2×2×2 = 8 | ⏳ |
+| 26 | Ground set: grass-mud, road, mire, blighted | tileable, 3–4 variants each to kill repetition | 3×2×3 = 18 | 🔍 🎮 |
+| 27 | Ruined walls — 16-piece autotile | matches `wallArt`'s N/S/E/W exposure logic | 3×2×2 = 12 | 🔍 🎮 |
+| 28 | Trees & brush | cover reads as cover | 3×2×2 = 12 | 🔍 🎮 |
+| 29 | Boulders, standing stones, fallen columns | line-of-sight blockers | 3×2×2 = 12 | 🔍 🎮 |
+| 30 | Water, chasm edge, bridge | river / cliffs maps | 2×2×2 = 8 | 🔍 🎮 |
 | 31 | Elevation: cliff faces & slope lips | restyle the z-level overlay to match | 3×1×2 = 6 | ⏳ |
-| 32 | Deco scatter kit (15 props) | bones, skulls, barrels, carts, reeds, blood… | 3×1×1 = 3 | ⏳ |
+| 32 | Deco scatter kit (15 props) | bones, skulls, barrels, carts, reeds, blood… | 3×1×1 = 3 | 🔍 🎮 |
 
 ### Wave 5 — The March (world map)
 | # | Asset | Notes | Score | Status |
 |---|---|---|---|---|
-| 33 | Hex terrain: plains, forest, hills, marsh, mountain + blight | fogged/rumoured provinces reuse them desaturated | 2×2×3 = 12 | ⏳ |
-| 34 | Map tokens: caravan, Karsk column, horde, revenant, brigands, hunters | emoji today (⛺ ♞ ☠ ⚰ ⚑ ⚚) | 2×2×2 = 8 | ⏳ |
+| 33 | Hex terrain: plains, forest, hills, marsh, mountain + blight | fogged/rumoured provinces reuse them desaturated | 2×2×3 = 12 | 🔍 🎮 |
+| 34 | Map tokens: caravan, Karsk column, horde, revenant, brigands, hunters | emoji today (⛺ ♞ ☠ ⚰ ⚑ ⚚) | 2×2×2 = 8 | 🔍 🎮 |
 | 35 | Settlements & Karsk Gate | | 2×2×1 = 4 | ⏳ |
 | 36 | Features: ruin, shrine, barrow, battlefield, watchtower | | 2×1×1 = 2 | ⏳ |
 | 37 | Chokepoint markers (8 crossings) | | 2×1×1 = 2 | ⏳ |

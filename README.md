@@ -13,6 +13,44 @@ Single-file game — no build, no backend, no audio or image files; saves to you
 - **Keys**: `Tab`/`Space` next soldier · `1`–`9` abilities · `B` brace · `U` undo a step · `E`/`Enter` end turn · `WASD`/arrows pan · `+`/`−` zoom · `M` whole field · `C` centre · `V` inspect · `L` log · `R` retreat · `Esc` cancel · `?` help.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.72 (2026-11-13) — The Whole Field, Rendered
+v0.71 put the rendered company on a field that was still flat colour and hand-drawn tokens. This version redraws
+everything else so the game is one picture. **None of the new art has had a review pass** — it is wired so it can be
+judged in the game (`art/ASSETS.md` lists each piece and where it falls short of the plan), and
+**Settings → Art → Classic** puts every drawn figure and the flat ground back.
+
+**Every enemy.** All fourteen foes are Blender sprites built from the company's own kit: the brigands, the Husk
+and its Ironbound and Bloated looks, the Karsk deserters (Shieldman behind a scraped heater, Levy Pikeman, Deserter
+in a cut tabard), the Conclave in ash robes and bone masks (Acolyte, Blight-Mage, Blight-Sorcerer), the Graveguard,
+the Blight-hound, the Hound-Rider and the Blight-Troll. Each unit is dealt a look by its id, its tier's look when its
+name carries one, and the captain's when it leads. The ring under its feet carries the side: red for the living,
+green for the dead.
+
+**The ground and what stands on it.** Each battlefield lies on painted earth for its theme (heath, forest floor,
+marsh, scree, yard dirt, ashen Blight-ground, grave turf, crypt flagstones), with roads, mire, water, bridge planks
+and the chasm painted too, and one ground running ragged over the next instead of meeting in a square edge. Trees,
+boulders, brush, columns, standing stones and ruined walls are rendered and stand up the screen; so are the
+Blight-nest and menhir, the escort wagon, the villagers, supply caches, the fallen, and a scatter of bones, barrels
+and wreckage. Move, dash and threat highlights sit over the paint rather than replacing it.
+
+**The march.** The hex map is painted country with the battlefield's own trees and rocks on it, and whoever walks it
+stands on it as a miniature: brigands under their standard, a horde, the Conclave's hunters, your own dead.
+
+**Faces and chrome.** Every soldier's card shows a portrait cut from her own sprite (the head she wears on the field);
+panels and buttons carry a worn-leather grain; the title screen musters the company under the banner.
+
+**Known rough edges.** The hound, hound-rider and troll are first passes of a new rig and read coarser than the
+humanoids. The Graveguard is the Fighter's plate with no corpse flesh showing; the Conclave have no hood-down look;
+several foes have no tier or leader look yet and draw their base look. The Karsk column on the map borrows the
+Shieldman deserter. Story portraits (the princess, contacts) are still the drawn faces. Walls show a course line at
+each tile when stacked north to south. The sprite folder is now about 9 MB.
+
+**Under the hood.** No save change (shape stays 71). `art/tools/ground.py` paints the ground sheets, edge masks,
+map sheets and UI grain (numpy and Pillow, no Blender). `art/tools/wire.py` takes groups
+(`foe prop terr deco ground map ui`) and skips a sprite a render is still writing. Asset scripts for the new foes,
+terrain and props are in `art/blender/assets/`, their shared pieces in `gb/karsk.py`, `conclave.py`, `risen.py`,
+`beast.py` and `terrain.py`. The regression suite adds a rendered-field check (26).
+
 ## v0.71 (2026-11-13) — The Company, Rendered
 Two pieces of work built on their own branches in September and October never reached `main`, and v0.70 was built
 without them. This version merges both into v0.70.
