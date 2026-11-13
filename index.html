@@ -1256,6 +1256,7 @@ function placeCaches(B,contract){
   if(contract&&(contract.story||contract.ambush))n=Math.min(n,1);
   const cands=B.tiles.filter(t=>!bImpass(t.t)&&region.has(t.x+','+t.y)&&distC(t,sp)>=7&&!unitAt(B,t.x,t.y)&&!(B.objTile&&B.objTile.x===t.x&&B.objTile.y===t.y)&&!t.blighted&&t.t!=='water');
   for(let i=0;i<n&&cands.length;i++){ const t=cands.splice(ri(0,cands.length-1),1)[0]; t.cache=true; t.deco=null; }
+  if(B.campCache){ const t=tileAt(B,B.campCache.x,B.campCache.y); if(t&&!bImpass(t.t)&&!unitAt(B,t.x,t.y)&&region.has(t.x+','+t.y)){ t.cache=true; t.deco=null; } }   // a camp always has a strongbox by the fire
 }
 // Victory salvage: what the named dead were carrying first, then the field at large.
 function rollSpoils(B){
@@ -2817,13 +2818,16 @@ function genBattleMap(B,bhex,region){
   let theme=B.mapTheme;
   if(!theme){
     if(B.obj==='reclaim')theme='ritual';
-    else if(B.type==='delve'||B.obj==='burn')theme='ruins';
+    else if(B.type==='delve')theme=chance(62)?'crypt':'ruins';  // v0.70 — a delve goes DOWN: rooms and passages, more often than not
+    else if(B.obj==='burn')theme='ruins';
+    else if((B.type==='putdown'||B.type==='purge')&&B.obj==='slay'&&chance(24))theme='graveyard';
+    else if(B.type==='patrol'&&B.obj!=='escort'&&chance(24))theme='camp';
     else if(bhex.blighted&&chance(50))theme='menhir';         // corrupted ground → the spreading-blight field
     else if(B.obj==='escort')theme=chance(55)?'river':'fields';
     else if(bhex.t==='forest')theme='woods';
     else if(['hills','mountain'].includes(bhex.t))theme=pick(['pass','quarry','cliffs','ruins','boulders']);
     else if(bhex.t==='marsh')theme=pick(['marsh','marsh','causeway','river']);
-    else theme=pick(['fields','boulders','ruins','ruins','ritual','river','causeway','quarry','cliffs','woods','town','marsh','menhir']);
+    else theme=pick(['fields','boulders','ruins','ruins','ritual','river','causeway','quarry','cliffs','woods','town','marsh','menhir','graveyard','camp']);
   }
   B.mapTheme=theme;
 
@@ -2910,6 +2914,54 @@ function genBattleMap(B,bhex,region){
       for(let y=y0;y<=y1;y++)for(let o=-lo;o<=hi;o++){ const t=T(clamp(cx+o,0,GW-1),y); if(t)t.t='chasm'; }
       const nCross=ri(1,2); for(let i=0;i<nCross;i++){ const by=y0+Math.round((y1-y0)*(i+1)/(nCross+1)); for(let o=-lo-1;o<=hi+1;o++){const t=T(clamp(cx+o,0,GW-1),by); if(t&&t.t==='chasm')t.t='road';} } }
     scatter('boulder',ri(2,4),1,2); scatter('brush',ri(2,3),1,2);   // scree along the ledges
+  } else if(theme==='crypt'){
+    // v0.70 — an undercroft: solid stone, then rooms carved out of it and joined by two-wide passages (so a squad can
+    // pass itself), with a couple of loops so there is always a way round. Sight is short and every door is a decision.
+    for(const t of B.tiles)t.t='rubble';
+    const rooms=[], want=ri(6,8);
+    for(let i=0;i<60&&rooms.length<want;i++){ const w=ri(4,7),h=ri(3,6),x0=ri(2,Math.max(2,GW-3-w)),y0=ri(2,Math.max(2,GH-3-h));
+      if(rooms.some(r=>x0<=r.x1+2&&x0+w-1>=r.x0-2&&y0<=r.y1+2&&y0+h-1>=r.y0-2))continue;
+      rooms.push({x0,y0,x1:x0+w-1,y1:y0+h-1,cx:x0+Math.floor(w/2),cy:y0+Math.floor(h/2)}); }
+    for(const r of rooms)for(let y=r.y0;y<=r.y1;y++)for(let x=r.x0;x<=r.x1;x++){ const t=T(x,y); if(t)t.t='grass'; }
+    const dig=(x,y)=>{ const t=T(x,y); if(t&&t.t==='rubble')t.t='road'; };
+    const passage=(a,b)=>{ let x=a.cx,y=a.cy;
+      while(x!==b.cx){ dig(x,y); dig(x,y+1); x+=Math.sign(b.cx-x); }
+      while(y!==b.cy){ dig(x,y); dig(x+1,y); y+=Math.sign(b.cy-y); } dig(x,y); };
+    rooms.sort((a,b)=>a.cx-b.cx);
+    for(let i=1;i<rooms.length;i++)passage(rooms[i-1],rooms[i]);
+    for(let k=0;k<2&&rooms.length>3;k++){ const a=rooms[ri(0,rooms.length-1)], b=rooms[ri(0,rooms.length-1)]; if(a!==b)passage(a,b); }
+    // four ways in from the walk around the outside: nearest room to each edge gets a door
+    if(rooms.length){
+      const by=(f)=>rooms.slice().sort(f)[0];
+      const W=by((a,b)=>a.x0-b.x0), E=by((a,b)=>b.x1-a.x1), N=by((a,b)=>a.y0-b.y0), So=by((a,b)=>b.y1-a.y1);
+      for(let x=0;x<=W.cx;x++){ dig(x,W.cy); dig(x,W.cy+1); }   for(let x=E.cx;x<GW;x++){ dig(x,E.cy); dig(x,E.cy+1); }
+      for(let y=0;y<=N.cy;y++){ dig(N.cx,y); dig(N.cx+1,y); }   for(let y=So.cy;y<GH;y++){ dig(So.cx,y); dig(So.cx+1,y); }
+      const mid=rooms[Math.floor(rooms.length/2)]; B.ritualCenter={x:mid.cx,y:mid.cy};
+      for(const r of rooms){ if((r.x1-r.x0)>=5&&(r.y1-r.y0)>=4&&chance(70)){ [[r.x0+1,r.y0+1],[r.x1-1,r.y0+1],[r.x0+1,r.y1-1],[r.x1-1,r.y1-1]].forEach(([x,y])=>{ const t=T(x,y); if(t&&t.t==='grass')t.t='column'; }); }
+        else if(chance(45)){ const t=T(r.cx,r.cy); if(t&&t.t==='grass'&&!(r===mid))t.t='boulder'; } }   // pillars in the big halls, a sarcophagus in some of the small ones
+    }
+  } else if(theme==='graveyard'){
+    // a walled burial ground: a ruined chapel, rows of headstones that break sight and movement — and graves that are
+    // not all finished being used (see objTick: the ground opens on rounds 3 and 6)
+    const gx0=3,gy0=3,gx1=GW-4,gy1=GH-4;
+    wallRect(gx0,gy0,gx1,gy1,'rubble'); gate(gx0,gy0,gx1,gy1); gate(gx0,gy0,gx1,gy1); gate(gx0,gy0,gx1,gy1);
+    const cw=ri(4,5),ch=ri(3,4),cx0=Math.round(cxc-cw/2),cy0=Math.round(cyc-ch/2);
+    wallRect(cx0,cy0,cx0+cw,cy0+ch,'rubble'); gate(cx0,cy0,cx0+cw,cy0+ch);
+    B.openGraves=[];
+    for(let y=gy0+2;y<gy1-1;y+=3)for(let x=gx0+2;x<gx1-1;x+=2){ const t=T(x,y); if(!t||t.t!=='grass')continue;
+      if(x>=cx0-1&&x<=cx0+cw+1&&y>=cy0-1&&y<=cy0+ch+1)continue;
+      if(chance(55))t.t='stone'; else if(chance(22)){ t.elev=0; B.openGraves.push({x,y}); } }
+    scatter('tree',ri(2,3),1,2); scatter('brush',ri(2,4),1,2);
+  } else if(theme==='camp'){
+    // somebody's camp: a rough palisade with two gates, lean-tos inside, a fire in the middle, and whatever they were
+    // keeping in the strongbox (see placeCaches)
+    const pw=Math.round(GW*0.46),ph=Math.round(GH*0.46),px0=Math.round(cxc-pw/2),py0=Math.round(cyc-ph/2);
+    wallRect(px0,py0,px0+pw,py0+ph,'rubble'); gate(px0,py0,px0+pw,py0+ph); gate(px0,py0,px0+pw,py0+ph);
+    for(let i=0;i<ri(3,4);i++){ const tx=ri(px0+2,px0+pw-3),ty=ri(py0+2,py0+ph-3); if(Math.abs(tx-cxc)<2&&Math.abs(ty-cyc)<2)continue;
+      for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++){ const t=T(tx+dx,ty+dy); if(t&&t.t==='grass'&&chance(85))t.t='boulder'; } }
+    const ft=T(Math.round(cxc),Math.round(cyc)); if(ft){ ft.t='grass'; ft.deco='ash'; }
+    B.campCache={x:Math.round(cxc)+1,y:Math.round(cyc)};
+    scatter('tree',ri(2,4),2,3); scatter('brush',ri(3,4),2,3);
   } else { // fields — open, with one honest centerpiece and hedgerows that shape the lanes
     if(chance(60)){ const p=randOpen(4); if(p){ const r=ri(1,10); if(r<=3)mesa(p.x,p.y,ri(2,3),ri(2,3)); else if(r<=6)hill(p.x,p.y,ri(3,5),ri(3,4),3); else plateau(p.x,p.y,ri(3,5),ri(3,4)); } } // a bluff, a stepped hill, or a gentle rise
     else { const w=randOpen(3); if(w)cluster('water',w.x,w.y,ri(3,4),ri(2,3),90); }            // …or a pond
@@ -2918,9 +2970,9 @@ function genBattleMap(B,bhex,region){
   }
   // a little more honest cover so the ground isn't barren — mostly passable brush (weeds/scrub), a few trees, a rock or
   // two. randOpen's padding keeps it off the muster edges and the small clusters keep travel lanes readable.
-  scatter('brush',ri(3,5),1,2);
-  if(theme!=='woods')scatter('tree',ri(1,2),1,2);
-  if(!['pass','ruins','town'].includes(theme))for(let i=0;i<ri(1,3);i++){ const t=randOpen(4); if(t&&t.t==='grass'&&t.elev===1)t.t='boulder'; } // no loose blockers inside walled maps
+  if(theme!=='crypt')scatter('brush',ri(3,5),1,2);
+  if(theme!=='woods'&&theme!=='crypt')scatter('tree',ri(1,2),1,2);
+  if(!['pass','ruins','town','crypt','graveyard','camp'].includes(theme))for(let i=0;i<ri(1,3);i++){ const t=randOpen(4); if(t&&t.t==='grass'&&t.elev===1)t.t='boulder'; } // no loose blockers inside walled maps
   const pB=(bhex.blighted||bhex.t==='marsh')?18:(region.pressure>=50?9:region.pressure>=30?4:0);
   if(pB){ const bx=chance(50)?0:GW-1; const n=Math.floor(GW*GH*pB/100); for(let i=0;i<n;i++){ const t=T(clamp(bx+ri(-3,3),0,GW-1),ri(0,GH-1)); if(t&&(t.t==='grass'||t.t==='brush'))t.blighted=true; } }
   // ambient grimdark clutter — non-blocking debris dressing the open ground (visual only; passability unchanged)
@@ -2937,6 +2989,9 @@ function genBattleMap(B,bhex,region){
     boulders:['rock','rock','bone','tuft','puddle','scree'],
     menhir:['bone','skull','bramble','ash','rock','bone'],
     cliffs:['rock','rock','scree','bone','rubblebit'],
+    crypt:['bone','bone','skull','skull','ash','rubblebit','plank'],
+    graveyard:['bone','skull','bramble','tuft','rock','ash'],
+    camp:['barrel','crate','plank','wheel','ash','puddle','bone'],
   }[theme]||['tuft','tuft','rock','puddle','bone'];
   const dd=({pass:7,woods:9,ritual:9,marsh:9,causeway:9}[theme]||12);
   for(const t of B.tiles){ if((t.t==='grass'||t.t==='road'||t.t==='mire')&&!t.blighted&&chance(dd))t.deco=pick(decoSet); }
@@ -3067,7 +3122,7 @@ function makeWaypoints(B,home,r){
 const PB_RATIO={1:0.50,2:0.85,3:1.25}, PB_FLOOR={1:10,2:16,3:24}, PB_CEIL={1:5,2:9,3:12};
 function soldierPowerOf(s){ const w=WEAPONS[s.weapon]||{};
   return 3+(s.level||1)*2+(w.tier||1)+(s.wMod||0)*2+(s.armor||0)*1.5+((s.feats&&s.feats.length)||0)*0.8
-        +(s.dmgBonus||0)+affPwOf(s.wAff,s.aAff)+((s.level>=5&&CLASSES[s.cls]&&CLASSES[s.cls].martial)?2:0); }
+        +(s.dmgBonus||0)+affPwOf(s.wAff,s.aAff)+((TRINKETS[s.trinket]||{}).pw||0)+((s.level>=5&&CLASSES[s.cls]&&CLASSES[s.cls].martial)?2:0); }   // a charm is power too, and prices like it
 function squadPowerOf(ids){ return ids.map(soldierById).filter(Boolean).reduce((a,s)=>a+soldierPowerOf(s),0); }
 // The budget is calibrated to the strongest squad the player COULD field — the top partyCap() soldiers by
 // power — not to whoever they actually marched. Benching the A-team or fielding the wounded is a strategic
@@ -3156,7 +3211,7 @@ function startBattle(contract,squadIds){
            :(['hills','marsh','mountain'].includes(bhex.t)?(chance(45)?'fog':null)
            :(chance(omen('longrain')?28:12)?'fog':null));
   B.rain=!B.weather&&chance(omen('longrain')?70:22);      // atmospheric drizzle on some clear-weather maps — purely visual, no penalty
-  if(contract.layout==='pass')B.mapTheme='pass';
+  if(contract.layout)B.mapTheme=contract.layout;             // an authored contract may name its ground (the courier's pass; the harness, any of them)
   genBattleMap(B,bhex,region);
   // escort lays a road lane across the field (bridging any water on it)
   if(B.obj==='escort'){
@@ -3690,6 +3745,12 @@ function objTick(B){
       buildQueue(B);
       blog(B,'More of them, out of the dark.');
     }
+  }
+  if(B.openGraves&&B.openGraves.length&&(B.round===3||B.round===6)&&foeCount(B)<MAXFOES-1){
+    const n=(B.round===6&&(B.danger||1)>=3)?2:1; let rose=0;
+    for(let i=0;i<n&&B.openGraves.length;i++){ const gp=B.openGraves.splice(ri(0,B.openGraves.length-1),1)[0], spot=unitAt(B,gp.x,gp.y)?nearOpen(B,gp.x,gp.y,2):gp; if(!spot)continue;
+      const hk=spawnEnemy(B,'husk',1,false); hk.spawned=true; hk.x=spot.x; hk.y=spot.y; hk.name='Grave-risen Husk'; rose++; fx.push({type:'spikes',x:spot.x,y:spot.y,color:'#8a9384'}); }
+    if(rose)blog(B,rose>1?'Two of the open graves were not empty.':'One of the open graves was not empty.');
   }
   if(B.obj==='burn'&&B.nestUid){
     const nest=B.units.find(x=>x.uid===B.nestUid);
@@ -4642,6 +4703,12 @@ function oathCrisisModal(s){
   ]);
 }
 function endBattle(outcome){
+  // The aftermath holds the modal queue while it assembles (see modalHold). If anything in it throws, the hold MUST
+  // still be released, or every later modal — rites, musters, the next contract — would queue forever behind it.
+  try{ endBattleInner(outcome); }
+  finally{ if(modalHold){ modalHold=0; pumpModals(); } }
+}
+function endBattleInner(outcome){
   const B=S.battle; if(!B||B.over)return;
   B.over=true;B.outcome=outcome; sfx(outcome==='victory'?'win':'lose');
   const contract=S.contracts.find(c=>c.id===B.contractId);
@@ -5434,7 +5501,7 @@ function evHere(){ return regionAtHex(caravanHex())||S.regions[0]; }
 // something of its own (a muster), or nothing to simply close.
 function evShow(E){
   if(!E){ closeModal(); return; }
-  showModal(E.t,E.b,E.o.map(o=>({label:o.l,cls:o.cls||'pick',disabled:!!o.d,fn:()=>{
+  showModal(E.t,E.b,E.o.map(o=>({label:o.l,cls:o.cls?'pick '+o.cls:'pick',disabled:!!o.d,fn:()=>{
     const out=o.f();
     if(typeof out==='string'&&out){ activeModal=null; save(); showModal(E.t,`<p>${out}</p>`,[{label:'Onward',cls:'primary',fn:()=>closeModal()}]); }
     else if(out!==false)closeModal();
@@ -5793,7 +5860,7 @@ function renderTitle(){
       <h1 class="tlogo">GRAVEBORNE</h1>
       <p class="ttag">You will fight everyone you fail to protect.</p>
       <div class="tmenu">
-        ${live?`<button class="primary" onclick="TCONT()">Continue — ${esc(S.cname||'the company')}, week ${S.week}</button>`:''}
+        ${live?`<button class="primary" onclick="TCONT()">Continue — ${esc(S.cname||'the company')}, week ${S.week}</button>`:(S?`<button onclick="TCONT()">Read the chronicle of ${esc(S.cname||'the last company')}</button>`:'')}
         <button class="${live?'':'primary'}" onclick="TNEW()">Raise a New Banner</button>
         <button onclick="HALL()">The Hall of Banners${L.runs.length?` (${L.runs.length})`:''}</button>
         <button onclick="HOWTO()">How to Play</button>
@@ -6690,7 +6757,8 @@ function elevArt(B,x,y,t){
 function wallArt(B,x,y,t){
   const isW=(nx,ny)=>{ const nb=tileAt(B,nx,ny); return !!(nb&&nb.t==='rubble'); };
   const N=isW(x,y-1),S=isW(x,y+1),E=isW(x+1,y),W=isW(x-1,y);
-  const stone='#4f473a', core='#3b3327', dark='#120e07', lit='#655c44', d1='#4c4436', d2='#2b271e';
+  const deep=B.mapTheme==='crypt';                       // underground, the walls are the dark and the floor is what you can see
+  const stone=deep?'#39342c':'#4f473a', core=deep?'#211e19':'#3b3327', dark='#120e07', lit=deep?'#4a443a':'#655c44', d1=deep?'#2c2822':'#4c4436', d2=deep?'#191713':'#2b271e';
   const hsh=(i)=>((x*29+y*53+i*97)>>2)&7;               // stable per-tile pseudo-random for weathering
   const FW=10;                                          // coursed-face thickness along an exposed edge
   let s='';
