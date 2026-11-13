@@ -59,7 +59,7 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
     CC.robe(D, fr, mt, parts, seed=seed, grafts=('l', 'r'), cut=0.16, glow=2.4)
     CC.mantle_hood(D, fr, H, mt, parts, seed=seed, low=1.3)
 
-    sp, fire = CC.bone_staff('staff', Vector(fr.fist('r')), STAFF_UP, 2.0 * (0.4 + 0.6 * hf), mt['bone'],
+    sp, fire = CC.bone_staff('staff', Vector(fr.fist('r')), STAFF_UP, 2.14 * (0.4 + 0.6 * hf), mt['bone'],
                              mt['old_bone'], mt['wraps'], seed=seed)
     parts += sp
     parts += GB.ashfire('ashfire', fire, energy=1.4, seed=seed)

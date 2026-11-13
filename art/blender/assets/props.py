@@ -103,7 +103,7 @@ def barrel(nz, r=0.21, h=0.72, staves=14):
     """A barrel standing on the origin: (staves Acc, hoops Acc)."""
     wood, iron = T.Acc(), T.Acc()
     zs = np.linspace(0.0, h, 13)
-    rs = r * (1.0 + 0.22 * np.sin(np.pi * zs / h) ** 0.9)
+    rs = r * (1.0 + 0.22 * np.clip(np.sin(np.pi * zs / h), 0.0, 1.0) ** 0.9)
     prof = [(rs[i], zs[i]) for i in range(13)] + [(rs[-1] - 0.02, h), (rs[-1] - 0.025, h - 0.035), (0.0005, h - 0.035)]
     V, F, UV = T.lathe(prof, seg=staves * 8, nz=nz, rough=0.004, cap0=True, cap1=False)
     th = np.arctan2(V[:, 1], V[:, 0])
@@ -264,7 +264,9 @@ def nest(n=1):
     hz.scale = (0.8, 0.8, 1.3)
     hz.visible_shadow = False
     parts.append(hz)
-    return T.parent(parts, T.root('nest'))
+    r = T.parent(parts, T.root('nest'))
+    r.location.y = 0.04
+    return r
 
 
 # ================================================================ the escort wagon
@@ -475,7 +477,7 @@ def corpse(n):
                          lambda X, Y: np.minimum(Y - hem_y + 0.25 * np.abs(X), 0.6 - np.abs(X) - 0.2 * np.clip(Y - 0.6, 0, 1)),
                          tent=44, wrinkle=0.05, seed_off=n * 5.0)
         cloth.add(V, F)
-        cloth_m = G.cloth(f'cloak_{n}', color=('#3f3a34', '', '#4a211c')[n - 1], blood=0.8, mud=0.5, grime=0.9, seed=20 + n)
+        cloth_m = G.cloth(f'cloak_{n}', color=('#3f3a34', '', '#3d1c18')[n - 1], blood=0.8, mud=0.5, grime=0.9, seed=20 + n)
         for (a, b) in shins:        # shins and boots
             P = np.array(((a[0], a[1], 0.07), ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0.06), (b[0], b[1], 0.055)))
             limbs.add(*T.tube(P[:2], (0.075, 0.065), seg=10))
@@ -516,7 +518,7 @@ def corpse(n):
     pob = pl.obj('blood', T.gore())
     pob.visible_shadow = False
     parts.append(pob)
-    return _scaled(parts, FIG, turn=(-24.0, 18.0, 30.0)[n - 1], at=((0.02, 0.12), (-0.06, 0.14), (0.02, 0.12))[n - 1])
+    return _scaled(parts, 0.56, turn=(-24.0, 18.0, 30.0)[n - 1], at=((0.02, 0.13), (-0.06, 0.2), (0.02, 0.13))[n - 1])
 
 
 # ================================================================ the scatter kit
@@ -677,7 +679,7 @@ def deco(kind, n=1):
         parts.append(st.obj('fern_stems', T.foliage('fern_stem', color='#2c3018', tip='#4a4a26', seed=44)))
     if not grass.empty():
         parts.append(grass.obj('grass', T.foliage('foot_grass', color='#2c2e17', tip='#5a5630', seed=4), smooth=False))
-    return _scaled(parts, scale, turn=turn)
+    return _scaled(parts, scale, turn=turn, at=(-0.07, 0.0) if kind == 'crate' else (0.0, 0.0))
 
 
 def build(v):

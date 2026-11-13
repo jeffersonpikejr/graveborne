@@ -25,11 +25,11 @@ def iron(n=1):
     """Black corroded plate (look 2 rustier): plate, lames, maille, rivets, the halberd's steel."""
     r = 0.25 * (n - 1)
     return dict(
-        plate=G.steel(f'grave_plate{n}', color='#414245', rough=0.5, rust=1.0 + r, blood=0.12, seed=1 + n, edge=1.2,
+        plate=G.steel(f'grave_plate{n}', color='#56585b', rough=0.5, rust=1.0 + r, blood=0.12, seed=1 + n, edge=1.2,
                       dents=1.1, dirt=0.75, pits=1.6),
-        lames=G.steel(f'grave_lames{n}', color='#37383b', rough=0.52, rust=1.2 + r, blood=0.15, seed=2 + n, edge=1.1,
+        lames=G.steel(f'grave_lames{n}', color='#4a4b4e', rough=0.52, rust=1.2 + r, blood=0.15, seed=2 + n, edge=1.1,
                       dents=1.0, dirt=0.8, pits=1.6),
-        helm=G.steel(f'grave_helm{n}', color='#48494c', rough=0.46, rust=0.9 + r, blood=0.05, seed=5 + n, edge=1.3,
+        helm=G.steel(f'grave_helm{n}', color='#5c5e61', rough=0.46, rust=0.9 + r, blood=0.05, seed=5 + n, edge=1.3,
                      dents=0.9, dirt=0.6, pits=1.4),
         mail=G.maille('grave_maille', color='#3a3b3d', rust=0.9),
         rivet=G.steel('grave_rivet', color='#5a4a3c', rough=0.6, rust=1.4, blood=0.0, seed=14, edge=0.8),
@@ -38,7 +38,7 @@ def iron(n=1):
     )
 
 
-def great_helm(name, H, iron_mat, rivet_mat, kind='sugarloaf', seed=0, glow=3.2, bloom=True):
+def great_helm(name, H, iron_mat, rivet_mat, kind='sugarloaf', seed=0, glow=1.7, bloom=True):
     """A great helm on a head placed by H (the head's frame, its scale in it): a barrel of plate from the collar to
     over the crown, a prow down its front, the eye slit across the face lit violet from within and crossed by an iron
     bar. Returns the parts."""
@@ -82,9 +82,9 @@ def great_helm(name, H, iron_mat, rivet_mat, kind='sugarloaf', seed=0, glow=3.2,
             parts.append(K.rbox(name + '_strap', (0.19, 0.022, 0.006), (0.0, HELM_AXIS, 0.129), iron_mat,
                                 rot=Matrix.Rotation(rot, 4, 'Z'), bev=0.002))
     if bloom:                   # two blooms before the slit, so the violet holds at the game's sizes
-        halo = M.halo('grave_eye_bloom', '#c69cf0', 2.2, 0.7, 1.4)
+        halo = M.halo('grave_eye_bloom', '#b98cf0', 1.5, 0.6, 1.6)
         for s in (-1.0, 1.0):
-            ob = K.sphere(name + '_bloom', (0.036 * s, yf + 0.006, 0.005), 0.021, halo, seg=16, rings=10)
+            ob = K.sphere(name + '_bloom', (0.036 * s, yf + 0.008, 0.005), 0.016, halo, seg=16, rings=10)
             ob.visible_shadow = False
             parts.append(ob)
     for ob in parts:

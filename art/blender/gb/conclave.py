@@ -108,6 +108,7 @@ def robe(D, fr, mt, parts, seed=7, grafts=('l',), cut=0.42, glow=1.3, hem=0.075,
     hf, f, J = fr.hf, fr.f, fr.joints
     M0 = BD.Frame('male')
     wdef = (fr.hips() - float(fr.torso(1.17)[0])) - (M0.hips() - float(M0.torso(1.17)[0]))
+    zb = (1.05 + 1.5 * wdef) * hf - (fr.spine[2] if fr.spine is not None else 0.0)      # the girdle's height
     parts.append(D.skin('conclave_body', mt['skin']))
 
     def boot_t(P):
@@ -126,6 +127,8 @@ def robe(D, fr, mt, parts, seed=7, grafts=('l',), cut=0.42, glow=1.3, hem=0.075,
         folds = 0.5 + 0.5 * np.sin(th * 9.0 + 1.3 * np.sin(P[:, 2] * 23.0))
         on_arm = np.clip(1.0 - BD._arms(P, fr, 1.0) / 0.02, 0.0, 1.0)
         t = 0.0085 + 0.003 * folds * (1.0 - on_arm)
+        # bloused over the girdle, so the skirt's top edge is covered
+        t = t + 0.011 * np.exp(-((P[:, 2] - zb - 0.03 * hf) / (0.035 * hf)) ** 2) * (1.0 - on_arm)
         for s in 'lr':
             sh, el, wr = J['sh_' + s], J['el_' + s], J['wr_' + s]
             if s in gr:         # the torn sleeve's edge, rolled
@@ -148,7 +151,7 @@ def robe(D, fr, mt, parts, seed=7, grafts=('l',), cut=0.42, glow=1.3, hem=0.075,
     for s in gr:
         wr = J['wr_' + s]
         src = wr + fr.hand_dir(s) * f['hand'][0] * 0.38
-        gm = G.graft(f'conclave_graft_{s}', '#8a7466', tuple(float(x) for x in src), reach=0.36 * hf * (1.0 + 0.6 * (0.42 - cut)),
+        gm = G.graft(f'conclave_graft_{s}', '#7a6c68', tuple(float(x) for x in src), reach=0.62 * hf,
                      glow=glow, light=LIGHT)
         parts.append(D.layer(f'graft_{s}', gm, lambda P: np.full(len(P), 0.003, np.float32), gr[s][0], inner=0.004,
                              feather=0.0015, floor=1.0, tris=8000, smooth=40))
@@ -157,19 +160,18 @@ def robe(D, fr, mt, parts, seed=7, grafts=('l',), cut=0.42, glow=1.3, hem=0.075,
                              hand_region(fr, s, cuff=0.04), inner=0.002, tris=3000, smooth=45))
 
     # the skirt, hanging from the girdle (his at the hips, hers cinched at her natural waist)
-    zb = (1.05 + 1.5 * wdef) * hf - (fr.spine[2] if fr.spine is not None else 0.0)
-    skirt = GB.Drape(D, zb + 0.035 * hf, hem * hf, [a * 5.0 for a in range(72)], 0.024, rows=36, oy=0.01,
+    skirt = GB.Drape(D, zb + 0.02 * hf, hem * hf, [a * 5.0 for a in range(72)], 0.018, rows=36, oy=0.01,
                      flare=flare, folds=0.016, fold_n=10, ragged=0.03, seed=seed, arms=False, closed=True,
-                     cinch=(zb, 0.022))
+                     cinch=(zb, 0.013))
     parts.append(skirt.mesh('robe_skirt', mt['robe'], thick=0.005))
-    ring = [skirt.point(a, zb, lift=0.011) for a in range(0, 360, 6)]
-    parts += A.strap('girdle', [p for p, _ in ring], [n for _, n in ring], 0.034, 0.012, mt['cord'], closed=True)
-    knot, _ = skirt.point(-112.0, zb, lift=0.028)
+    ring = [skirt.point(a, zb + 0.004, lift=0.005) for a in range(0, 360, 6)]
+    parts += A.strap('girdle', [p for p, _ in ring], [n for _, n in ring], 0.042, 0.011, mt['cord'], closed=True)
+    knot, _ = skirt.point(-112.0, zb, lift=0.02)
     parts.append(K.sphere('girdle_knot', tuple(knot), 0.024, mt['cord'], scale=(1.2, 0.7, 1.0), seg=14, rings=10))
     for k, (da, ln) in enumerate(((-4.0, 0.34), (5.0, 0.27))):
         top, out = [], []
         for j in range(3):
-            p, n = skirt.point(-112.0 + da + (j - 1) * 2.4, zb - 0.02, lift=0.03 + 0.004 * k)
+            p, n = skirt.point(-112.0 + da + (j - 1) * 2.4, zb - 0.02, lift=0.022 + 0.004 * k)
             top.append(p)
             out.append(n)
         parts.append(A.cloth_panel('girdle_end', top, out, ln * hf, mt['cord'], rows=8, tatter=0.1, slits=0,

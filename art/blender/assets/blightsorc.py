@@ -27,7 +27,7 @@ for _f, _sex in (('m', 'male'), ('f', 'female')):
 
 # where the three fires hang (x, y, z on the male anchor's scale): low by the left hand, high by the right shoulder,
 # over and behind the crown
-FIRES = ((0.56, -0.14, 1.0), (-0.5, -0.1, 1.52), (0.1, 0.36, 1.98))
+FIRES = ((0.56, -0.14, 1.0), (-0.5, -0.1, 1.5), (0.1, 0.32, 1.9))
 
 
 def pose(sex):

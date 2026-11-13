@@ -107,11 +107,12 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
     if n == 1:
         parts += KK.kettle_hat('hat', H, mt['hat_rust'], mt['dark'], seed=seed, bash=0.012)
     else:
-        at = Vector(H @ Vector((0.0, 0.2, -0.12)))       # pushed back off the head, hanging behind the neck
-        Hs = KK.slung_frame(at, crown=(0.12, 0.6, 0.8))
+        sl = Vector(fr.joints['sh_l'])                  # behind the left shoulder, its crown turned up and out
+        at = sl + Vector((0.07, 0.17, 0.0))
+        Hs = KK.slung_frame(at, crown=(0.45, 0.45, 0.77))
         parts += KK.kettle_hat('hat', Hs, mt['hat_rust'], mt['dark'], seed=seed, bash=0.012)
         throat = Vector(H @ Vector((0.0, -0.05, -0.17)))
-        parts.append(GB.cord('hat_strap', [at + Vector((0.09, -0.06, 0.02)), throat, at + Vector((-0.09, -0.06, 0.02))],
+        parts.append(GB.cord('hat_strap', [at + Vector((-0.05, -0.05, 0.05)), sl + Vector((-0.05, -0.02, 0.085)), throat],
                              0.005, mt['leather']))
     if head:
         hroot, _ = LK.build_head(look, tag=f'dsrt_{look["id"]}', helm=n == 1)

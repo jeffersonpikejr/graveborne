@@ -16,6 +16,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SRC, DST, PAGE = os.path.join(ROOT, 'art', 'sprites'), os.path.join(ROOT, 'assets', 'sprites'), os.path.join(ROOT, 'index.html')
 
 
+def whole_webp(path):
+    """A complete WebP: the RIFF header's length matches the file's."""
+    with open(path, 'rb') as fh:
+        h = fh.read(12)
+    return len(h) == 12 and h[:4] == b'RIFF' and h[8:] == b'WEBP' and int.from_bytes(h[4:8], 'little') + 8 == os.path.getsize(path)
+
+
 def manifest():
     names = lambda sub: sorted(f[:-5] for f in os.listdir(os.path.join(DST, sub)) if f.endswith('.webp')) if os.path.isdir(os.path.join(DST, sub)) else []
     heads = {}
@@ -46,6 +53,9 @@ def main(argv):
         os.makedirs(os.path.join(DST, sub), exist_ok=True)
         for f in sorted(os.listdir(os.path.join(SRC, sub))):
             if f.endswith('.webp') and f.split('_')[0] in argv:
+                if not whole_webp(os.path.join(SRC, sub, f)):       # a sprite still being written by a render: leave it out
+                    print(f'skipped (not a complete WebP): {os.path.join(sub, f)}')
+                    continue
                 shutil.copy2(os.path.join(SRC, sub, f), os.path.join(DST, sub, f))
     shutil.copy2(os.path.join(SRC, 'heads', 'looks.json'), os.path.join(DST, 'heads', 'looks.json'))
     m = block(page)

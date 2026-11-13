@@ -49,8 +49,8 @@ def pose(sex, n=1):
         fr.reach('r', c + np.array((-0.09, -0.11, -0.08), np.float32), pole=(-0.9, 0.2, -0.7))
         fr.bundle = c
     else:
-        fr.reach('l', (sh_l[0] + 0.045, sh_l[1] - 0.13 * hf, 0.97 * hf), pole=(0.5, 0.5, -1.0))
-        fr.reach('r', (sh_r[0] - 0.04, sh_r[1] - 0.1 * hf, 0.95 * hf), pole=(-0.5, 0.5, -1.0))
+        fr.reach('l', (sh_l[0] + 0.085, sh_l[1] - 0.15 * hf, 0.98 * hf), pole=(0.5, 0.5, -1.0))
+        fr.reach('r', (sh_r[0] - 0.08, sh_r[1] - 0.12 * hf, 0.96 * hf), pole=(-0.5, 0.5, -1.0))
     return fr
 
 
@@ -97,7 +97,7 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
     def hem(i, a):
         return (0.006 * math.sin(a * 6.0 + i + seed),
                 (0.014 * math.sin(a * 7.0 + 1.1 + seed) + 0.006 * math.sin(a * 19.0)) if i == 0 else 0.0)
-    sk = K.lathe('smock_skirt', [(hr + 0.065, 0.55 * hf - drop), (hr + 0.04, 0.72 * hf - drop),
+    sk = K.lathe('smock_skirt', [(hr + 0.042, 0.55 * hf - drop), (hr + 0.03, 0.72 * hf - drop),
                                  (hr + 0.008, 0.9 * hf - drop), (hr - 0.012, 1.0 * hf - drop)], smock, seg=40, sy=sy,
                  loc=(0.0, oy - 0.01, 0.0), cap_bottom=False, cap_top=False, jitter=hem)
     A.solid(sk, 0.007)

@@ -29,7 +29,7 @@ for _f, _sex in (('m', 'male'), ('f', 'female')):
         VARIANTS[f'foe_graveguard_{_n}_{_f}'] = dict(sex=_sex, n=_n)
 
 HALBERD_UP = (-0.075, 0.0, 1.0)     # the haft leans its head out to the right, clear of the helm
-TABARD = {1: '#8a977a', 2: '#a9a48c'}       # before the corpse mode sinks it: grey-green, a bone-grey shroud
+TABARD = {1: '#56634c', 2: '#7a7562'}       # before the corpse mode sinks it: grey-green, a bone-grey shroud
 
 
 def head_frame(sex, portrait=False):
@@ -203,7 +203,7 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
     H = B.head_frame(v.get('portrait') or v.get('level'))
     if head:
         parts += RS.great_helm('helm', H, mt['helm'], rivet, kind=('sugarloaf', 'barrel')[n - 1], seed=seed)
-        parts.append(K.glow('slit_glow', H @ Vector((0.0, -0.17, 0.0)), RS.VIOLET, 0.22, radius=0.012))
+        parts.append(K.glow('slit_glow', H @ Vector((0.0, -0.17, 0.0)), RS.VIOLET, 0.08, radius=0.012))
 
     # ---------------------------------------------------------------- the halberd, upright in the right fist
     fr_ = (arm_r[2] - arm_r[1]).normalized()
