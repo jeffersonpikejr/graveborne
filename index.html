@@ -276,6 +276,49 @@
   .runcard .bar>div{height:100%;background:linear-gradient(90deg,#8a6f2a,var(--gold));border-radius:2px}
   .doctag{display:inline-block;border:1px solid rgba(201,162,39,.45);color:#d8c27a;border-radius:2px;padding:0 5px;margin:2px 3px 0 0;font-size:11.5px}
   .omentag{display:inline-block;border:1px solid #4a3a5a;color:#b08bc9;border-radius:2px;padding:0 5px;margin:2px 3px 0 0;font-size:11.5px}
+  /* ---- v0.70: the battlefield — lit ground, a framed field, round tokens, a readable forecast ---- */
+  #battle{background:#060504}
+  #grid{box-shadow:0 0 0 3px #2b241a,0 0 0 5px #000,0 0 80px rgba(0,0,0,.9)}
+  .tile.fogdark{background:#13100c !important;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.02) 0 6px,transparent 6px 12px) !important}
+  .tile.fogseen{box-shadow:inset 0 0 0 200px rgba(6,5,3,.56)}
+  .tile.moveable{outline:2px solid rgba(110,170,235,.28);background-image:linear-gradient(rgba(90,150,220,.08),rgba(90,150,220,.08))}
+  .tile.dashable{outline:2px solid rgba(215,175,60,.22);background-image:linear-gradient(rgba(201,162,39,.05),rgba(201,162,39,.05))}
+  .tile.attackable{outline:2px solid rgba(232,96,68,.92);box-shadow:inset 0 0 14px rgba(224,89,63,.38)}
+  .unit{inset:2px;border-radius:50%;border:2px solid #000}
+  .unit .spr{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .unit.pc{background:radial-gradient(circle at 50% 60%,#2f445c 0,#1b2633 62%,#121a23 100%);border-color:#6f97c4;box-shadow:0 2px 5px rgba(0,0,0,.6)}
+  .unit.pc.sword{border-style:dashed}
+  .unit.ally{background:radial-gradient(circle at 50% 60%,#5a4d33,#2c2518);border-color:#c9b48a}
+  .unit.foe{background:radial-gradient(circle at 50% 60%,#5a3224 0,#30190f 62%,#1f100a 100%);border-color:#c2573f;box-shadow:0 2px 5px rgba(0,0,0,.6)}
+  .unit.undead{background:radial-gradient(circle at 50% 60%,#3f4d36,#1e2619);border-color:#8fa573;box-shadow:0 2px 5px rgba(0,0,0,.6)}
+  .unit.rev{background:radial-gradient(circle at 50% 60%,#4a3466,#22172f);border-color:#b08bc9;box-shadow:0 0 12px rgba(122,79,163,.85)}
+  .unit.current{border-color:var(--gold);animation:selpulse 1.5s ease-in-out infinite}
+  .unit.foe.current,.unit.undead.current,.unit.rev.current{border-color:#ff7a5c;animation:selpulse2 1.2s ease-in-out infinite}
+  @keyframes selpulse{0%,100%{box-shadow:0 0 0 2px rgba(201,162,39,.55),0 0 10px rgba(201,162,39,.4)}50%{box-shadow:0 0 0 4px rgba(201,162,39,.22),0 0 18px rgba(201,162,39,.8)}}
+  @keyframes selpulse2{0%,100%{box-shadow:0 0 0 2px rgba(255,122,92,.5),0 0 10px rgba(255,122,92,.4)}50%{box-shadow:0 0 0 4px rgba(255,122,92,.2),0 0 18px rgba(255,122,92,.8)}}
+  .unit.spent{border-color:#4c5560} .unit.spent .spr{filter:grayscale(.85) brightness(.62)}
+  .unit .hp{bottom:-3px;left:3px;right:3px;height:5px;background:#1a1210;border:1px solid #000;border-radius:2px;overflow:hidden}
+  .unit .hpn{position:absolute;bottom:-6px;right:-5px;font-size:10px;line-height:1;color:#efe6cf;background:#0e0b07;border:1px solid #3a3226;border-radius:3px;padding:1px 2px;font-weight:bold;pointer-events:none}
+  .unit .stx{font-size:13px}
+  .hitpct{top:0;right:1px;font-size:12px;text-align:right;line-height:1.05;background:rgba(12,10,7,.8);border-radius:3px;padding:1px 3px;z-index:7}
+  .hitpct small{display:block;font-size:9.5px;color:#e8d9c0;font-weight:normal}
+  .hitpct.kill{color:#ff9a7a}
+  #pathov{position:absolute;left:0;top:0;pointer-events:none;z-index:18}
+  .fxfloat{font-size:15px} .fxfloat.fxcrit{font-size:22px}
+  .bbanner{position:fixed;left:50%;top:26%;transform:translateX(-50%);z-index:45;pointer-events:none;font:bold 26px Georgia,serif;letter-spacing:.14em;text-transform:uppercase;color:#e8d9a0;text-shadow:0 2px 0 #000,0 0 24px rgba(0,0,0,.9);padding:10px 30px;white-space:nowrap;background:linear-gradient(90deg,transparent,rgba(12,10,7,.84) 18%,rgba(12,10,7,.84) 82%,transparent);animation:bban 1.6s ease-out forwards}
+  .bbanner.en{color:#ff9a84} .bbanner.pl{color:#a9cdf2;font-size:20px} .bbanner.open{font-size:21px;top:20%}
+  @keyframes bban{0%{opacity:0;transform:translate(-50%,10px)}14%{opacity:1;transform:translate(-50%,0)}72%{opacity:1}100%{opacity:0;transform:translate(-50%,-8px)}}
+  button.pulse{animation:btnpulse 1.1s ease-in-out infinite}
+  @keyframes btnpulse{0%,100%{box-shadow:0 0 0 0 rgba(201,162,39,0)}50%{box-shadow:0 0 0 4px rgba(201,162,39,.45)}}
+  .keyhint{display:inline-block;min-width:14px;text-align:center;border:1px solid #5a4d33;border-radius:3px;font-size:10px;color:#b9ad95;padding:0 2px;margin-right:2px}
+  #zoombtns button.on{border-color:var(--gold);color:var(--gold)}
+  .tod-dawn{background:linear-gradient(180deg,rgba(255,176,96,.10),rgba(140,110,170,.06));mix-blend-mode:screen}
+  .tod-dusk{background:linear-gradient(180deg,rgba(120,70,120,.16),rgba(230,120,50,.10));mix-blend-mode:soft-light}
+  .tod-night{background:rgba(16,26,60,.30);mix-blend-mode:multiply}
+  .fireov{animation:bpulse .5s infinite}
+  @media (max-width:760px){ .bbanner{font-size:16px;white-space:normal;text-align:center;width:88%;letter-spacing:.08em} .bbanner.pl,.bbanner.open{font-size:14px} .unit .hpn{font-size:9px} .hitpct{font-size:11px} }
+  @media (hover:none){ .keyhint{display:none} }
+  @media (max-width:760px){ #zoombtns{top:auto;bottom:calc(196px + env(safe-area-inset-bottom));gap:5px} #zoombtns button{width:38px;height:38px;font-size:17px} }
 </style>
 </head>
 <body>
@@ -1200,7 +1243,7 @@ function cacheLoot(B){
   return out;
 }
 function openCache(B,u,t){
-  t.cache=false;
+  t.cache=false; sfx('loot');
   const got=cacheLoot(B); B.found=(B.found||[]).concat(got);
   fx.push({type:'float',x:u.x,y:u.y,txt:'✦ '+got.join(', '),color:'#e8c65a'},{type:'ward',x:u.x,y:u.y,color:'#e8c65a'});
   blog(B,`${u.name} breaks open a cache — ${got.join(', ')}. Into the wagons.`);
@@ -1480,6 +1523,85 @@ function enemyFace(key,size){
   }
   return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${s}</svg>`;
 }
+/* ---- v0.70 top-down enemies. The company has been drawn from above since v0.45 while everything it fought was
+   still a front-facing portrait in a coloured square — two art languages on one board. Every foe is now seen from
+   the same high angle, wearing what it actually carries (an upgraded pike reads as a pike). ---- */
+function wpnFam(k){ return ({shortsword:'sword',armingsword:'sword',longsword:'sword',spear:'spear',pike:'spear',partisan:'spear',axe:'axe',greataxe:'axe',headsman:'axe',
+  halberd:'halberd',bardiche:'halberd',mace:'mace',flanged:'mace',warhammer:'mace',bow:'bow',warbow:'bow',greatbow:'bow'})[k]||'sword'; }
+function tdWeapon(fam,K){
+  switch(fam){
+    case 'sword':  return {behind:`<g transform="rotate(22 33 27)"><rect x="31.7" y="22" width="2.7" height="18" rx="1" fill="#b3ab9b" stroke="${K}" stroke-width=".5"/><rect x="29" y="26" width="7.6" height="2.3" rx="1" fill="#8a8272" stroke="${K}" stroke-width=".4"/></g>`};
+    case 'axe':    return {behind:`<g transform="rotate(18 33 27)"><rect x="32" y="15" width="2.2" height="25" rx="1" fill="#5a4326" stroke="${K}" stroke-width=".5"/><path d="M34 16 Q42 18 41 26 Q37 23 34 24 Z" fill="#9aa0a6" stroke="${K}" stroke-width=".7"/></g>`};
+    case 'spear':  return {behind:`<g transform="rotate(8 34 24)"><rect x="33.3" y="6" width="1.7" height="36" fill="#5a4326" stroke="${K}" stroke-width=".4"/><path d="M34.1 1 L36.6 7.5 L31.6 7.5 Z" fill="#b3ab9b" stroke="${K}" stroke-width=".5"/></g>`};
+    case 'halberd':return {behind:`<g transform="rotate(8 34 24)"><rect x="33.3" y="6" width="1.8" height="36" fill="#5a4326" stroke="${K}" stroke-width=".4"/><path d="M34.1 1 L36.2 7 L32 7 Z" fill="#b3ab9b" stroke="${K}" stroke-width=".5"/><path d="M35 8 Q42 9 41 16 Q38 13 35 14 Z" fill="#9aa0a6" stroke="${K}" stroke-width=".6"/></g>`};
+    case 'mace':   return {front:`<path d="M5.5 20.5 L13 19 L13.5 30 L9.5 35.5 L5.5 30 Z" fill="#5f5140" stroke="${K}" stroke-width="1.1"/><path d="M9.5 20.5 v13.5 M6.5 27 h6.4" stroke="#3f3423" stroke-width="1.1"/><g transform="rotate(20 35 27)"><rect x="33.8" y="25" width="2.4" height="13" rx="1" fill="#6a5a44" stroke="${K}" stroke-width=".5"/><circle cx="35" cy="24" r="3.3" fill="#7a7168" stroke="${K}" stroke-width=".8"/></g>`};
+    case 'bow':    return {behind:`<path d="M33.5 15 Q41.5 27 33.5 39" fill="none" stroke="#5a4326" stroke-width="2.2"/><path d="M33.5 15 L33.5 39" stroke="#d8cbaf" stroke-width=".7"/>`};
+  }
+  return {};
+}
+function tdHumanoid(o){
+  const K='#0e0b07', w=o.weapon||{};
+  let s=`<ellipse cx="23" cy="39" rx="12" ry="3.4" fill="#000" opacity=".34"/>`+(w.behind||'');
+  s+=o.robe?`<path d="M12.5 37 Q9.5 23 17 18.5 L29 18.5 Q36.5 23 33.5 37 Z" fill="${o.body}" stroke="${K}" stroke-width="1.4"/>`
+           :`<ellipse cx="23" cy="27" rx="${o.wide||8.6}" ry="9.6" fill="${o.body}" stroke="${K}" stroke-width="1.4"/>`;
+  s+=o.trim||'';
+  s+=o.hood?`<path d="M23 6.5 L31 19 Q23 23 15 19 Z" fill="${o.head}" stroke="${K}" stroke-width="1.3"/><path d="M18.5 17 Q23 20.5 27.5 17 Q26 20 23 20.4 Q20 20 18.5 17 Z" fill="#0b0908"/>${o.eyes?`<circle cx="20.8" cy="18.5" r="1.05" fill="${o.eyes}"/><circle cx="25.2" cy="18.5" r="1.05" fill="${o.eyes}"/>`:''}`
+           :`<circle cx="23" cy="15.4" r="6" fill="${o.head}" stroke="${K}" stroke-width="1.2"/>${o.face||''}`;
+  return s+(w.front||'')+(o.over||'');
+}
+function foeTopDown(u,size){
+  const K='#0e0b07', key=u.ekey, W=tdWeapon(wpnFam(u.weapon),K);
+  const orb=(c1,c2,r)=>({front:`<circle cx="34" cy="30" r="${r||4.8}" fill="${c1}" opacity=".45"/><circle cx="34" cy="30" r="${(r||4.8)*0.45}" fill="${c2}" opacity=".95"/>`});
+  let s='';
+  switch(key){
+    case 'brigand':   s=tdHumanoid({body:'#5d4a33',head:'#4a3b28',weapon:W,trim:`<path d="M16 22 L30 32" stroke="#33291c" stroke-width="1.6"/>`,face:`<path d="M18.6 17.6 Q23 22.4 27.4 17.6 Q26.8 21 23 21.6 Q19.2 21 18.6 17.6 Z" fill="#a9825f" stroke="${K}" stroke-width=".5"/>`}); break;
+    case 'archer':    s=tdHumanoid({body:'#3d3625',head:'#33291c',hood:true,weapon:W,trim:`<path d="M15 24 L31 24" stroke="#5a4326" stroke-width="1.3" opacity=".8"/>`}); break;
+    case 'deserter':  s=tdHumanoid({body:'#565d66',head:'#5a5a60',weapon:W,trim:`<path d="M19.5 19.5 L23 37 L26.5 19.5 Z" fill="#3f3a33"/>`,face:`<circle cx="23" cy="15.4" r="7.6" fill="none" stroke="#4a4a50" stroke-width="1.6"/>`}); break;
+    case 'cutthroat': s=tdHumanoid({body:'#3a2c2c',head:'#2a2020',hood:true,trim:`<path d="M16 21 Q23 25 30 21" stroke="#7a2620" stroke-width="2.2" fill="none"/>`,
+                        weapon:{front:`<rect x="7.4" y="25" width="2.4" height="12" rx="1" fill="#9aa0a6" stroke="${K}" stroke-width=".5" transform="rotate(-24 8.6 31)"/><rect x="36.2" y="25" width="2.4" height="12" rx="1" fill="#9aa0a6" stroke="${K}" stroke-width=".5" transform="rotate(24 37.4 31)"/>`}}); break;
+    case 'shieldman': s=tdHumanoid({body:'#606771',head:'#4a515a',weapon:W,wide:9.2,face:`<rect x="22.3" y="11.5" width="1.4" height="9.5" rx=".5" fill="#2b3036"/>`}); break;
+    case 'pikeman':   s=tdHumanoid({body:'#4f565f',head:'#6a6f76',weapon:W,trim:`<path d="M19.5 19.5 L23 37 L26.5 19.5 Z" fill="#5a4a32"/>`,face:`<circle cx="23" cy="15.4" r="3" fill="#7d838a"/>`}); break;
+    case 'acolyte':   s=tdHumanoid({body:'#2c2536',head:'#241f2c',hood:true,robe:true,eyes:'#b08bc9',weapon:orb('#7a4fa3','#c69cf0',4.2),trim:`<path d="M23 20 v16" stroke="#4a3a5a" stroke-width="1.2"/>`}); break;
+    case 'husk':      s=tdHumanoid({body:'#59634d',head:'#8a9384',weapon:W,trim:`<path d="M18 23 l3 5 M27 22 l-2 7 M21 31 l4 3" stroke="#3b4433" stroke-width="1.1"/>`,face:`<circle cx="20.8" cy="16.6" r="1.6" fill="#0d0b08"/><circle cx="25.2" cy="16.6" r="1.6" fill="#0d0b08"/><circle cx="20.8" cy="16.6" r=".6" fill="#b08bc9"/><circle cx="25.2" cy="16.6" r=".6" fill="#b08bc9"/>`}); break;
+    case 'graveguard':s=tdHumanoid({body:'#3a3a42',head:'#4a4a52',weapon:W,wide:9.4,trim:`<ellipse cx="14.5" cy="23.5" rx="4.6" ry="4" fill="#44444c" stroke="${K}" stroke-width="1.1"/><ellipse cx="31.5" cy="23.5" rx="4.6" ry="4" fill="#44444c" stroke="${K}" stroke-width="1.1"/>`,face:`<rect x="18.6" y="15.6" width="8.8" height="2" rx="1" fill="#0d0b08"/><rect x="19.4" y="16" width="3" height="1.1" fill="#7a4fa3"/><rect x="23.6" y="16" width="3" height="1.1" fill="#7a4fa3"/>`}); break;
+    case 'blightmage':s=tdHumanoid({body:'#2a2333',head:'#1c1626',hood:true,robe:true,eyes:'#c69cf0',weapon:orb('#7a4fa3','#d7a8ff',5.4),trim:`<path d="M20 20 Q22 29 19 37 M26 20 Q24 29 27 37" fill="none" stroke="#7a4fa3" stroke-width="1.1" opacity=".8"/>`}); break;
+    case 'blightsorc':s=tdHumanoid({body:'#241a30',head:'#160f20',hood:true,robe:true,eyes:'#e2bfff',weapon:orb('#9a6fc9','#f0dcff',6.4),trim:`<path d="M20 20 Q22 29 19 37 M26 20 Q24 29 27 37 M23 20 v17" fill="none" stroke="#9a6fc9" stroke-width="1.2" opacity=".85"/>`,
+                        over:`<path d="M23 6.5 l-5 -5 M23 6.5 l5 -5 M23 6.5 l0 -6" stroke="#7a4fa3" stroke-width="1.5" fill="none"/>`}); break;
+    case 'hound':
+    case 'houndrider':{
+      s=`<ellipse cx="23" cy="40" rx="11" ry="3.2" fill="#000" opacity=".34"/>
+        <path d="M23 43 q-2 -3 0 -6" stroke="#4a5342" stroke-width="2" fill="none"/>
+        <ellipse cx="23" cy="27" rx="7.4" ry="11.5" fill="#5a6350" stroke="${K}" stroke-width="1.4"/>
+        <path d="M15 20 l-3 4 M31 20 l3 4 M15.5 33 l-3 3 M30.5 33 l3 3" stroke="#3f4638" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M17 13 L23 3.5 L29 13 Q23 17.5 17 13 Z" fill="#4f5846" stroke="${K}" stroke-width="1.2"/>
+        <path d="M17.6 11 L15 5.5 L20 8 Z M28.4 11 L31 5.5 L26 8 Z" fill="#4f5846" stroke="${K}" stroke-width=".8"/>
+        <circle cx="20.8" cy="10.6" r="1.1" fill="#b08bc9"/><circle cx="25.2" cy="10.6" r="1.1" fill="#b08bc9"/>`;
+      if(key==='houndrider')s+=`<path d="M31 17 Q38.5 27 31 37" fill="none" stroke="#5a4326" stroke-width="2"/><path d="M31 17 L31 37" stroke="#d8cbaf" stroke-width=".6"/>
+        <ellipse cx="23" cy="28" rx="5.6" ry="6" fill="#3d3625" stroke="${K}" stroke-width="1.2"/><circle cx="23" cy="23.5" r="4" fill="#33291c" stroke="${K}" stroke-width="1"/>`;
+      break; }
+    case 'blighttroll':
+      s=`<ellipse cx="23" cy="41" rx="15" ry="3.6" fill="#000" opacity=".4"/>
+        <ellipse cx="9" cy="27" rx="5" ry="8" fill="#34402f" stroke="${K}" stroke-width="1.3"/><ellipse cx="37" cy="27" rx="5" ry="8" fill="#34402f" stroke="${K}" stroke-width="1.3"/>
+        <ellipse cx="23" cy="26" rx="12.5" ry="13" fill="#3b4636" stroke="${K}" stroke-width="1.6"/>
+        <path d="M14 22 q4 5 0 10 M32 22 q-4 5 0 10 M23 16 v20" stroke="#6b4a95" stroke-width="1.3" fill="none" opacity=".75"/>
+        <circle cx="23" cy="13" r="6.4" fill="#465240" stroke="${K}" stroke-width="1.3"/>
+        <path d="M17.5 9 L14.5 3.5 L20 7 Z M28.5 9 L31.5 3.5 L26 7 Z" fill="#465240" stroke="${K}" stroke-width=".9"/>
+        <circle cx="20.6" cy="13" r="1.4" fill="#9a6fc9"/><circle cx="25.4" cy="13" r="1.4" fill="#9a6fc9"/>
+        <g transform="rotate(24 39 22)"><rect x="38" y="8" width="2.6" height="30" rx="1" fill="#4a3b28" stroke="${K}" stroke-width=".5"/><path d="M40.4 9 Q49 12 47.5 21 Q43.5 17.5 40.4 18.5 Z" fill="#8a9096" stroke="${K}" stroke-width=".8"/></g>`;
+      break;
+    default: s=tdHumanoid({body:'#5d4a33',head:'#4a3b28',weapon:W});
+  }
+  return `<svg viewBox="0 0 46 46" width="${size}" height="${size}">${s}</svg>`;
+}
+function villagerTopDown(u,size){ const f=u.face||{skin:0}, K='#0e0b07';
+  return `<svg viewBox="0 0 46 46" width="${size}" height="${size}">${tdHumanoid({body:'#6b5a40',head:SKINS[f.skin]||SKINS[0],trim:`<path d="M17 24 Q23 30 29 24" stroke="#4a3d2c" stroke-width="1.4" fill="none"/>`,face:`<path d="M17.5 13 Q23 8 28.5 13 Q23 11 17.5 13 Z" fill="${HAIRC[(f.hc||0)%HAIRC.length]}" stroke="${K}" stroke-width=".5"/>`})}</svg>`; }
+function menhirSvg(size){ return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><ellipse cx="50" cy="90" rx="26" ry="6" fill="#000" opacity=".35"/><path d="M32 90 L28 30 Q34 10 52 10 Q68 12 68 32 L66 90 Z" fill="#3d3844" stroke="#17130e" stroke-width="3"/><path d="M44 30 L52 44 L44 58 L54 74" stroke="#9a6fc9" stroke-width="3" fill="none"><animate attributeName="opacity" values="1;.35;1" dur="2.4s" repeatCount="indefinite"/></path><path d="M32 90 L28 30 Q34 12 50 10.5" fill="none" stroke="#5a5266" stroke-width="2"/></svg>`; }
+// what sits on a tile besides ground: a cache to break open, a fire burning down, the stain of who died here
+function cacheArt(){ return `<svg class="decor" viewBox="0 0 46 46"><ellipse cx="23" cy="36" rx="12" ry="3" fill="#000" opacity=".35"/><rect x="12" y="21" width="22" height="14" rx="2" fill="#5a4326" stroke="#0e0b07" stroke-width="1.3"/><path d="M12 25 Q23 15 34 25 Z" fill="#6b4f33" stroke="#0e0b07" stroke-width="1.3"/><path d="M12 27 h22 M18 21 v14 M28 21 v14" stroke="#2b1f12" stroke-width="1"/><rect x="21" y="25.5" width="4" height="4.5" rx=".8" fill="#e8c65a" stroke="#0e0b07" stroke-width=".7"><animate attributeName="opacity" values="1;.55;1" dur="1.8s" repeatCount="indefinite"/></rect></svg>`; }
+function fireArt(x,y){ const v=(x*7+y*13)%5; return `<svg class="decor fireov" viewBox="0 0 46 46"><ellipse cx="23" cy="36" rx="15" ry="5" fill="#e0763f" opacity=".28"/><path d="M${12+v} 38 Q${9+v} 26 ${15+v} 22 Q${14+v} 29 ${19+v} 27 Q${17+v} 17 ${24+v} 11 Q${23+v} 21 ${29+v} 24 Q${33+v} 28 ${30+v} 38 Z" fill="#e0763f"/><path d="M${17+v} 38 Q${15+v} 30 ${20+v} 28 Q${21+v} 22 ${24+v} 19 Q${24+v} 27 ${27+v} 30 Q${29+v} 34 ${27+v} 38 Z" fill="#ffce7a"/></svg>`; }
+function decalArt(kind,x,y){ const v=(x*11+y*5)%6; const c=kind==='ichor'?'#2f2540':'#3f1316';
+  return `<svg class="decor" viewBox="0 0 46 46"><path d="M${13+v} 30 q-3 -7 4 -8 q8 -2 12 3 q5 6 -1 9 q-10 4 -15 -4Z" fill="${c}" opacity=".7"/><circle cx="${34-v}" cy="${35-v}" r="1.7" fill="${c}" opacity=".65"/><circle cx="${11+v}" cy="${20+v}" r="1.2" fill="${c}" opacity=".6"/></svg>`; }
+
 function nestSvg(size){return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><path d="M50 92 Q28 72 35 42 Q40 16 50 8 Q60 16 65 42 Q72 72 50 92 Z" fill="#3a2a4a" stroke="#17130e" stroke-width="3"/><path d="M42 62 Q50 52 58 62 M40 42 Q50 34 60 42" stroke="#7a4fa3" stroke-width="2.5" fill="none"/><circle cx="50" cy="72" r="5.5" fill="#9a6fc9"><animate attributeName="opacity" values="1;.35;1" dur="2.2s" repeatCount="indefinite"/></circle><path d="M28 90 L38 80 M72 90 L62 80" stroke="#cfc4ac" stroke-width="2.5"/></svg>`;}
 function wagonSvg(size){return `<svg viewBox="0 0 100 100" width="${size}" height="${size}"><rect x="16" y="36" width="68" height="26" rx="5" fill="#6b4f33" stroke="#17130e" stroke-width="3"/><path d="M16 36 Q50 16 84 36" fill="#8a7157" stroke="#17130e" stroke-width="3"/><circle cx="32" cy="70" r="11" fill="#4a3b28" stroke="#17130e" stroke-width="3"/><circle cx="68" cy="70" r="11" fill="#4a3b28" stroke="#17130e" stroke-width="3"/><path d="M32 70 l0 -7 M32 70 l6 4 M32 70 l-6 4 M68 70 l0 -7 M68 70 l6 4 M68 70 l-6 4" stroke="#2b2118" stroke-width="2"/></svg>`;}
 const WPN_ICON={shortsword:'🗡',armingsword:'🗡',longsword:'🗡',spear:'⸙',pike:'⸙',partisan:'⸙',axe:'🪓',greataxe:'🪓',headsman:'🪓',halberd:'⚔',bardiche:'⚔',mace:'🔨',flanged:'🔨',warhammer:'🔨',bow:'🏹',warbow:'🏹',greatbow:'🏹'};
@@ -1889,7 +2011,7 @@ function load(){ const _raw=localStorage.getItem('graveborne_v01');
 const ACTIVE_KEY='graveborne_active_v01';
 function stashBattle(){ try{
   if(S&&S.battle&&!S.battle.over){
-    const skip={_vis:1,_conn:1,_lastPos:1,_lastPosRAF:1,_fitRetry:1};        // transient (Sets / timers) — rebuilt on render
+    const skip={_vis:1,_conn:1,_lastPos:1,_lastPosRAF:1,_fitRetry:1,_undo:1,_path:1,_camDrawn:1,_cam:1,_camAt:1,_camFollow:1,_fit:1,_ntT:1};   // transient (Sets / timers / camera) — rebuilt on render
     localStorage.setItem(ACTIVE_KEY, JSON.stringify({S,uid,t:Date.now()},(k,v)=>skip[k]?undefined:v));
   } else localStorage.removeItem(ACTIVE_KEY);
 }catch(e){} }
@@ -1904,7 +2026,7 @@ function tryResumeBattle(){ try{
     else { if(typeof d.GW==='number')GW=d.GW; if(typeof d.GH==='number')GH=d.GH; B.gw=GW; B.gh=GH; }   // adopt them, or the NEXT stash of this battle has none
     snapshotForMigration(S.ver);                                              // the on-disk record is the clean pre-battle save — the right restore point
     migrateSave();                                                            // the one migration path — see SAVE_VER
-    delete B._vis; delete B._conn; B._lastPos=null; B._camTouched=false;      // re-fit the camera to the current (possibly rotated) viewport
+    delete B._vis; delete B._conn; delete B._cam; delete B._camDrawn; delete B._undo; B._lastPos=null; B._camTouched=false; B._fit=false;   // the camera re-centres on the squad in the current (possibly rotated) viewport
     return true;
   }
 }catch(e){} return false; }
@@ -2610,6 +2732,7 @@ function featModal(s,opts,stat){
     if(s.pendingFeats&&s.pendingFeats.length)s.pendingFeats.shift();
     if(S.battle){const bu=S.battle.units.find(x=>x.kind==='pc'&&x.ref===s.id); if(bu)bu.feats.push(f);}
     log(`${s.name} learns ${FEATS[f].n}.`,'good');closeModal();}})));
+  sfx('level');
 }
 
 /* ============================== BATTLE ============================== */
@@ -3179,7 +3302,9 @@ function startBattle(contract,squadIds){
     const g=S.graves.find(x=>x.id===gId);
     queueModal(()=>calloutModal(B,g));
   }
+  B.tod=pick(['day','day','day','dawn','dusk','dusk','night']);   // the hour the horns blew — colour only
   startPlayerPhase(B); pumpModals();   // the company moves first — your Player Phase
+  flashBanner((B.cname||ct.n)+' — '+OBJECTIVES[B.obj].n,'open'); sfx('bell');
 }
 // Time-based enemy upgrades: as the world tier climbs (every ~3 weeks) foes gain randomized buffs,
 // so the mid/late game stays sharp even as the company grows in power. Each candidate rolls independently;
@@ -3339,10 +3464,12 @@ function startPlayerPhase(B){
   if(B.podsActive)podSenseAll(B);
   const pcs=B.units.filter(u=>u.kind==='pc'&&!u.sword&&u.hp>0&&!u.fled);
   B.sel=pcs.length?pcs[0].uid:null;          // auto-select the first soldier
+  if(B.round>1&&!B.over&&battleSpeed()<3)flashBanner('Round '+B.round+' — your turn','pl');
   if(!B.over)render();
 }
 function startEnemyPhase(B){
-  if(B.over)return; B.phase='enemy'; B.sel=null; B.aim=null; B.inspect=null;
+  if(B.over)return; B.phase='enemy'; B.sel=null; B.aim=null; B.inspect=null; B._undo=null;
+  if(battleSpeed()<3){ flashBanner('Enemy phase','en'); sfx('turn'); }
   buildEnemyQueue(B);
   if(B.podsActive)podSenseAll(B);
   if(!B.over){ render();
@@ -3396,7 +3523,7 @@ function swordAct(B,u){
   }
   strikeNow();
 }
-function endPlayerPhase(){ const B=S.battle; if(!B||B.over||B.phase!=='player')return;
+function endPlayerPhase(){ const B=S.battle; if(!B||B.over||B.phase!=='player')return; B._undo=null;
   swordPhase(B); if(B.over)return;               // the retinue moves with the company, not against it
   startEnemyPhase(B); }
 function endEnemyPhase(B){
@@ -3427,7 +3554,8 @@ function afterPcAct(u){ // after a soldier moves/acts: stay on it if it still ha
   if(u&&pcTurnLeft(u)){ render(); return; }
   const next=B.units.find(z=>pcTurnLeft(z));
   if(next){ B.sel=next.uid; B.aim=null; render(); return; }
-  endPlayerPhase();   // every soldier is spent — through the SAME door End Turn uses, so the Retinue Step is never skipped
+  if(PREFS.autoEnd)endPlayerPhase();   // every soldier is spent — through the SAME door End Turn uses, so the Retinue Step is never skipped
+  else render();                       // (or wait for the player: the End Turn button pulses)
 }
 window.SELECT=selectUnit;
 function blightTick(B){
@@ -3476,7 +3604,7 @@ function reachCosts(B,u,budget){
       if(diag){ const ca=tileAt(B,c.x+dx,c.y),cb=tileAt(B,c.x,c.y+dy); if((!ca||bImpass(ca.t))&&(!cb||bImpass(cb.t)))continue; } // can't slip diagonally through a solid corner
       const sf=u.feats&&u.feats.includes('surefoot'); let step=(sf?1:bMv(t.t))*(diag?1.5:1); if(t.blighted&&!sf)step+=1; if(dz===1&&!sf)step+=1; // diagonals ×1.5; slope/mire/blight cost extra (Sure-Foot waives it)
       const nd=c.d+step, k=x+','+y;
-      if(nd<=budget+1e-9&&(best[k]===undefined||nd<best[k])){ best[k]=nd; const ex=out.find(o=>o.x===x&&o.y===y); if(ex)ex.cost=nd; else out.push({x,y,cost:nd}); q.push({x,y,d:nd}); }
+      if(nd<=budget+1e-9&&(best[k]===undefined||nd<best[k])){ best[k]=nd; const ex=out.find(o=>o.x===x&&o.y===y); if(ex){ex.cost=nd;ex.from=c.x+','+c.y;} else out.push({x,y,cost:nd,from:c.x+','+c.y}); q.push({x,y,d:nd}); }
     }
   }
   return out;
@@ -3484,6 +3612,15 @@ function reachCosts(B,u,budget){
 // backward-compatible for the AI: tiles within the unit's full budget (+bonus). Returned objects still expose .x/.y.
 function reachable(B,u,bonus){ return reachCosts(B,u,moveBudget(u)+(bonus||0)); }
 function pathCostTo(B,u,x,y,budget){ const t=reachCosts(B,u,budget).find(o=>o.x===x&&o.y===y); return t?t.cost:null; }
+// the tiles a unit would actually walk through to reach (x,y) — for the hover preview and the walk animation
+function pathTo(B,u,x,y,budget){
+  const rc=reachCosts(B,u,budget), by={}; for(const o of rc)by[o.x+','+o.y]=o;
+  let cur=by[x+','+y]; if(!cur)return null;
+  const path=[{x,y,cost:cur.cost}]; let guard=0;
+  while(cur&&cur.from!==u.x+','+u.y&&guard++<80){ const p=by[cur.from]; if(!p)break; path.unshift({x:p.x,y:p.y}); cur=p; }
+  path.unshift({x:u.x,y:u.y});
+  return path;
+}
 // BFS path-distance field FROM a goal tile across walkable terrain (respects walls/water/chasm + cliffs, 8-directional
 // with the corner-cut rule, unit-agnostic). Lets the enemy AI route AROUND barriers instead of jamming straight-line at
 // a wall; a tile absent from the field is walled off from the goal entirely.
@@ -3665,9 +3802,11 @@ function isBondedToGrave(u,graveId){
   const s=soldierById(u.ref); if(!s)return false;
   return g.bonds.includes(s.id);
 }
-function dmgOf(B,att,def){
+function dmgOf(B,att,def){ const w=wOf(att); return dmgCalc(B,att,def,ri(w.lo,w.hi)); }
+function dmgRange(B,att,def){ const w=wOf(att); return [dmgCalc(B,att,def,w.lo),dmgCalc(B,att,def,w.hi)]; }   // what the forecast shows — same arithmetic, no die
+function dmgCalc(B,att,def,roll){
   const w=wOf(att);
-  let d=ri(w.lo,w.hi)+(att.dmgBonus||0)+((trkOf(att)||{}).dmg||0);
+  let d=roll+(att.dmgBonus||0)+((trkOf(att)||{}).dmg||0);
   if(att.feats.includes('executioner')&&def.hp<def.maxhp/2)d+=2;
   if(att.feats.includes('berserker')&&att.hp<att.maxhp/2)d+=2;
   if(att.feats.includes('garrote')&&isIsolated(B,def))d+=2;
@@ -3771,6 +3910,8 @@ function applyDeath(B,u){
     u.lbUsed=true; u.hp=1; u.nearDeath=true; const ls=soldierById(u.ref); if(ls)ls.hp=1;
     fx.push({type:'ward',x:u.x,y:u.y,color:'#e0763f'},{type:'float',x:u.x,y:u.y,txt:'LAST BREATH',color:'#e0763f'});
     blog(B,`${u.name} should be dead. The Last Breath rattles once in its vial, and she is still standing.`); return; }
+  if(!u.prop)(B.decals=B.decals||{})[u.x+','+u.y]=u.undead?'ichor':'blood';
+  if(u.kind==='pc')sfx('fall');
   if(u.kind==='foe'&&!u.prop&&!u.spawned&&!u.graveId&&(u.wAff||u.dropSure))(B.drops=B.drops||[]).push({key:u.weapon,aff:u.wAff||null,mod:0,sure:!!u.dropSure,name:u.dropName||null});
   u.hp=0;
   fx.push({type:'float',x:u.x,y:u.y,txt:'☠',color:'#d8cdb8'});
@@ -3919,21 +4060,43 @@ function calloutModal(B,g){
      <p>Across the field, a figure in your old colors — <b>Level ${shownLvl}</b> now, grown past what you buried. ${esc(FEATS[g.snap.feats[0]]?FEATS[g.snap.feats[0]].n:'')}${g.snap.feats.length>1?' + '+(g.snap.feats.length-1)+' more':''} — the build is yours. The face is hers. Barely.${retLine}</p>${deedLine}${swornLine}<div class="callout">“${esc(line)}”</div>${effect}${it}`,
     [{label:'Steel yourselves',fn:()=>closeModal()}]);
 }
+// what the player can currently see of the enemy, and what the enemy knows — if a step changes neither (and rolled
+// no dice), taking it back gives away nothing, so it may be undone
+function fieldSig(B){ const vis=computeVis(B);
+  return B.units.filter(z=>z.kind==='foe'&&z.hp>0&&!z.fled&&vis.has(z.x+','+z.y)).map(z=>z.uid).sort().join(',')+'|'+(B.pods||[]).map(p=>p.state).join(','); }
+function doMove(B,u,x,y,budget,dash){
+  const path=pathTo(B,u,x,y,budget), cost=path?path[path.length-1].cost:null; if(cost==null)return false;
+  const snap={uid:u.uid,x:u.x,y:u.y,mp:u.mp||0,moved:!!u.moved,acted:!!u.acted,seen:Object.assign({},B.seen),sig:fieldSig(B),rng:S.rng,logLen:B.log.length};
+  u._path=path; u.x=x; u.y=y; u.moved=true; u.mp=Math.max(0,budget-cost);
+  if(dash){ u.acted=true; blog(B,`${u.name} dashes.`); }
+  B.aim=null; stepOnto(B,u); if(B.podsActive)podSenseAll(B);
+  B._undo=(S.rng===snap.rng&&fieldSig(B)===snap.sig)?snap:null;
+  sfx('step');
+  afterPcAct(u);
+  return true;
+}
+function undoMove(){
+  const B=S.battle; if(!B||B.over||B.phase!=='player'||activeModal)return;
+  const U=B._undo; if(!U)return;
+  const u=B.units.find(z=>z.uid===U.uid&&z.hp>0); B._undo=null; if(!u||unitAt(B,U.x,U.y))return;
+  u.x=U.x; u.y=U.y; u.mp=U.mp; u.moved=U.moved; u.acted=U.acted; delete u._path;
+  B.seen=U.seen; if(B.log.length>U.logLen)B.log.splice(0,B.log.length-U.logLen);
+  B.sel=u.uid; B.aim=null; B._actMenu=false; render();
+}
 function tryMove(x,y){
   const B=S.battle; const u=activeUnit(B);
   if(!u||u.kind!=='pc'||B.phase!=='player')return;
   const mp=u.mp||0;
   // blue: within your remaining movement — spend the points, keep your action
-  let cost=pathCostTo(B,u,x,y,mp);
-  if(cost!=null){ u.x=x;u.y=y; u.mp=mp-cost; u.moved=true; B.aim=null; stepOnto(B,u); if(B.podsActive)podSenseAll(B); afterPcAct(u); return; }
+  if(doMove(B,u,x,y,mp,false))return;
   // gold: dash — reachable only by spending your action for a second wind of movement (not once you've begun attacking)
-  if(!u.acted&&(u.strikes||0)===0){ const dashBudget=mp+moveBudget(u); cost=pathCostTo(B,u,x,y,dashBudget);
-    if(cost!=null){ u.x=x;u.y=y; u.acted=true; u.moved=true; u.mp=Math.max(0,dashBudget-cost); blog(B,`${u.name} dashes.`); B.aim=null; stepOnto(B,u); if(B.podsActive)podSenseAll(B); afterPcAct(u); return; } }
+  if(!u.acted&&(u.strikes||0)===0)doMove(B,u,x,y,mp+moveBudget(u),true);
 }
 function stepOnto(B,u){ const t=tileAt(B,u.x,u.y); if(t&&t.cache)openCache(B,u,t); }
 function tryAttack(targetUid){
   const B=S.battle; const u=activeUnit(B);
   if(!u||u.kind!=='pc'||u.acted||B.phase!=='player')return;
+  B._undo=null;
   if((u.strikes||0)>=maxStrikes(u))return;             // out of attacks: you moved (→ one) or you've already struck twice
   const t=B.units.find(z=>z.uid===targetUid);
   if(!t||!attackTargets(B,u).includes(t))return;
@@ -3950,7 +4113,7 @@ function tryAttack(targetUid){
 function endUnitTurn(){ endPlayerPhase(); }   // legacy: the "End Turn" control now ends the whole player phase
 function peekToggle(){ const B=S.battle; if(!B)return; B.peek=!B.peek; if(!B.peek)B.peekTile=null; B.aim=null; render(); }
 function defend(){ const B=S.battle; const u=activeUnit(B); if(!u||u.kind!=='pc'||u.acted||(u.strikes||0)>0||B.phase!=='player')return;
-  u.defending=true; u.rattled=Math.max(0,u.rattled-1); u.acted=true; B.aim=null;
+  B._undo=null; u.defending=true; u.rattled=Math.max(0,u.rattled-1); u.acted=true; B.aim=null;
   blog(B,`${u.name} braces — −10 to be hit, +2 armor, nerves steadied, until their next turn.`); afterPcAct(u); }
 function unitAbilities(u){
   // ALL abilities a unit can use — the action bar shows one button per ability so a soldier who knows
@@ -4011,6 +4174,7 @@ function useAbility(k){
 }
 function afterAbility(B,u){ if(!B.over)afterPcAct(u); }
 function execAbility(B,u,ab,t){
+  B._undo=null;
   if(t&&t.kind==='foe')noticeAttack(B,u,t);   // bone-spears/bash/hook on a patroller wakes its pod
   const corrupt=()=>{ if(u.kind==='pc'){const s=soldierById(u.ref); if(s)addCorruption(s,1);} };
   if(ab.item){
@@ -4476,7 +4640,7 @@ function oathCrisisModal(s){
 }
 function endBattle(outcome){
   const B=S.battle; if(!B||B.over)return;
-  B.over=true;B.outcome=outcome;
+  B.over=true;B.outcome=outcome; sfx(outcome==='victory'?'win':'lose');
   const contract=S.contracts.find(c=>c.id===B.contractId);
   const region=S.regions[B.regionId];
   // v0.70 — the aftermath is assembled whole, then LED by one page (what was won, who fell, what went into the
@@ -5453,28 +5617,32 @@ function render(){
 // style (safe across the full grid rebuild, camera zoom, and a unit that moves again before the glide finishes).
 function animateWalks(B){
   const grid=document.getElementById('grid'); if(!grid)return;
-  const TS=B._ts||40, prev=B._lastPos||{}, now={};
+  const TS=B._ts||40, prev=B._lastPos||{}, now={}, walked=[];
   for(const u of B.units){
     if(u.hp<=0||u.fled)continue;
     const el=grid.querySelector(`.unit[data-uid="${u.uid}"]`);
     if(!el){ if(prev[u.uid])now[u.uid]=prev[u.uid]; continue; }   // fogged this render — keep last-known so it doesn't slide in when spotted
     now[u.uid]={x:u.x,y:u.y};
     const p=prev[u.uid];
+    if(u._path)walked.push(u);
     if(p&&(p.x!==u.x||p.y!==u.y)&&el.animate&&battleSpeed()<3){   // instant speed: tokens just appear where they stand
       const dx=(p.x-u.x)*TS, dy=(p.y-u.y)*TS;
       const steps=Math.max(Math.abs(p.x-u.x),Math.abs(p.y-u.y));
-      const dur=battleMs(Math.min(140+steps*80,480));      // longer walks take a little longer, but finish inside the enemy-turn pacing
+      let frames=[{transform:`translate(${dx}px,${dy}px)`},{transform:'translate(0,0)'}];
+      let dur=battleMs(Math.min(140+steps*80,480));      // longer walks take a little longer, but finish inside the enemy-turn pacing
+      const path=u._path;                        // a soldier walks the route she was shown, around the wall — not through it
+      if(path&&path.length>2&&path[0].x===p.x&&path[0].y===p.y){ frames=path.map(pt=>({transform:`translate(${(pt.x-u.x)*TS}px,${(pt.y-u.y)*TS}px)`})); dur=battleMs(Math.min(95*(path.length-1),640)); }
       const tile=el.parentElement;               // lift the whole cell so the walker rides ABOVE ground/elevation tiles for the glide
       if(tile)tile.style.zIndex='40';
       el.style.zIndex='6';
-      const an=el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'translate(0,0)'}],{duration:dur,easing:'linear'});
+      const an=el.animate(frames,{duration:dur,easing:'linear'});
       an.onfinish=an.oncancel=()=>{ if(tile)tile.style.zIndex=''; el.style.zIndex=''; };
     }
   }
   // Defer the snapshot to a MICROTASK. Enemy moves fire TWO synchronous renders (aiAct→render, then nextTurn→render);
   // deferring keeps prev at the OLD position for both, so the SURVIVING element (2nd render) still animates instead of
   // being cancelled. Microtasks flush at the end of the tick and fire regardless of tab visibility (unlike rAF).
-  queueMicrotask(()=>{ B._lastPos=now; });
+  queueMicrotask(()=>{ B._lastPos=now; for(const z of walked)delete z._path; });
 }
 /* ---- spell / ability fx primitives — each a short, self-cleaning DOM flourish over the grid, so every spell reads distinct ---- */
 function _fxGrid(){ return document.getElementById('grid'); }
@@ -5527,19 +5695,35 @@ function fxSmoke(x,y){ const grid=_fxGrid(); if(!grid)return; const c=TSCUR, cx=
     el.animate([{transform:'scale(.3)',opacity:.8},{transform:'scale(1.5)',opacity:0}],{duration:760,easing:'ease-out'}).onfinish=(n=>()=>n.remove())(el);
   }
 }
+function fxBlood(x,y,color){ const grid=_fxGrid(); if(!grid||battleSpeed()>=3)return; const c=TSCUR, cx=x*c+c/2, cy=y*c+c/2;
+  for(let i=0;i<6;i++){ const a=Math.random()*6.283, r=c*(0.25+Math.random()*0.4), el=document.createElement('div'), sz=2+vri(0,3);
+    el.style.cssText=`position:absolute;left:${cx}px;top:${cy}px;width:${sz}px;height:${sz}px;margin:${-sz/2}px;border-radius:50%;pointer-events:none;z-index:30;background:${color}`;
+    grid.appendChild(el);
+    el.animate([{transform:'translate(0,0)',opacity:1},{transform:`translate(${Math.cos(a)*r}px,${Math.sin(a)*r+c*0.12}px)`,opacity:0}],{duration:360+vri(0,160),easing:'ease-out'}).onfinish=(n=>()=>n.remove())(el);
+  }
+}
+function fxShake(n){ if(!PREFS.shake||battleSpeed()>=3)return; const vp=document.getElementById('viewport'); if(!vp||!vp.animate)return;
+  vp.animate([{transform:'translate(0,0)'},{transform:`translate(${n}px,${-n*0.6}px)`},{transform:`translate(${-n*0.8}px,${n*0.5}px)`},{transform:`translate(${n*0.4}px,${n*0.3}px)`},{transform:'translate(0,0)'}],{duration:190}); }
 function playFx(){
   const grid=document.getElementById('grid');
   if(!grid){fx=[];return;}
   const px=(x,y)=>({left:x*TSCUR+4,top:y*TSCUR+4});
+  const B=S&&S.battle;
   for(const e of fx){
     if(e.type==='flash'||e.type==='dodge'){
       const el=grid.querySelector(`[data-uid="${e.uid}"]`);
       if(el){el.classList.add(e.type==='flash'?'hitflash':'dodge'); setTimeout(()=>el.classList.remove('hitflash','dodge'),500);}
+      sfx(e.type==='flash'?'hit':'miss');
+      if(e.type==='flash'&&B){ const z=B.units.find(q=>q.uid===e.uid); if(z)fxBlood(z.x,z.y,z.undead?'#6b4a95':'#a3271f'); }
+    } else if(e.type==='lunge'){
+      const el=grid.querySelector(`.unit[data-uid="${e.uid}"] .spr`);
+      if(el&&el.animate&&battleSpeed()<3){ const k=TSCUR*0.3; el.animate([{transform:'translate(0,0)'},{transform:`translate(${e.tx*k}px,${e.ty*k}px)`,offset:.38},{transform:'translate(0,0)'}],{duration:230,easing:'ease-out'}); }
     } else if(e.type==='float'){
-      const p=px(e.x,e.y); const el=document.createElement('div');
-      el.className='fxfloat'; el.textContent=e.txt; el.style.left=(p.left+10)+'px'; el.style.top=p.top+'px'; el.style.color=e.color||'#d8cdb8';
+      const p=px(e.x,e.y); const el=document.createElement('div'); const crit=String(e.txt).indexOf('✦')===0&&/-\d/.test(e.txt);
+      el.className='fxfloat'+(crit?' fxcrit':''); el.textContent=e.txt; el.style.left=(p.left+10)+'px'; el.style.top=p.top+'px'; el.style.color=e.color||'#d8cdb8';
       grid.appendChild(el); setTimeout(()=>el.remove(),850);
-    } else if(e.type==='arrow'){
+      if(crit){ sfx('crit'); fxShake(5); } else if(e.txt==='☠'){ sfx('death'); fxShake(3); }
+    } else if(e.type==='arrow'){ sfx('arrow');
       const a=px(e.fx,e.fy), b=px(e.tx,e.ty);
       const el=document.createElement('div'); el.className='fxarrow';
       const ang=Math.atan2(b.top-a.top,b.left-a.left)*180/Math.PI;
@@ -5549,12 +5733,12 @@ function playFx(){
       requestAnimationFrame(()=>{ el.style.left=(b.left+14)+'px'; el.style.top=(b.top+20)+'px'; });
       setTimeout(()=>el.remove(),280);
     }
-    else if(e.type==='bolt'){ fxBolt(e.fx,e.fy,e.tx,e.ty,e.color,e.color2,e.dur); }
+    else if(e.type==='bolt'){ fxBolt(e.fx,e.fy,e.tx,e.ty,e.color,e.color2,e.dur); sfx('cast'); }
     else if(e.type==='burst'){ fxBurst(e.x,e.y,e.color); }
-    else if(e.type==='nova'){ fxNova(e.x,e.y,e.color,e.r); }
-    else if(e.type==='spikes'){ fxSpikes(e.x,e.y,e.color); }
-    else if(e.type==='ward'){ fxWard(e.x,e.y,e.color); }
-    else if(e.type==='heal'){ fxHeal(e.x,e.y,e.color); }
+    else if(e.type==='nova'){ fxNova(e.x,e.y,e.color,e.r); sfx('nova'); }
+    else if(e.type==='spikes'){ fxSpikes(e.x,e.y,e.color); sfx('cast'); }
+    else if(e.type==='ward'){ fxWard(e.x,e.y,e.color); sfx('ward'); }
+    else if(e.type==='heal'){ fxHeal(e.x,e.y,e.color); sfx('heal'); }
     else if(e.type==='smoke'){ fxSmoke(e.x,e.y); }
   }
   fx=[];
@@ -5586,15 +5770,46 @@ function mobileTabBar(){
       if(dx||dy){ e.preventDefault(); SNK.target={x:clamp(SNK.player.x+dx*70,10,SNK.W-10),y:clamp(SNK.player.y+dy*70,10,SNK.H-10)}; }
       return;
     }
-    if(activeModal||!S||!S.battle)return;
-    const B=S.battle; if(B.over||B.phase!=='player')return;
+    if(!S||SCREEN==='title')return;
+    if(e.key==='?'&&!activeModal){ HOWTO(); return; }
+    if(activeModal||!S.battle||e.ctrlKey||e.metaKey||e.altKey)return;
+    const B=S.battle; if(B.over)return;
     const k=e.key.toLowerCase();
-    if(k===' '||k==='enter'){ e.preventDefault(); endPlayerPhase(); return; }
-    if(k==='escape'){ if(B.aim){B.aim=null;render();} return; }
+    // the camera answers in any phase — you can look around while the enemy moves
+    const pan={arrowleft:[-1,0],a:[-1,0],arrowright:[1,0],d:[1,0],arrowup:[0,-1],w:[0,-1],arrowdown:[0,1],s:[0,1]}[k];
+    if(pan){ e.preventDefault(); PAN(pan[0],pan[1]); return; }
+    if(k==='+'||k==='='){ ZOOM(1); return; }
+    if(k==='-'||k==='_'){ ZOOM(-1); return; }
+    if(k==='m'){ FIT(); return; }
+    if(k==='c'){ CENTER(); return; }
+    if(k==='l'){ LOGTOGGLE(); return; }
+    if(k==='v'||k==='i'){ peekToggle(); return; }
+    if(B.phase!=='player')return;
+    if(k==='enter'||k==='e'){ e.preventDefault(); ENDASK(); return; }
+    if(k===' '||k==='tab'){ e.preventDefault(); NEXTUNIT(e.shiftKey?-1:1); return; }
+    if(k==='escape'){ if(B.aim||B._actMenu){ B.aim=null; B._actMenu=false; render(); } else if(B.peek)peekToggle(); else if(B.inspect){ B.inspect=null; render(); } return; }
     if(k==='r'){ retreat(); return; }
+    if(k==='u'||k==='z'){ undoMove(); return; }
     const u=activeUnit(B); if(!u||u.kind!=='pc')return;
     if(k==='b'){ defend(); }
     else if(k==='f'||k==='q'){ useAbility(); }
+    else if(/^[1-9]$/.test(k)){ const list=unitAbilities(u).map(a=>a.k).concat('__brace'), pk=list[Number(k)-1];   // the same order the Actions menu shows
+      if(pk&&!u.acted&&!((u.strikes||0)>0))ACTPICK(pk); }
+  });
+  // hover a reachable tile: the route she would walk, and what it leaves her
+  document.addEventListener('mouseover',e=>{
+    const B=S&&S.battle, ov=document.getElementById('pathov'); if(!B||!ov)return;
+    const tl=e.target.closest&&e.target.closest('.tile');
+    if(B.phase!=='player'||!tl||!(tl.classList.contains('moveable')||tl.classList.contains('dashable'))){ if(ov.firstChild)ov.innerHTML=''; return; }
+    const u=activeUnit(B); if(!u)return;
+    const xy=(tl.getAttribute('data-xy')||'').split(',').map(Number), dash=tl.classList.contains('dashable'), mp=u.mp||0;
+    const budget=(dash&&!u.acted&&!((u.strikes||0)>0))?mp+moveBudget(u):mp, p=pathTo(B,u,xy[0],xy[1],budget);
+    if(!p){ ov.innerHTML=''; return; }
+    const T=TSCUR, col=dash?'#e8c65a':'#8fc0f0', end=p[p.length-1], left=Math.max(0,budget-end.cost);
+    ov.innerHTML=`<polyline points="${p.map(q=>(q.x*T+T/2)+','+(q.y*T+T/2)).join(' ')}" fill="none" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" opacity=".45"/>`
+      +`<polyline points="${p.map(q=>(q.x*T+T/2)+','+(q.y*T+T/2)).join(' ')}" fill="none" stroke="${col}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 8"/>`
+      +`<circle cx="${end.x*T+T/2}" cy="${end.y*T+T/2}" r="${T*0.17}" fill="${col}" opacity=".9"/>`
+      +`<text x="${end.x*T+T/2}" y="${end.y*T+T/2+4}" text-anchor="middle" style="font:bold 11px Georgia;fill:#0e0b07">${dash?'⚡':Math.floor(left)}</text>`;
   });
 })();
 function header(){
@@ -6206,11 +6421,32 @@ function computeVis(B){
   }
   return vis;
 }
+// v0.70 — ground colours per battlefield. The old single palette sat within a few points of the page background, so a
+// field under fog of war read as a handful of dim squares in a black void. Lit ground is now clearly lighter than
+// both remembered ground and the unknown, and each theme carries its own earth.
+const THEME_GROUND={ marsh:'#343a2a',causeway:'#343a2a',woods:'#33402a',pass:'#403d35',cliffs:'#403d35',quarry:'#44403a',ruins:'#3f3829',town:'#40382b',
+  menhir:'#3a3440',ritual:'#3b3a28',river:'#383d28',boulders:'#3d3a2a',fields:'#3c3d27',crypt:'#33312e',graveyard:'#353a2c',camp:'#3f3a29' };
+function tileBg(B,t){
+  switch(t.t){
+    case 'grass': return THEME_GROUND[B.mapTheme]||'#3b3a26';
+    case 'road': return '#4c4029'; case 'bridge': return '#5a4733'; case 'brush': return '#34421f'; case 'tree': return '#25331a';
+    case 'mire': return '#2a2e22'; case 'water': return '#1b2a38'; case 'chasm': return '#070809';
+    case 'boulder': case 'rubble': case 'column': case 'stone': return '#423d32';
+  }
+  return '#3b3a26';
+}
+function flashBanner(txt,cls){ try{
+  const old=document.querySelector('.bbanner'); if(old)old.remove();
+  const d=document.createElement('div'); d.className='bbanner '+(cls||''); d.textContent=txt; document.body.appendChild(d);
+  setTimeout(()=>d.remove(),1700);
+}catch(e){} }
+// the forecast shown on a strikeable enemy: chance, the damage band after its armor, and whether the blow can end it
+function strikeForecast(B,u,t){ const r=dmgRange(B,u,t); return {hit:hitChance(B,u,t),lo:r[0],hi:r[1],kill:r[1]>=t.hp,sure:r[0]>=t.hp}; }
 function renderBattle(){
   const B=S.battle; const u=activeUnit(B);
   const isPC=B.phase==='player'&&u&&u.kind==='pc';
   const narrow=window.innerWidth<760;
-  const TS=narrow?30:40;            // fixed size; the map scrolls when larger than the viewport
+  const TS=narrow?44:56;            // drawn large so the default view is 1:1 (crisp); zooming OUT is what shrinks it
   TSCUR=TS; B._ts=TS;
   // blue = reachable while KEEPING your action; gold = reachable only by spending your action.
   // once the action is spent (you dashed or attacked), any leftover movement stays gold — never reverts to blue.
@@ -6222,6 +6458,7 @@ function renderBattle(){
     else { blueMoves = mp>0?reachCosts(B,u,mp):[];
       goldMoves = reachCosts(B,u,mp+moveBudget(u)).filter(g=>!blueMoves.some(b=>b.x===g.x&&b.y===g.y)); }
   }
+  const blueSet=new Set(blueMoves.map(m=>m.x+','+m.y)), goldSet=new Set(goldMoves.map(m=>m.x+','+m.y));
   const abs=isPC?unitAbilities(u):[];
   const canAct=isPC&&!u.acted&&(u.strikes||0)<maxStrikes(u);   // still has an attack/ability this turn — no action left ⇒ no hit-% shown
   const aiming=isPC&&B.aim&&!B.peek?abilityByKey(u,B.aim):null;
@@ -6238,11 +6475,11 @@ function renderBattle(){
     const iw=wOf(iu);
     const spots=[{x:iu.x,y:iu.y},...reachable(B,iu)];
     for(const p of spots) for(let ty=0;ty<GH;ty++)for(let tx=0;tx<GW;tx++){
-      if(iw.rng===1?(Math.abs(tx-p.x)+Math.abs(ty-p.y)===1):(Math.max(Math.abs(tx-p.x),Math.abs(ty-p.y))<=iw.rng)) threat.add(tx+','+ty);
+      if(iw.rng===1?(Math.max(Math.abs(tx-p.x),Math.abs(ty-p.y))===1):(Math.max(Math.abs(tx-p.x),Math.abs(ty-p.y))<=iw.rng)) threat.add(tx+','+ty);
     }
   }
   const vis=computeVis(B); B._vis=vis;
-  const fsz=Math.round(TS*0.66);
+  const fsz=Math.round(TS*0.82);
   let grid=`<div id="grid" style="--ts:${TS}px;grid-template-columns:repeat(${GW},${TS}px)">`;
   for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
     const t=tileAt(B,x,y);
@@ -6250,17 +6487,19 @@ function renderBattle(){
     const rawUn=unitAt(B,x,y);
     const un=(rawUn&&(rawUn.kind!=='foe'||visible))?rawUn:null;   // fog of war: enemies hidden until seen
     const bd=(!un&&visible)?bodyAt(B,x,y):null;
-    const mv=blueMoves.some(m=>m.x===x&&m.y===y);
-    const dash=!mv&&goldMoves.some(m=>m.x===x&&m.y===y);
+    const mv=blueSet.has(key);
+    const dash=!mv&&goldSet.has(key);
     const atk=un&&targets.includes(un);
-    const hc=atk?hitChance(B,u,un):null;
+    const fc=atk?strikeForecast(B,u,un):null;
     // in weapon range but the shot is blocked — flag it so "range 6" doesn't look broken when a tree/hill is in the way
     const blocked=!atk&&uRangedReach>0&&un&&isEnemy(u,un)&&(()=>{const cheb=Math.max(Math.abs(u.x-un.x),Math.abs(u.y-un.y));return cheb>=2&&cheb<=uRangedReach&&!hasLOS(B,u,un);})();
     let title=terrDesc(t);
+    if(t.cache&&explored)title+=' — a CACHE: end a step here to break it open';
+    if(t.fire>0)title+=' — burning (2 damage to anyone standing here)';
     if(blocked)title+=' — IN RANGE but no line of sight (move for a clear shot)';
     if(un){
-      const uw=wOf(un);
-      title+=` — ${un.name} ${un.hp}/${un.maxhp}, ${uw.n}${uw.rng>1?' (range '+uw.rng+')':''}`;
+      const uw2=wOf(un);
+      title+=` — ${un.name} ${un.hp}/${un.maxhp}, ${uw2.n}${uw2.rng>1?' (range '+uw2.rng+')':''}`;
       if(un.defending)title+=', bracing';
       if(un.shakenBy)title+=', SHAKEN';
       if(un.rattled)title+=`, rattled×${un.rattled}`;
@@ -6268,7 +6507,7 @@ function renderBattle(){
       if(un.stunned)title+=', staggered';
       if(un.warded)title+=', warded (+armor)';
       if(un.offbalance||un.warcried)title+=', −10 to hit';
-      if(atk)title+=` — ${hc}% to hit`;
+      if(atk)title+=` — ${fc.hit}% to hit for ${fc.lo}–${fc.hi}${fc.sure?' (a hit kills)':fc.kill?' (can kill)':''}`;
       else if(un.kind==='foe')title+=' — tap to scout its range';
       if(un.kind==='foe'&&un.podId!=null&&B.podsActive&&B.pods[un.podId]){ const P=B.pods[un.podId]; title+=(P.dname?' · '+P.dname:'')+(P.state==='patrol'?' · unaware (patrolling)':P.state==='alert'?' · alerted — searching':' · engaged'); }
     }
@@ -6276,36 +6515,43 @@ function renderBattle(){
     const cst=un&&casts.includes(un);
     const isObj=B.objTile&&B.objTile.x===x&&B.objTile.y===y;
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
-    const e=(t.elev==null?1:t.elev), bg=TILE_BG[t.t]||'#2e2a20';
     const fog=visible?'':(explored?'fogseen':'fogdark');
-    grid+=`<div class="tile ${t.blighted&&fog!=='fogdark'?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" style="background:${bg}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
-    if(fog!=='fogdark')grid+=(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t))+elevArt(B,x,y,t);
+    grid+=`<div class="tile ${t.blighted&&fog!=='fogdark'?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" data-xy="${key}" style="background:${fog==='fogdark'?'':tileBg(B,t)}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    if(fog!=='fogdark'){
+      grid+=(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t))+elevArt(B,x,y,t);
+      if(B.decals&&B.decals[key])grid+=decalArt(B.decals[key],x,y);
+      if(t.cache)grid+=cacheArt();
+      if(t.fire>0&&visible)grid+=fireArt(x,y);
+    }
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
       const badge=un.sanctuary>0?'<span class="stx" style="color:#e6d98a">☨</span>':un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
-      if(un.kind==='pc'){ const ps=soldierById(un.ref); inner=ps?pcTopDown(ps,fsz):esc(un.name[0]); }
-      else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):(un.face?faceSvg(un.face,{size:fsz}):'V');
-      else if(un.prop)inner=nestSvg(fsz);
+      if(un.kind==='pc'){ const ps=un.sword?{cls:(WEAPONS[un.weapon]||{}).rng>1?'ranger':'fighter',face:null}:soldierById(un.ref); inner=ps?pcTopDown(ps,fsz):esc(un.name[0]); }
+      else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):villagerTopDown(un,fsz);
+      else if(un.prop)inner=un.ekey==='menhir'?menhirSvg(fsz):nestSvg(fsz);
       else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcTopDown({cls:(g2.snap&&g2.snap.cls),face:g2.face,commander:g2.snap&&g2.snap.commander},fsz,{revenant:true}):esc(un.name[0]); }
-      else inner=enemyFace(un.ekey,fsz);
+      else inner=foeTopDown(un,fsz);
       const cls2=un.kind==='ally'?'ally':cls;
       const crown=(B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
       let podB='';
       if(un.kind==='foe'&&un.podId!=null&&B.podsActive&&B.pods[un.podId]){ const ps=B.pods[un.podId].state;
-        podB=ps==='patrol'?'<span class="stx" style="color:#8a7f6b;left:-5px;right:auto;top:auto;bottom:-4px">◦</span>':'<span class="stx" style="color:#e0593f;left:-5px;right:auto;top:auto;bottom:-4px">!</span>'; }
-      grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''}" data-uid="${un.uid}">${inner}${badge}${crown}${podB}<div class="hp"><div style="width:${Math.round(100*un.hp/un.maxhp)}%"></div></div></div>`;
-      if(atk)grid+=`<span class="hitpct">${hc}%</span>`;
+        podB=ps==='patrol'?'<span class="stx" style="color:#a39a86;left:-5px;right:auto;top:auto;bottom:2px">◦</span>':'<span class="stx" style="color:#e0593f;left:-5px;right:auto;top:auto;bottom:2px">!</span>'; }
+      const ratio=un.hp/un.maxhp, hpc=un.kind==='foe'?'#b8442f':(ratio>0.6?'#7fa650':ratio>0.3?'#c9a227':'#c0492f');
+      const spent=un.kind==='pc'&&!un.sword&&B.phase==='player'&&!pcTurnLeft(un);
+      grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''} ${spent?'spent':''} ${un.sword?'sword':''}" data-uid="${un.uid}"><div class="spr">${inner}</div>${badge}${crown}${podB}<div class="hp"><div style="width:${Math.max(4,Math.round(100*ratio))}%;background:${hpc}"></div></div>${un.prop&&un.kind==='ally'?'':`<span class="hpn">${un.hp}</span>`}</div>`;
+      if(atk)grid+=`<span class="hitpct${fc.kill?' kill':''}">${fc.hit}%<small>${fc.kill?'☠ ':''}${fc.lo}–${fc.hi}</small></span>`;
     } else if(bd){ grid+=`<div class="body">☠</div>`; }
     grid+='</div>';
   }
-  grid+=`</div>`;   // close #grid (the pan/zoom layer & overlays are assembled in the return below)
+  grid+=`<svg id="pathov" width="${GW*TS}" height="${GH*TS}"></svg></div>`;   // close #grid (the pan/zoom layer & overlays are assembled in the return below)
   let wx=B.weather==='fog'?'<div class="wx wx-fog"></div>':B.weather==='ashhaze'?'<div class="wx wx-ash"></div>':'';
   if(B.rain)wx+='<div class="wx wx-rain"></div>';
+  if(B.tod&&B.tod!=='day')wx+=`<div class="wx tod-${B.tod}"></div>`;
   // squad roster (player phase) — tap a soldier to command them, in any order you like; ● = action still available
   const q = B.phase==='player'
-    ? B.units.filter(z=>z.kind==='pc'&&z.hp>0&&!z.fled).map(z=>{ const done=z.acted&&(z.mp||0)<=0;
-        return `<div class="qitem ${z.uid===B.sel?'cur':''} ${done?'spent':''}" onclick="SELECT(${z.uid})" title="Tap to command ${esc(z.name)}">${z.uid===B.sel?'▶ ':''}${esc(z.name)}${z.acted?'':' ●'}</div>`; }).join('')
+    ? B.units.filter(z=>z.kind==='pc'&&!z.sword&&z.hp>0&&!z.fled).map(z=>{ const done=!pcTurnLeft(z), r=z.hp/z.maxhp;
+        return `<div class="qitem ${z.uid===B.sel?'cur':''} ${done?'spent':''}" onclick="SELECT(${z.uid})" title="Tap to command ${esc(z.name)}">${z.uid===B.sel?'▶ ':''}${esc(z.name)} <span style="color:${r>0.6?'#7fa650':r>0.3?'#c9a227':'#d9705c'}">${z.hp}</span>${z.acted?'':' ●'}</div>`; }).join('')
     : '<span class="hint">The enemy moves…</span>';
   const show=iu||u;
   const sw=show?wOf(show):null;
@@ -6313,14 +6559,15 @@ function renderBattle(){
   if(show){
     if(show.kind==='pc'){const ps=soldierById(show.ref); if(ps)showFace=`<div class="face" style="float:right">${pcTopDown(ps,48)}</div>`;}
     else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcTopDown({cls:g2.snap&&g2.snap.cls,face:g2.face,commander:g2.snap&&g2.snap.commander},48,{revenant:true})}</div>`;}
-    else showFace=`<div class="face" style="float:right">${enemyFace(show.ekey,44)}</div>`;
+    else if(!show.prop)showFace=`<div class="face" style="float:right">${enemyFace(show.ekey,44)}</div>`;
   }
+  const showTrk=show&&TRINKETS[show.trk];
   let insp=show?`<div class="card">${showFace}<span class="nm">${esc(show.name)}</span>${iu?' <span class="tag revtag">scouting</span>':''}
-      <div class="statline">HP ${show.hp}/${show.maxhp} · SKL ${show.skl} · SPD ${show.spd}${show.dbl?' · <span style="color:var(--gold)">⚔ Double Strike</span>':''}${show.shakenBy?' · <span class="skull">SHAKEN −10</span>':''}${show.rattled?' · rattled×'+show.rattled+' (−'+(show.rattled*5)+')':''}${show.defending?' · bracing':''}</div>
-      <div class="wline">${wpnIcon(show.weapon)} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng+rangeNote(B,sw.rng,show.x,show.y):''}</div>
+      <div class="statline">HP ${show.hp}/${show.maxhp} · SKL ${show.skl} · SPD ${show.spd}${show.arm?' · ARM '+show.arm:''}${show.dbl?' · <span style="color:var(--gold)">⚔ Double Strike</span>':''}${show.shakenBy?' · <span class="skull">SHAKEN −10</span>':''}${show.rattled?' · rattled×'+show.rattled+' (−'+(show.rattled*5)+')':''}${show.defending?' · bracing':''}</div>
+      <div class="wline">${wpnIcon(show.weapon)} ${esc(sw.n)} — ${sw.lo}–${sw.hi} dmg${sw.rng>1?' · range '+sw.rng+rangeNote(B,sw.rng,show.x,show.y):''}${showTrk?` · ◈ <span class="tt" data-tip="${esc(showTrk.d)}">${esc(showTrk.n)}</span>`:''}</div>
       <div class="featline">✦ ${featChips(show.feats)}</div>
       ${iu?`<div class="hint">Red-hatched tiles: everywhere it can reach and strike next turn. Tap it again to dismiss.</div>`
-        :isPC?`<div class="hint">${aiming?esc((aiming.label||'').replace(/^\S+\s/,'').toUpperCase())+': tap a '+(aiming.side==='ally'?'blue-rimmed ally':'purple-rimmed target')+'. ':''}${(u.mp||0)>0?'Blue tiles: move (keeps your action). ':''}${!u.acted?'Gold tiles: dash there (spends your action). Tap a red-rimmed enemy to strike. ':''}Tap another soldier to command them. Move can split around your action — move, strike, then move again.<br><span style="opacity:.7">Keys: Space end phase · B brace · F ability · R retreat · Esc cancel</span></div>`
+        :isPC?`<div class="hint">${aiming?esc((aiming.label||'').replace(/^\S+\s/,'').toUpperCase())+': tap a '+(aiming.side==='ally'?'blue-rimmed ally':'purple-rimmed target')+'. ':''}${(u.mp||0)>0?'Blue tiles: move (keeps your action). ':''}${!u.acted?'Gold tiles: dash there (spends your action). Tap a red-rimmed enemy to strike. ':''}Move can split around your action — move, strike, then move again.<br><span style="opacity:.7">Keys: Tab next · 1–9 abilities · B brace · U undo · E end turn · WASD pan · ? help</span></div>`
         :'<div class="hint">Tap one of your soldiers to command them.</div>'}
     </div>`:'';
   if(B.peekTile) insp=tileDesc(B,B.peekTile.x,B.peekTile.y)+insp;
@@ -6337,18 +6584,19 @@ function renderBattle(){
   const actedTurn=isPC&&(u.moved||(u.strikes||0)>0||u.acted);      // this soldier has already moved or struck this turn
   const aimActive=isPC&&!!B.aim;
   // Next ▶ sits right after the scout eye, and only once the soldier has done something — so you advance the moment their turn is spent
-  const nextBtn=actedTurn?`<button ${anyAvail?'':'disabled'} onclick="NEXTUNIT()" title="Jump to the next soldier who still has a move or action left">Next ▶</button>`:'';
-  // Actions roll up into one dropdown (spells / grafts / brace) instead of a row of buttons
+  const nextBtn=actedTurn?`<button ${anyAvail?'':'disabled'} onclick="NEXTUNIT()" title="Jump to the next soldier who still has a move or action left (Tab)">Next ▶</button>`:'';
+  const undoBtn=(isPC&&B._undo&&B._undo.uid===u.uid)?`<button onclick="UNDO()" title="Take that step back — allowed while it revealed nothing and woke no one (U)">↶ Undo</button>`:'';
+  // Actions roll up into one dropdown (spells / grafts / supplies / brace) instead of a row of buttons
   const actList=[...abs.map(a=>({k:a.k,label:a.label,tip:a.tip})),{k:'__brace',label:'🛡 Brace',tip:'Spend your action: −10 to be hit and +2 armor until your next turn; steadies nerves (−1 rattled).'}];
   let actionsBtn='';
-  if(isPC){ if(aimActive)actionsBtn=`<button class="danger" onclick="ACTMENU(1)" title="Cancel targeting">✖ Cancel</button>`;
-    else if(canAbil)actionsBtn=`<button class="${B._actMenu?'primary':''}" onclick="ACTMENU()" title="Spells, grafts, and brace">✦ Actions ▾</button>`; }
-  const actMenu=(isPC&&canAbil&&!aimActive&&B._actMenu)?`<div class="actmenu">${actList.map(a=>`<button onclick="ACTPICK('${a.k}')" title="${esc(a.tip)}">${esc(a.label)}</button>`).join('')}</div>`:'';
+  if(isPC){ if(aimActive)actionsBtn=`<button class="danger" onclick="ACTMENU(1)" title="Cancel targeting (Esc)">✖ Cancel</button>`;
+    else if(canAbil)actionsBtn=`<button class="${B._actMenu?'primary':''}" onclick="ACTMENU()" title="Spells, grafts, supplies, and brace">✦ Actions ▾</button>`; }
+  const actMenu=(isPC&&canAbil&&!aimActive&&B._actMenu)?`<div class="actmenu">${actList.map((a,i)=>`<button onclick="ACTPICK('${a.k}')" title="${esc(a.tip)}">${i<9?`<span class="keyhint">${i+1}</span> `:''}${esc(a.label)}</button>`).join('')}</div>`:'';
   const actbar=`<div id="actbarImm">
-      <button class="${B.peek?'primary':''}" onclick="PEEK()" title="Inspect: tap any square to read its terrain and who stands there.">👁${B.peek?' Inspecting':''}</button>
-      ${nextBtn}
+      <button class="${B.peek?'primary':''}" onclick="PEEK()" title="Inspect: tap any square to read its terrain and who stands there (V)">👁${B.peek?' Inspecting':''}</button>
+      ${undoBtn}${nextBtn}
       ${actionsBtn}
-      <button class="primary" ${B.phase==='player'?'':'disabled'} onclick="ENDT()" title="End the whole squad's turn — the enemy moves">End Turn ⏎</button>
+      <button class="primary${B.phase==='player'&&!anyAvail?' pulse':''}" ${B.phase==='player'?'':'disabled'} onclick="ENDASK()" title="End the whole squad's turn — the enemy moves (E / Enter)">End Turn ⏎</button>
       <button class="danger" ${B.phase==='player'?'':'disabled'} onclick="RETREAT()" title="Forfeit the pay. Fallen are carried out only if a living soldier stands beside the body.">Retreat</button></div>`;
   const logPanel=B._logOpen?`<div class="hud hud-log"><div class="hudcard"><b style="color:var(--gold)">Field log</b><span style="float:right;cursor:pointer;padding:0 4px" onclick="LOGTOGGLE()">✕</span><div style="font-size:12px;margin-top:4px">${B.log.slice(0,40).map(m=>`<p style="margin:2px 0">${m}</p>`).join('')}</div></div></div>`:'';
   return `<div id="battle">
@@ -6358,35 +6606,52 @@ function renderBattle(){
         <span class="stat">Round <b>${B.round}</b></span>
         <span style="color:var(--gold)">⚑ <b>${OBJECTIVES[B.obj].n}</b>${objProg}</span>${wxTag}</div></div>
       <div class="hud hud-tr">
-        <button onclick="LOGTOGGLE()" class="${B._logOpen?'primary':''}" title="Show or hide the field log">☰ Log</button>
+        <button onclick="LOGTOGGLE()" class="${B._logOpen?'primary':''}" title="Show or hide the field log (L)">☰ Log</button>
         <div class="hud-roster hudcard" style="padding:5px 7px" title="Your squad — tap a soldier to command them in any order">${q}</div></div>
       ${insp?`<div class="hud hud-unit">${insp}</div>`:''}
       <div class="hud hud-act"><div class="hudcard" style="padding:3px 10px">${pips}</div>${actMenu}${actbar}</div>
-      <div id="zoombtns"><button onclick="ZOOM(1)" title="Zoom in">＋</button><button onclick="ZOOM(-1)" title="Zoom out">－</button><button onclick="SPEED()" title="Battle speed — how long the enemy phase lingers between actions. Tap to cycle: 1× / 2× / instant. Hits and damage always show.">${battleSpeed()>=3?'⚡':battleSpeed()===2?'▶▶':'▶'}</button></div>
+      <div id="zoombtns"><button onclick="ZOOM(1)" title="Zoom in (+)">＋</button><button onclick="ZOOM(-1)" title="Zoom out (−)">－</button><button onclick="FIT()" class="${B._fit?'on':''}" title="Whole field / back to the squad (M)">⤢</button><button onclick="HOWTO()" title="How to play, and every key (?)">?</button><button id="speedbtn" onclick="SPEED()" title="Battle speed — how long the enemy phase lingers between actions. Tap to cycle: 1× / 2× / instant. Hits and damage always show.">${battleSpeed()>=3?'⚡':battleSpeed()===2?'▶▶':'▶'}</button></div>
       ${logPanel}
     </div>`;
 }
 /* ===================== IMMERSIVE BATTLE CAMERA — drag-pan, wheel/pinch-zoom ===================== */
-function clampZoom(z){ return clamp(z,0.25,2.8); }
-function battleGridPx(B){ return (B._ts||40); }                   // one tile's pixel step (no gap between tiles)
+function clampZoom(z){ return clamp(z,0.2,1.7); }
+function defaultZoom(vp){ return vp.clientWidth<760?0.9:1; }
+function battleGridPx(B){ return (B._ts||56); }                   // one tile's pixel step (no gap between tiles)
 // measure the floating HUD so the map can sit in the CLEAR band between the top (title/roster) and bottom (card/action
 // bar) panels — this is what gives a real top & bottom buffer instead of the map hiding under the HUD or jamming edge-to-edge
 function hudInsets(vp){
   const vr=vp.getBoundingClientRect(); let top=0,bot=0;
   document.querySelectorAll('#battle .hud-tl,#battle .hud-tr').forEach(e=>{ const r=e.getBoundingClientRect(); if(r.height)top=Math.max(top,r.bottom-vr.top); });
-  document.querySelectorAll('#battle .hud-act,#battle .hud-unit').forEach(e=>{ const r=e.getBoundingClientRect(); if(r.height)bot=Math.max(bot,vr.bottom-r.top); });
+  document.querySelectorAll('#battle .hud-act').forEach(e=>{ const r=e.getBoundingClientRect(); if(r.height)bot=Math.max(bot,vr.bottom-r.top); });
+  if(vp.clientWidth<760)document.querySelectorAll('#battle .hud-unit').forEach(e=>{ const r=e.getBoundingClientRect(); if(r.height)bot=Math.max(bot,vr.bottom-r.top); });
   return { top:Math.min(top+14, vp.clientHeight*0.38), bot:Math.min(bot+14, vp.clientHeight*0.44) };
 }
 function clampCam(B,vp){ const TS=battleGridPx(B), gw=GW*TS*B._cam.z, gh=GH*TS*B._cam.z;
   const ins=B._ins||{top:0,bot:0}, availTop=ins.top, availH=Math.max(60, vp.clientHeight-ins.top-ins.bot);
-  const mx=Math.round(vp.clientWidth*0.6), my=Math.round(vp.clientHeight*0.85);   // generous black margin each side (esp. vertical) so map edges never jam under the HUD when zoomed in
+  const mx=Math.round(vp.clientWidth*0.5), my=Math.round(vp.clientHeight*0.5);   // generous dark margin each side so map edges never jam under the HUD when zoomed in
   if(gw<=vp.clientWidth) B._cam.x=(vp.clientWidth-gw)/2; else B._cam.x=clamp(B._cam.x, vp.clientWidth-gw-mx, mx);
   if(gh<=availH) B._cam.y=availTop+(availH-gh)/2; else B._cam.y=clamp(B._cam.y, availTop+availH-gh-my, availTop+my); }
-function applyCam(B,pz,vp){ clampCam(B,vp); pz.style.transform=`translate(${Math.round(B._cam.x)}px,${Math.round(B._cam.y)}px) scale(${B._cam.z})`; }
+// glide=true animates from wherever the camera was last DRAWN to where it now belongs. The grid is rebuilt on every
+// render, so the transition has to be started by hand: place the new layer at the old transform, flush, then move it.
+function applyCam(B,pz,vp,glide){ clampCam(B,vp);
+  const tf=`translate(${Math.round(B._cam.x)}px,${Math.round(B._cam.y)}px) scale(${B._cam.z})`;
+  if(glide&&B._camDrawn&&B._camDrawn!==tf&&battleSpeed()<3){ pz.style.transition='none'; pz.style.transform=B._camDrawn; void pz.offsetWidth; pz.style.transition='transform .34s cubic-bezier(.2,.7,.3,1)'; }
+  else pz.style.transition='none';
+  pz.style.transform=tf; B._camDrawn=tf; }
 function centerCamOn(B,vp,gx,gy){ const ins=B._ins||{top:0,bot:0}, cyBand=(ins.top+(vp.clientHeight-ins.bot))/2;   // centre on the clear band, not under the HUD
   B._cam.x=vp.clientWidth/2-gx*B._cam.z; B._cam.y=cyBand-gy*B._cam.z; clampCam(B,vp); }
+// pan only when the point has left the comfortable middle of the clear band — the camera should not twitch on every step
+function ensureVisible(B,vp,gx,gy){
+  const ins=B._ins||{top:0,bot:0}, z=B._cam.z, sx=B._cam.x+gx*z, sy=B._cam.y+gy*z;
+  const mx=Math.min(vp.clientWidth*0.2,170), top=ins.top+44, bot=vp.clientHeight-ins.bot-44;
+  if(sx>=mx&&sx<=vp.clientWidth-mx&&sy>=top&&sy<=bot)return false;
+  centerCamOn(B,vp,gx,gy); return true;
+}
 function zoomAt(B,vp,clientX,clientY,nz){ const r=vp.getBoundingClientRect(), fx=clientX-r.left, fy=clientY-r.top;
   B._cam.x=fx-(fx-B._cam.x)*(nz/B._cam.z); B._cam.y=fy-(fy-B._cam.y)*(nz/B._cam.z); B._cam.z=nz; }
+function squadCentre(B){ const ps=B.units.filter(z=>z.kind==='pc'&&z.hp>0&&!z.fled); if(!ps.length)return {x:GW/2,y:GH/2};
+  return {x:ps.reduce((a,z)=>a+z.x,0)/ps.length,y:ps.reduce((a,z)=>a+z.y,0)/ps.length}; }
 function setupBattleView(B){
   const vp=document.getElementById('viewport'), pz=document.getElementById('panzoom');
   if(!vp||!pz)return;
@@ -6395,11 +6660,19 @@ function setupBattleView(B){
   if(vw<80||vh<80){ if(B._cam)applyCam(B,pz,vp); return; }         // layout not settled yet — try again next render
   const ins=hudInsets(vp); B._ins=ins;                             // clear band between the HUD panels
   const availH=Math.max(60, vh-ins.top-ins.bot);
-  // keep fitting the whole field into the clear band until the player takes control of the camera (pinch/pan/zoom)
-  if(!B._cam||!B._camTouched){ const z=clampZoom(Math.min(vw/gw, availH/gh)*0.97); B._cam={z,x:(vw-gw*z)/2,y:ins.top+(availH-gh*z)/2}; }
-  const cu=activeUnit(B), canFollow=cu&&(cu.kind!=='foe'||(B._vis&&B._vis.has(cu.x+','+cu.y)));
-  if(cu&&canFollow&&B._camFollow!==cu.uid){ B._camFollow=cu.uid; centerCamOn(B,vp,(cu.x+0.5)*TS,(cu.y+0.5)*TS); } // frame the acting unit when the turn passes to it
-  applyCam(B,pz,vp);
+  const fitZ=clampZoom(Math.min(vw/gw, availH/gh)*0.97);
+  let glide=false;
+  // v0.70 — the fight opens CLOSE ON THE SQUAD at 1:1, not fitted to a field that is nine-tenths unexplored dark.
+  // ⤢ (or M) shows the whole field; any pan or zoom of your own leaves it.
+  if(!B._cam){ const c=squadCentre(B); B._cam={z:Math.max(fitZ,defaultZoom(vp)),x:0,y:0}; centerCamOn(B,vp,(c.x+0.5)*TS,(c.y+0.5)*TS);
+    const a0=activeUnit(B); B._camFollow=a0?a0.uid:null; B._camAt=a0?a0.x+','+a0.y:null; }
+  if(B._fit){ B._cam.z=fitZ; B._cam.x=(vw-gw*fitZ)/2; B._cam.y=ins.top+(availH-gh*fitZ)/2; }
+  else {
+    const cu=activeUnit(B), canFollow=cu&&(cu.kind!=='foe'||(B._vis&&B._vis.has(cu.x+','+cu.y)));
+    if(cu&&canFollow){ const at=cu.x+','+cu.y;
+      if(B._camFollow!==cu.uid||B._camAt!==at){ B._camFollow=cu.uid; B._camAt=at; if(ensureVisible(B,vp,(cu.x+0.5)*TS,(cu.y+0.5)*TS))glide=true; } }
+  }
+  applyCam(B,pz,vp,glide);
 }
 function attachPanZoomOnce(){
   const pts=new Map(); let start=null, pinch=null, moved=false;
@@ -6411,11 +6684,11 @@ function attachPanZoomOnce(){
     else if(pts.size===2){ const v=[...pts.values()]; pinch={d:D(v[0],v[1]),z:B._cam.z,mx:(v[0].x+v[1].x)/2,my:(v[0].y+v[1].y)/2}; start=null; } });
   document.addEventListener('pointermove',e=>{ const B=S.battle; if(!B||!B._cam||!pts.has(e.pointerId))return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
     const vp=vpEl(),pz=pzEl(); if(!vp||!pz)return;
-    if(pinch&&pts.size>=2){ const v=[...pts.values()]; zoomAt(B,vp,pinch.mx,pinch.my,clampZoom(pinch.z*D(v[0],v[1])/pinch.d)); applyCam(B,pz,vp); moved=true; B._camTouched=true; return; }
-    if(start){ const dx=e.clientX-start.x, dy=e.clientY-start.y; if(Math.abs(dx)+Math.abs(dy)>5){moved=true;B._camTouched=true;} B._cam.x=start.cx+dx; B._cam.y=start.cy+dy; applyCam(B,pz,vp); } });
+    if(pinch&&pts.size>=2){ const v=[...pts.values()]; zoomAt(B,vp,pinch.mx,pinch.my,clampZoom(pinch.z*D(v[0],v[1])/pinch.d)); applyCam(B,pz,vp); moved=true; B._camTouched=true; B._fit=false; return; }
+    if(start){ const dx=e.clientX-start.x, dy=e.clientY-start.y; if(Math.abs(dx)+Math.abs(dy)>5){moved=true;B._camTouched=true;B._fit=false;} B._cam.x=start.cx+dx; B._cam.y=start.cy+dy; applyCam(B,pz,vp); } });
   const up=e=>{ pts.delete(e.pointerId); if(pts.size<2)pinch=null; if(pts.size===0){ start=null; const vp=vpEl(); vp&&vp.classList.remove('grabbing'); } };
   document.addEventListener('pointerup',up); document.addEventListener('pointercancel',up);
-  document.addEventListener('wheel',e=>{ const B=S.battle; if(!B||!B._cam||!inVp(e))return; e.preventDefault(); const vp=vpEl(),pz=pzEl(); zoomAt(B,vp,e.clientX,e.clientY,clampZoom(B._cam.z*(e.deltaY<0?1.13:0.88))); applyCam(B,pz,vp); B._camTouched=true; },{passive:false});
+  document.addEventListener('wheel',e=>{ const B=S.battle; if(!B||!B._cam||!inVp(e))return; e.preventDefault(); const vp=vpEl(),pz=pzEl(); zoomAt(B,vp,e.clientX,e.clientY,clampZoom(B._cam.z*(e.deltaY<0?1.13:0.88))); applyCam(B,pz,vp); B._camTouched=true; B._fit=false; },{passive:false});
   document.addEventListener('click',e=>{ if(moved&&inVp(e)){ e.stopPropagation(); e.preventDefault(); moved=false; } },true); // swallow the click that ends a drag
   // re-fit when the window resizes or the tab becomes visible again (layout was 0 while hidden)
   const refit=()=>{ if(S.battle)render(); };
@@ -6433,15 +6706,33 @@ function attachPanZoomOnce(){
 }
 window.ZOOM=function(dir){ const B=S.battle; if(!B||!B._cam)return; const vp=document.getElementById('viewport'), pz=document.getElementById('panzoom'); if(!vp||!pz)return;
   const r=vp.getBoundingClientRect(), ins=B._ins||{top:0,bot:0}, cyBand=(ins.top+(vp.clientHeight-ins.bot))/2;   // zoom about the CLEAR band's centre, not the raw viewport centre — otherwise zooming shoves the map top up under the HUD
-  zoomAt(B,vp,r.left+vp.clientWidth/2,r.top+cyBand,clampZoom(B._cam.z*(dir>0?1.25:0.8))); applyCam(B,pz,vp); B._camTouched=true; };
+  B._fit=false; zoomAt(B,vp,r.left+vp.clientWidth/2,r.top+cyBand,clampZoom(B._cam.z*(dir>0?1.25:0.8))); applyCam(B,pz,vp,true); B._camTouched=true; };
+// ⤢ — the whole field at once, and back to the squad
+window.FIT=function(){ const B=S.battle; if(!B||!B._cam)return; B._fit=!B._fit;
+  if(!B._fit){ const vp=document.getElementById('viewport'); if(vp){ const TS=battleGridPx(B), a=activeUnit(B)||squadCentre(B); B._cam.z=defaultZoom(vp); centerCamOn(B,vp,(a.x+0.5)*TS,(a.y+0.5)*TS); } }
+  B._camDrawn=null; render(); };
+window.PAN=function(dx,dy){ const B=S.battle; if(!B||!B._cam)return; const vp=document.getElementById('viewport'), pz=document.getElementById('panzoom'); if(!vp||!pz)return;
+  B._fit=false; B._cam.x-=dx*battleGridPx(B)*1.6*B._cam.z; B._cam.y-=dy*battleGridPx(B)*1.6*B._cam.z; applyCam(B,pz,vp,true); B._camTouched=true; };
+window.CENTER=function(){ const B=S.battle; if(!B||!B._cam)return; const vp=document.getElementById('viewport'), pz=document.getElementById('panzoom'); if(!vp||!pz)return;
+  const a=activeUnit(B)||squadCentre(B), TS=battleGridPx(B); B._fit=false; centerCamOn(B,vp,(a.x+0.5)*TS,(a.y+0.5)*TS); applyCam(B,pz,vp,true); };
+// End Turn as a player presses it: asks first if someone has been forgotten entirely. (ENDT stays the raw door — the
+// harness and the auto-end use it.)
+window.ENDASK=function(){ const B=S.battle; if(!B||B.over||B.phase!=='player'||activeModal)return;
+  const idle=B.units.filter(u=>u.kind==='pc'&&!u.sword&&u.hp>0&&!u.fled&&!u.moved&&!u.acted&&(u.strikes||0)===0);
+  if(PREFS.confirmEnd&&idle.length){
+    showModal('End the turn?',`<p><b>${idle.map(u=>esc(u.name)).join(', ')}</b> ${idle.length>1?'have':'has'} not moved or acted.</p><p class="hint">This question can be turned off in Settings.</p>`,
+      [{label:'End the turn',cls:'primary',fn:()=>{ closeModal(); endPlayerPhase(); }},{label:'Keep going',fn:()=>closeModal()}]);
+    return; }
+  endPlayerPhase(); };
+window.UNDO=function(){ undoMove(); };
 window.LOGTOGGLE=function(){ const B=S.battle; if(!B)return; B._logOpen=!B._logOpen; render(); };
 // Cycle 1× → 2× → instant. Lives on S so it rides the battle stash and the post-battle save alike.
 // (save() is a deliberate no-op mid-battle — the stash and the next clean save carry the setting.)
 window.SPEED=function(){ S.battleSpeed=battleSpeed()>=3?1:battleSpeed()+1; save(); render(); };
-window.NEXTUNIT=function(){ const B=S.battle; if(!B||B.phase!=='player')return;                 // jump to the next soldier who can still act
-  const order=B.units.filter(z=>z.kind==='pc'&&z.hp>0&&!z.fled); if(!order.length)return;
-  const ci=order.findIndex(z=>z.uid===B.sel);
-  for(let i=1;i<=order.length;i++){ const z=order[(ci+i+order.length)%order.length]; if(pcTurnLeft(z)){ selectUnit(z.uid); return; } } };
+window.NEXTUNIT=function(dir){ const B=S.battle; if(!B||B.phase!=='player')return;              // jump to the next (or, with −1, previous) soldier who can still act
+  const order=B.units.filter(z=>z.kind==='pc'&&!z.sword&&z.hp>0&&!z.fled); if(!order.length)return;
+  const ci=order.findIndex(z=>z.uid===B.sel), st=dir===-1?-1:1;
+  for(let i=1;i<=order.length;i++){ const z=order[((ci+st*i)%order.length+order.length)%order.length]; if(pcTurnLeft(z)){ selectUnit(z.uid); return; } } };
 window.TILE=function(x,y){
   const B=S.battle; if(!B||B.over||activeModal)return;
   if(B.peek){ B.peekTile={x,y}; render(); return; }   // inspect mode: read the square, take no action (any phase)
