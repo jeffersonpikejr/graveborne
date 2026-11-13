@@ -25,8 +25,9 @@ from gb import kit as K
 from gb import looks as LK
 from gb import mat as M
 
-SCALE = 0.78            # tiles per metre of the brute: as large as the house canvas holds (a man's is 0.6)
+SCALE = 0.75            # tiles per metre of the brute: as large as the house canvas holds (a man's is 0.6)
 FOOT = 1.5
+SHIFT = -0.05           # (tiles) its mass a little to the left, so its long shadow stays inside the canvas
 HIP = 0.50              # the hips' height (m): short legs, bent
 HEAD_AT = (0.0, -0.02, 1.63)
 
@@ -141,5 +142,6 @@ def build(v, seed=7, turn=None, look=None, head=True):
 
     K.parent(parts, fig)
     fig.scale = (SCALE,) * 3
+    fig.location.x = SHIFT
     fig.rotation_euler.z = math.radians(sd['turn'] if turn is None else turn)
     return fig
