@@ -4,12 +4,65 @@
 
 Dark-fantasy mercenary squad tactics. **You will fight everyone you fail to protect**: soldiers whose bodies you abandon, sell, or bury in doomed ground come back as revenants carrying their exact builds and unfinished stories.
 
-Single-file game — no build, no backend, saves to your device's localStorage. Play at the link above, or run locally: open `index.html` (or `python3 -m http.server 8931 --directory .` → localhost:8931). Design docs live in the Obsidian vault: `1 - Projects ☑️/Graveborne/` (roadmap v2 is the source of truth).
+Single-file game — no build, no backend, no audio or image files; saves to your device's localStorage. Play at the link above, or run locally: open `index.html` (or `python3 -m http.server 8931 --directory .` → localhost:8931). Design docs live in the Obsidian vault: `1 - Projects ☑️/Graveborne/` (roadmap v2 is the source of truth).
 
 ## How to play
-- **Company screen**: take contracts (pay vs. danger vs. region pressure), hire, fit armor, buy provisions, rest to advance the week. The Blight pressure bars are the clock — a region at 100 is swallowed, and its buried graves rise.
-- **Battle**: one **Move** + one **Action** per soldier per turn (pips in the top bar). Click gold tiles to move; click red-rimmed enemies to attack (hit % shown); click any other enemy to **scout** its threat range. **Brace** spends your action: −10 to be hit, +2 armor until your next turn. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
+- **Title screen**: continue, or raise a new banner — pick an **origin** (who founded the company), a **difficulty**, and optionally a **seed** (same seed, same realm, same omen, same rolls).
+- **Company screen**: take contracts (pay vs. danger vs. region pressure), hire, outfit soldiers from **the wagons**, buy provisions, rest to advance the week. The Blight pressure bars are the clock — a region at 100 is swallowed, and its buried graves rise. Renown buys **doctrines**.
+- **Battle**: one **Move** + one **Action** per soldier per turn. Click blue tiles to move, gold to dash; click red-rimmed enemies to attack (the label is hit % and the damage band — a ☠ means the blow can kill); click any other enemy to **scout** its threat range. Small chests are **caches**: end a step on one. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
+- **Keys**: `Tab`/`Space` next soldier · `1`–`9` abilities · `B` brace · `U` undo a step · `E`/`Enter` end turn · `WASD`/arrows pan · `+`/`−` zoom · `M` whole field · `C` centre · `V` inspect · `L` log · `R` retreat · `Esc` cancel · `?` help.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
+
+## v0.70 (2026-11-13) — A Run, a Road, and Somewhere to Put the Loot
+The biggest build since the realm opened. Four things at once: the engine stops having dead ends, the battlefield becomes readable and playable from the keyboard, loot gets somewhere to live, and every campaign becomes a *run* that is different from the last one.
+
+### Nothing strands you (each reproduced by a headless bot before it was fixed)
+- **A wiped squad away from a town was the end of the game without a game-over.** No soldiers meant no travel, and no town meant no hiring: the only button left was "Rest a week", forever. The fuzz harness hit this in **5 of 6 campaigns** on v0.67. Now the wagoners drive for the nearest town, and an empty banner always finds one sellsword it can afford.
+- **Losing — or retreating from — the Magister's Courier or an heir's price deleted the story.** A fought contract was consumed whatever the outcome, and nothing re-posted it: stage 4 with no purple mark, permanently. The spine's contracts now survive a loss, are never culled when their region is swallowed, and **a campaign already stranded by an older build re-posts its contract on load**.
+- **Releasing an oath-holder filed a hollow "deserter"** (a name and a level, no soldier behind it). Buying her back put that stub on the roster and broke the company screen.
+- **The Retinue Step was skipped** whenever the turn ended by itself — sworn swords only ever acted if you pressed End Turn with moves to spare.
+- **Standing menhirs counted as survivors.** "No Survivors" on a menhir field did not end when the last enemy died, and a slain leader's rout never finished.
+- **"Not yet" at the muster was a free exit from every interception.** Running is still allowed; it now costs what it should (a wagon to brigands, blood to anything else).
+- **The muster roll ran dry.** 24 names, two burned every week on sellswords nobody hired: by week 12 the hiring line was "Nyra II" and "Maerin II". 72 names now, and a name is only taken while someone is wearing it.
+- **Three ability kills paid nothing.** A Bone-Spear or Shield-Bash kill fed no Reaper stack, no Cold Count, no Trollfeller. Eight hand-rolled kill payouts are now one `creditKill()`.
+- Smaller: the scout overlay under-reported diagonal melee reach; the same Ash relic could be grafted twice; a "Dread Dread Graveguard"; three scenes still promising acts that shipped months ago; the header said v0.65.
+
+### The battlefield
+- **The fight opens close on the squad** at 1:1 instead of fitted to a field that is nine-tenths unexplored dark. The camera glides, and only moves when the active soldier leaves the middle of the screen. **⤢ / `M`** shows the whole field.
+- **Lit ground is clearly lighter than remembered ground, which is clearly lighter than the unknown** — inside a frame, so the field has edges. Each battlefield type has its own earth, and each fight its hour (dawn, day, dusk, night).
+- **Everything is drawn from above now.** The company has been top-down since v0.45 while everything it fought was still a portrait in a coloured square. All fourteen enemies have top-down sprites wearing the weapon they actually carry. Round tokens, a side-coloured ring, a health number, a pulse on the selected soldier, and **soldiers with nothing left to do go grey**.
+- **The forecast is honest and complete**: hit chance *and* the damage band after the target's armor, with ☠ when the blow can kill — read from the same function the roll uses.
+- **Hover shows the route; soldiers walk it** (around the wall, not through it). **A step can be undone** as long as it revealed no enemy, woke no patrol, and rolled no die.
+- **A full keyboard** (see above). `Space` no longer ends the turn — it was one slip from handing the enemy a round. End Turn asks first if a soldier was forgotten entirely.
+- Lunges, blood, a jolt on crits, stains where the dead fell, phase banners, and **sound** — synthesised in the browser (no files), driven by the same events that draw the hits. Off switch and volume in Settings.
+- **Three new battlefields**: the **crypt** (delves now go *down*: rooms, two-wide passages, short sightlines), the **graveyard** (headstones that break sight — and open graves that are not all empty), and the **camp** (a palisade, a fire, and a strongbox beside it).
+
+### The wagons
+- **Loot goes into the wagons** instead of demanding an answer the second it drops. Outfit a soldier from her card; **what she puts down goes back in**. Sell in towns.
+- **Rarity** you can read at a glance: common, fine (one temper), masterwork (two), relic.
+- **A third tier of steel** (Longsword, Partisan, Headsman's Axe, Bardiche, Warhammer, Yew Greatbow) and a fourth armor (Brigandine) — **only a master forge works them**: Karsk Proper's court smiths and the Underway's deep ones. A reason to cross a border.
+- **Charms**: a third slot. Fourteen of them — a Saint's Knucklebone, a Pouch of Grave-Salt, the Last Breath (once a battle, the blow that should have killed her doesn't). A fallen soldier's charm comes home if her body does.
+- **Seven named weapons** with lore and a rule of their own. *Widow's Tithe* drinks from every kill. *The Quiet Word*'s first arrow cannot miss.
+- **Field supplies** any soldier can use, one each per battle: Healing Draught, Firepot (the ground burns two rounds — friend and foe alike), Blessed Salt.
+- **Caches** on the battlefield: a reason to send someone into the fog. What the named dead carried, they drop. One page after every fight says what was won, who fell, and what went into the wagons.
+
+### Every campaign is a run
+- **Seeds.** One random stream, stored on the record. A seed draws the realm, the omen, and every roll after it.
+- **Origins** — who raised the banner. Six: the Broken Levy, the Gravediggers' Guild, the Ash-Bitten, the Fifth Column, Undercrown Runners (in debt from day one), the Inherited Banner. Five are unlocked by things you *did* under an earlier banner.
+- **Omens** — the year it was raised in. The Long Rain, the Plague Year, the Hungry Dead… one per run, two on Grim.
+- **Three difficulties**: A Tale Told, Mercenary (the game as tuned), Grim.
+- **Doctrines.** Renown used to be a counter. At 3, 6, 10, 15, 21 and 28 the company now chooses what it is known for — one of three, from sixteen. Forced March. Corpse-Bearers. Grave-Wardens.
+- **The road has stories of its own**: seventeen events drawn from who and where the company is.
+- **Unfinished business.** Every backstory's hook — *never answered for Vesshold*, *the debt outlives her* — now comes due once, as a choice: pay for it, let her try it herself, fight for it, or leave it. Settle it and it is a deed to her name. **Leave it, and it is exactly what her revenant will say to you** — a settled soldier's revenant has nothing to shake her bonded with.
+- **Named heads.** The realm produces a nemesis with its own steel. Beat it and the weapon is yours. Lose, and it grows, remembers who it killed, and **takes the best blade off the body** to use on you next time.
+- **The Hall of Banners.** Every ended run leaves a line — and if it left someone walking, **the next banner inherits her**: by name, by face, with her blade.
+- **The whole realm is clickable.** One handler finds the nearest hex, so provinces you have not walked can be selected and marched on, with a province/realm toggle.
+- A **title screen**, settings, and how-to-play.
+
+### Under the hood
+Save shape 67 → 70 through the v0.67 registry: old records get a stream, a company name, empty wagons, and credit in the Hall for what they already did. `test/` gains a **fuzz harness** (a bot plays whole campaigns — 29 campaigns and 551 battles over this build's verification, the last 11 campaigns on the shipped code, the authored spine through to the reveal, zero errors) and a **regression suite** (24 checks; the six that test a v0.67 bug were each confirmed failing on v0.67).
+
+An independent read of the diff then found eleven things random play had not, all fixed and each now a regression check where it can be: a lost story contract could be re-fought at once for XP and a fresh cache (it now goes to ground for a week, and the field stays picked clean); game over ignored a wagon full of sellable steel; marching into an event's fight could be interrupted — and replaced — by an arrival modal queued behind it; a nemesis that took a trophy destroyed its own named weapon; First Blood was never used up by Cleave, Trip, Disarm or a riposte; the Wedding-Iron Ring healed three real hit points a battle; two weeks turning at once sent two debt collectors; backing out of an event fight was billed as a brigand robbery.
 
 ## v0.67 (2026-09-04) — One Record, One Road Through It
 Nothing you can see. Everything the next twenty versions stand on.
@@ -436,9 +489,8 @@ Six regions on a spatial road graph (SVG map, caravan position, per-node pressur
 ## v0.1 (2026-07-11)
 Core loop: contracts → permadeath → corpse decisions → revenants with inherited builds → callouts that shake bonded survivors → lay-to-rest resolution (gravetempered + gear echoes). Founding-grave prologue guarantees a revenant by ~week 3. 19 verified bug-hunt fixes + playtest patch (action economy, combat FX, threat scouting, hit odds).
 
-## Backlog (v0.3+)
-- **Faction reputation** (next module): per-faction standing that goes negative; Karsk vs. Conclave vs. Faith reactions (roadmap: "relationship matrix"). Renown → per-employer.
-- Region-node interactions on the map (click a node → its contracts/rumors); named settlements.
-- Steel/Ash progression tracks; camp events/vignettes; company doctrines; more factions' combat grammars (Thornwood, Faith purge-squads, Blight tides).
-- Richer combat animation pass (attack lunges, projectile variety, death beats); sound.
-- Difficulty modes + Memento save posture (deaths always commit even if battles restart).
+## Backlog
+- **Faiths and far factions**: the Cindered Faith, the Thornwood Compact and the Undercrown as standings of their own (today only Karsk, the Folk and the Conclave are tracked); their combat grammars.
+- **The realm's own spine**: named heads and events carry the game past Act I, but the six far provinces still have no authored arc.
+- Travel shown on the map (the caravan still arrives rather than walks); a canvas renderer if the DOM grid ever becomes the bottleneck.
+- Memento save posture (deaths always commit even if a battle is replayed); more charms, more named steel, more roads.

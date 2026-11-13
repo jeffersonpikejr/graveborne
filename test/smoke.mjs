@@ -42,7 +42,7 @@ await page.waitForTimeout(400);
 await dismissModals();
 
 // speed button should render the instant glyph in battle
-const glyph = await page.evaluate(() => { const b = [...document.querySelectorAll('#zoombtns button')].pop(); return b && b.textContent; });
+const glyph = await page.evaluate(() => { const b = document.querySelector('#speedbtn') || [...document.querySelectorAll('#zoombtns button')].pop(); return b && b.textContent; });
 if (glyph !== '⚡') fail('speed button glyph: ' + glyph);
 
 // end the player phase; at instant speed the whole enemy phase should resolve in ~a second even with pods
