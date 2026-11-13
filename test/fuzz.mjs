@@ -24,9 +24,15 @@ const BOT = (seed, story) => {
   const pick = a => a[Math.floor(rnd() * a.length)];
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const st = { battles: 0, victories: 0, defeats: 0, retreats: 0, events: 0, notes: [], lastTitle: '' };
+  const patron = (seed % 5) !== 0;
   // pacing off: the enemy phase is a timer chain; collapse every beat to 0 so a campaign fits in seconds
   window.battleMs = () => 0;
   window.pauseNextTurn = function () { const B = S.battle; if (!B) return; clearTimeout(B._ntT); B._ntT = setTimeout(() => { if (S.battle && !S.battle.over) nextTurn(); }, 0); };
+  // drawing 500 tiles after every bot click is most of a campaign's wall-clock. The harness draws the real field one
+  // render in eight (enough to catch a renderer that throws) and a stub the rest of the time; the fog-of-war set the
+  // bot reads is computed either way.
+  if (!window.__realRenderBattle) { window.__realRenderBattle = window.renderBattle; let rn = 0;
+    window.renderBattle = function () { if (++rn % 8 === 0) return window.__realRenderBattle(); const B = S.battle; B._vis = computeVis(B); B._ts = B._ts || 56; return '<div id="battle"></div>'; }; }
   const fail = m => { throw new Error(m); };
 
   async function dismiss(limit = 60) {
@@ -109,7 +115,8 @@ const BOT = (seed, story) => {
           }
           const vis = B._vis || new Set();
           const tg = (!u.acted && (u.strikes || 0) < maxStrikes(u)) ? attackTargets(B, u).filter(t => t.kind !== 'foe' || vis.has(t.x + ',' + t.y)) : [];
-          if (tg.length) { const t = tg.sort((a, b) => a.hp - b.hp)[0]; TILE(t.x, t.y); await sleep(0); continue; }
+          const live = tg.filter(t => !t.prop || B.obj === 'burn');          // masonry is not a target unless burning it is the job
+          if (live.length) { const t = live.sort((a, b) => a.hp - b.hp)[0]; TILE(t.x, t.y); await sleep(0); continue; }
           // otherwise close on the objective / nearest foe
           const mp = u.mp || 0;
           // walk first (keeps the action for a strike on arrival); dash only when the enemy is still far off
@@ -119,7 +126,7 @@ const BOT = (seed, story) => {
           if (!opts.length) break;
           let goal = null;
           if (B.obj === 'capture' && B.objTile) goal = B.objTile;
-          else { const foes = B.units.filter(f => f.kind === 'foe' && f.hp > 0 && !f.fled); goal = foes.sort((a, b) => distC(a, u) - distC(b, u))[0] || null; }
+          else { const foes = B.units.filter(f => f.kind === 'foe' && f.hp > 0 && !f.fled && (!f.prop || B.obj === 'burn')); goal = foes.sort((a, b) => distC(a, u) - distC(b, u))[0] || null; }
           if (!goal) break;
           const pf = pathField(B, goal.x, goal.y);
           const d = o => { const v = pf[o.x + ',' + o.y]; return v === undefined ? 9999 : v; };
@@ -183,6 +190,10 @@ const BOT = (seed, story) => {
     if (S.battle) { await playBattle(); return 'battle'; }
     if (typeof SNK !== 'undefined' && SNK) { if (rnd() < 0.85) sneakSuccess(); else sneakCaught(); await sleep(0); await dismiss(); return 'sneak'; }
     invariants('strategy');
+    // A PATRON: four runs in five, somebody is quietly paying this company's bills and patching it up, so the campaign
+    // lives long enough to reach doctrines, named heads, unfinished business and the far provinces. The fifth run
+    // gets nothing, and exercises ruin.
+    if (patron) { if (S.coin < 160) S.coin += 140; if (S.prov < 12) S.prov += 12; for (const p of S.roster) p.hp = p.maxhp; }
     if (!hasWayForward()) fail('DEAD END: week ' + S.week + ', roster ' + S.roster.length + ', coin ' + S.coin + ', at settlement ' + atSettlement() + ', story ' + (S.story && S.story.stage));
     const setl = atSettlement();
     // upkeep the way a sane player would
@@ -255,7 +266,7 @@ for (let run = 0; run < RUNS; run++) {
         if (!cont) throw new Error('state missing after reload');
         const after = await page.evaluate(() => ({ week: S.week, roster: S.roster.length, battle: !!S.battle }));
         if (after.week !== before.week || after.battle !== before.battle) throw new Error('reload changed the record: ' + JSON.stringify(before) + ' → ' + JSON.stringify(after));
-        await page.evaluate(`(${BOT.toString()})(${seed + steps}, ${STORY})`);
+        await page.evaluate(`(${BOT.toString()})(${seed + steps * 5}, ${STORY})`);
       }
     }
     await fold(); const st = acc;

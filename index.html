@@ -529,6 +529,7 @@ const DEEDS={
  ritekeeper:  {n:'Rite-Keeper',     line:'Spoke the rite to its last word while the dead pressed the line.',       tag:'folk'},
  crownwork:   {n:'Crownwork',       line:'Did crown-work on the road and took crown coin for it. The heirs keep lists.',tag:'karsk'},
  gravewright: {n:'Gravewright',     line:'Has answered for the company’s dead and paid the ground its price.',     tag:'grave'},
+ unfinished:  {n:'Nothing Left Unfinished',line:'Went back for the thing she left undone, and did it.',                 tag:'company', personal:true},
 };
 const NAME_LEVELS={6:{n:'Banneret'},7:{n:'Sworn'}};
 const DEED_L6=3;                       // deeds to raise a banner — at least one must be ✦ personal
@@ -3226,6 +3227,7 @@ function startBattle(contract,squadIds){
   B.crossTo=(contract.crossTo!==undefined&&contract.crossTo!==null)?contract.crossTo:null;
   B.farProv=(contract.farProv!==undefined&&contract.farProv!==null)?contract.farProv:null;
   B.crossQ=contract.crossQ; B.crossR=contract.crossR;
+  B.hookSid=contract.hookSid||null; B.hookBonus=contract.hookBonus||0;
   B.chargesTotal=B.units.filter(u=>u.kind==='ally').length;   // for Shield of the Folk: every charge home breathing
   if(squadIds.some(id=>{const s=soldierById(id);return s&&s.oath&&s.oath.to==='banner'&&s.oath.state!=='broken';}))
     B.units.forEach(u=>{ if(u.kind==='pc')u.res+=5; });        // the Oathbanner — steadier for standing near her
@@ -3265,6 +3267,7 @@ function startBattle(contract,squadIds){
           if(B.podsActive&&lead.podId!=null){ g.podId=lead.podId; B.pods[lead.podId].members.push(g.uid); } }); // guard the captain as a unit
         if(!contract.leaderName)lead.name=lead.name.replace(' Captain','')+', the Quarry';
       }
+      if(contract.nemId)nemesisArm(B,lead,contract.nemId);   // a named head: its level, its steel, its memory
     }
   }
   if(B.obj==='burn'){
@@ -3405,7 +3408,7 @@ function spawnRevenantRetinue(B,rev,revLvl,it){
     if(revLvl>=5&&WEAPONS[h.weapon]&&WEAPONS[h.weapon].up)h.weapon=WEAPONS[h.weapon].up;
     if(rw){ h.name=rw.name+', Still Sworn'; h.face=rw.face; h.stillSworn=true;
             if(rw.weapon)h.weapon=rw.weapon; h.hp+=2*(rw.tier||0); h.maxhp+=2*(rw.tier||0); }
-    else h.name=(revLvl>=6?'Dread ':'Risen ')+h.name;
+    else h.name=(revLvl>=6?'Dread ':'Risen ')+h.name.replace(/^Dread /,'');   // (a tier-upgraded Dread Graveguard was coming out "Dread Dread")
     pod.members.push(h.uid);
   }
   B.pods.push(pod);
@@ -4813,6 +4816,9 @@ function endBattle(outcome){
   if(S._cmdrLost){ const nm=S._cmdrLost; S._cmdrLost=null; queueModal(()=>bannerPassesModal(nm,'fell')); }
   checkGameOver();
   strandedCheck();
+  if(B.nemId)nemesisAfter(B,outcome,R);
+  if(B.hookSid&&outcome==='victory'){ const hs=soldierById(B.hookSid);       // unfinished business, finished the hard way
+    if(hs&&hs.alive){ if(B.hookBonus){ S.coin+=B.hookBonus; R.bonus+=B.hookBonus; R.bonusWhy='the old bounty'; } const g=settleHook(hs,'by steel'); R.notes.push(`<b>${esc(hs.name)}</b> has nothing left unfinished${g?' — '+g:''}.`); } }
   if(docsOwed()>0&&!S.over)queueModal(()=>doctrineModal());
   modalQ.unshift(()=>aarModal(R)); modalHold=Math.max(0,modalHold-1);
   save(); render(); pumpModals();
@@ -5339,7 +5345,7 @@ function revealModal(){
 }
 function openRealm(){
   if(S.mapWide)return;
-  S.mapWide=true;
+  S.mapWide=true; S.mapView='realm';
   for(const P of PROV_DEFS) if(provAdjacent(P.id)&&!provKnown(P.id)){
     S.provIntel=S.provIntel||{};
     if(!S.provIntel[P.id])S.provIntel[P.id]={week:S.week,pressure:provPressure(P.id),seen:false};
@@ -5413,6 +5419,289 @@ function renderSneak(){
       <div class="hint" style="margin-top:6px">The guards walk their rounds and turn to look — their red cones are what sees you. Pillars break their line of sight. Reach the ➤ gold door.<br><span style="opacity:.75">Move: tap a spot, or WASD / arrow keys. Esc to slip away.</span></div>
     </div>`;
 }
+/* ============================== v0.70 — THE ROAD ==============================
+   The authored spine tells one story. This section tells the others — the ones that are different every run:
+     · EVENTS       — things that happen between contracts, drawn from who and where the company actually is
+     · UNFINISHED BUSINESS — every backstory's hook comes due once, as a choice. Settle it and it is a deed (and a
+                      quieter grave). Leave it, and it is exactly what her revenant will say to you.
+     · NAMED HEADS  — a nemesis the realm produces on its own: beat it and take what it carried; lose, and it
+                      remembers, grows, and keeps what it took off your dead.
+   Outcomes are applied only when a choice is clicked, so a reload mid-event loses the question, never the state. */
+function evFolk(filter){ const c=S.roster.filter(s=>!isStationed(s)&&!s.guest&&(!filter||filter(s))); return c.length?pick(c):null; }
+function evTest(s,stat,ease){ const v=stat==='res'?s.res+(ease||0):stat==='skl'?32+s.skl*9+(ease||0):stat==='spd'?32+s.spd*9+(ease||0):50; return ri(1,100)<=clamp(v,10,92); }
+function evHere(){ return regionAtHex(caravanHex())||S.regions[0]; }
+// E={t,b,o:[{l,d,f}]}. An option's f() returns the outcome as prose (shown on a second page), or false if it opened
+// something of its own (a muster), or nothing to simply close.
+function evShow(E){
+  if(!E){ closeModal(); return; }
+  showModal(E.t,E.b,E.o.map(o=>({label:o.l,cls:o.cls||'pick',disabled:!!o.d,fn:()=>{
+    const out=o.f();
+    if(typeof out==='string'&&out){ activeModal=null; save(); showModal(E.t,`<p>${out}</p>`,[{label:'Onward',cls:'primary',fn:()=>closeModal()}]); }
+    else if(out!==false)closeModal();
+  }})));
+}
+function evFight(cname,comp,extra){
+  activeModal=null;                                       // (not closeModal: that would pump the next queued modal under the muster)
+  const reg=evHere();
+  pickSquad(sq=>startBattle(Object.assign({id:nid(),type:'patrol',regionId:reg.id,pay:0,danger:clamp(dangerOf(reg),1,3),obj:'slay',ambush:true,comp,cname},extra||{}),sq),{forced:{kind:'brigands'}});
+  return false;
+}
+const EVENTS=[
+ {k:'plaguecart',w:8,run:()=>{ const s=evFolk(); if(!s)return null; return {t:'The Toll of Small Bells',
+    b:`<p>A plague cart has shed a wheel across the road. The carter is dead on the seat. The bells on the harness are still going, a little, in the wind.</p>`,
+    o:[{l:'Bury them properly (−2 provisions, a day’s digging)',d:S.prov<2,f:()=>{ S.prov-=2; repAdd('folk',4); if(chance(30)){ s.hp=Math.max(1,s.hp-3); return `It is done by dusk. The next village has already heard. ${esc(s.name)} wakes sweating two nights running, and then does not (−3 HP).`; } return 'It is done by dusk, and the next village has already heard who did it.'; }},
+       {l:'Burn the cart where it stands',f:()=>{ repAdd('folk',-2); return 'It burns badly, the way wet things do. Nobody says anything about the bells.'; }},
+       {l:'Go through it first',f:()=>{ const c=ri(18,34); S.coin+=c; if(chance(35)){ addTrait(s,'nervous'); return `${c} coin in a boot. ${esc(s.name)} found it, and has not stopped washing her hands.`; } return `${c} coin in a boot, and a ledger of names nobody will need again.`; }}]}; }},
+ {k:'deserters',w:8,when:()=>S.roster.length<rosterCap(),run:()=>({t:'Two at the Fire',
+    b:`<p>Two Karsk levies walk into the firelight with their hands open. They have thrown away the tabards but not the boots. They would like to eat. One of them would like, very much, not to be alone.</p>`,
+    o:[{l:'Feed them and hear what they saw (−2 provisions)',d:S.prov<2,f:()=>{ S.prov-=2; S.scouted=true; repAdd('folk',1); return 'They talk with their mouths full: which roads, which ruins, how many. By morning you know what is waiting on every posted contract. They are gone before the watch changes.'; }},
+       {l:'Press the steadier one into the company',f:()=>{ if(S.roster.length>=rosterCap())return 'There is no room in the wagons after all.'; const n=makeSoldier(chance(60)?'fighter':'ranger'); n.hp=Math.ceil(n.maxhp*0.8); S.roster.push(n); addTrait(n,'nervous'); repAdd('karsk',-2); return `${esc(n.name)} signs with a thumbprint. The other one watches her do it and walks back into the dark.`; }},
+       {l:'Drive them off',f:()=>'They go. You count the picket-line twice anyway.'}]})},
+ {k:'broker',w:7,when:()=>S.coin>=20,run:()=>{ const k=rollTrinket(); const g=evFolk(s=>s.feats.some(f=>FEATS[f]&&FEATS[f].ash)); return {t:'A Seller of Small Things',
+    b:`<p>A Conclave broker has set out a blanket by the road, as if this were a market. Knucklebones, feathers, a vial of something grey. He prices by looking at you.</p>`,
+    o:[{l:k?`Buy the ${TRINKETS[k].n} (40c) — ${TRINKETS[k].d}`:'He has nothing you would carry',d:!k||S.coin<40,f:()=>{ S.coin-=40; stashAdd({k:'k',key:k}); repAdd('conclave',1); return `It goes into the wagons wrapped in the cloth it was sold on. He does not ask for the cloth back.`; }},
+       {l:g?`Let him read ${g.name}’s graft (+30c, +1 corruption)`:'He asks if anyone here is grafted. No one is.',d:!g,f:()=>{ S.coin+=30; addCorruption(g,1); repAdd('conclave',3); return `He holds her wrist for the length of a prayer and writes something down. ${esc(g.name)} says it felt like being recognised.`; }},
+       {l:'Walk on',f:()=>'He nods as if you had bought something.'}]}; }},
+ {k:'festering',w:9,when:()=>S.roster.some(s=>s.hp<=s.maxhp*0.6),run:()=>{ const s=S.roster.filter(x=>x.hp<=x.maxhp*0.6).sort((a,b)=>a.hp/a.maxhp-b.hp/b.maxhp)[0]; if(!s)return null; const cl=S.roster.find(x=>x.cls==='cleric'&&x!==s); return {t:'The Wound Has Turned',
+    b:`<p>${esc(s.name)}’s dressing comes away black. She says it is nothing. It smells like the opposite of nothing.</p>`,
+    o:[{l:'A town chirurgeon’s price, paid to a road-barber (20c)',d:S.coin<20,f:()=>{ S.coin-=20; s.hp=s.maxhp; return `He is drunk and very good. ${esc(s.name)} is whole by the week’s end.`; }},
+       {l:'Cut it out here (she heals — and is a little less, permanently)',f:()=>{ s.maxhp=Math.max(6,s.maxhp-1); s.hp=Math.max(s.hp,Math.ceil(s.maxhp*0.75)); return `It takes four of you to hold her. Afterwards she thanks whoever held the knife (−1 max HP).`; }},
+       {l:cl?`${cl.name} sits up with her`:'Pray over it',f:()=>{ if(cl?chance(70):chance(30)){ s.hp=Math.min(s.maxhp,s.hp+5); return `By morning the fever has broken${cl?', and '+esc(cl.name)+' has not slept':''} (+5 HP).`; } s.hp=Math.max(1,s.hp-3); return 'By morning it is worse (−3 HP).'; }}]}; }},
+ {k:'dice',w:7,when:()=>S.roster.length>=2,run:()=>{ const a=evFolk(), b=evFolk(x=>x!==a); if(!a||!b)return null; return {t:'Dice by the Fire',
+    b:`<p>${esc(a.name)} and ${esc(b.name)} have been at the dice since supper, and the stakes have stopped being coin.</p>`,
+    o:[{l:'Let it run',f:()=>{ if(chance(50)&&!a.bonds.some(x=>x.id===b.id)){ a.bonds.push({id:b.id,type:'rival'}); b.bonds.push({id:a.id,type:'rival'}); return `Dawn finds them still at it and oddly pleased with each other. They are bound now — ${BOND_TYPES.rival}.`; } a.hp=Math.max(1,a.hp-2); b.hp=Math.max(1,b.hp-2); return 'It ends the way it was always going to. Split lips, both sides (−2 HP each).'; }},
+       {l:'Sit in for a hand',f:()=>{ const c=ri(8,18); if(chance(50)){ S.coin+=c; return `You take ${c} coin off the pair of them and they like you less for it.`; } const l=Math.min(S.coin,c); S.coin-=l; return `You lose ${l} coin to your own soldiers. Morale has never been higher.`; }},
+       {l:'Put the dice in the fire',f:()=>{ a.res=Math.max(10,a.res-1); b.res=Math.max(10,b.res-1); return 'Discipline is kept. It is a quiet night after that.'; }}]}; }},
+ {k:'oldfield',w:7,run:()=>({t:'Where the Levy Broke',
+    b:`<p>The road crosses an old killing-ground. The grass has not come back right. There is iron under it — you can tell by where the rain pools.</p>`,
+    o:[{l:'Dig',f:()=>{ if(chance(35)){ return evFight('What Was Under the Field',['husk','husk','graveguard','husk']); }
+          const key=lootWeaponKey(2), it=stashAdd({k:'w',key,mod:0,aff:rollWAff(3,(WEAPONS[key].rng||1)>1)}); return `A hand’s depth down: a ${esc(itemName(it))}, bedded in someone’s ribs. It cleans up.`; }},
+       {l:'Say something over it and keep walking',f:()=>{ const c=S.roster.find(x=>x.commander); if(c)c.res+=1; return 'Nobody knows the right words. The wrong ones seem to do.'; }}]})},
+ {k:'shrinerain',w:6,run:()=>{ const reg=evHere(); return {t:'A Shrine in the Rain',
+    b:`<p>A wayside shrine, the offering-bowl full of rainwater and a few coins gone green. Somebody has kept the lamp lit. You do not see who.</p>`,
+    o:[{l:'Leave coin in the bowl (15c)',d:S.coin<15,f:()=>{ S.coin-=15; reg.pressure=Math.max(3,reg.pressure-4); repAdd('folk',2); return `The lamp steadies. It is probably the wind dropping. (−4 pressure in ${esc(reg.name)}.)`; }},
+       {l:'Kneel a while',f:()=>{ S.roster.forEach(s=>{ if(s.rattledPerm)s.rattledPerm=0; }); const s=evFolk(); if(s)s.res+=2; return s?`${esc(s.name)} stays longest, and comes away lighter (+2 resolve).`:'It is quiet.'; }},
+       {l:'Empty the bowl',f:()=>{ S.coin+=ri(8,20); repAdd('folk',-4); const cl=S.roster.find(x=>x.cls==='cleric'); if(cl)cl.res=Math.max(10,cl.res-3); return `Green coin spends.${cl?' '+esc(cl.name)+' will not look at you.':''}`; }}]}; }},
+ {k:'child',w:5,cd:99,when:()=>!(S.flags&&S.flags.runner),run:()=>({t:'The One Who Followed',
+    b:`<p>The cook finds her under the wagon-sheet: nine, maybe, from the last village. She will not say her name. She says she can carry water.</p>`,
+    o:[{l:'Take her back (a day lost)',f:()=>{ repAdd('folk',5); S.day++; if(S.day%7===0)weeklyTick(); return 'Her mother does not thank you, exactly. She looks at the banner as if memorising it.'; }},
+       {l:'Let her carry water',f:()=>{ S.flags=S.flags||{}; S.flags.runner=true; S.roster.forEach(s=>s.res+=2); return 'One more mouth. The company is gentler around the fire than it was, and fights like it has something behind it (+2 resolve, everyone; +1 provision a week).'; }}]})},
+ {k:'parley',w:7,when:()=>S.agents.some(a=>a.kind==='brigands'&&hexDist(a,S.caravan)<=5),run:()=>{ const a=S.agents.find(x=>x.kind==='brigands'&&hexDist(x,S.caravan)<=5); if(!a)return null; return {t:'The Road Tax',
+    b:`<p>A rider under a rag of white: the warband on the ridge would like you to know that this road has a tax, and that they are reasonable people.</p>`,
+    o:[{l:'Pay it (25c) — three weeks of being left alone',d:S.coin<25,f:()=>{ S.coin-=25; a.cool=S.day+21; return 'He counts it without getting down. “Pleasure,” he says, and means it.'; }},
+       {l:'Send the rider back with a counter-offer',f:()=>{ a.q=S.caravan.q; a.r=S.caravan.r; a.cool=0; return evFight('The Road Tax',['brigand','brigand','cutthroat','archer','deserter'],{agentId:a.id,caravanRaid:true,obj:'protect'}); }},
+       {l:'Say nothing',f:()=>'He waits a polite while, then rides back up. They will come when it suits them.'}]}; }},
+ {k:'nightterrors',w:7,when:()=>S.roster.some(s=>s.traits.includes('nervous')||s.traits.includes('grieving')),run:()=>{ const s=evFolk(x=>x.traits.includes('nervous')||x.traits.includes('grieving')); if(!s)return null; return {t:'The Third Watch',
+    b:`<p>${esc(s.name)} wakes the camp again. She apologises, which is worse than the screaming.</p>`,
+    o:[{l:'Sit the watch with her',f:()=>{ if(s.traits.includes('nervous')&&evTest(s,'res',15)){ s.traits=s.traits.filter(t=>t!=='nervous'); s.res+=4; return `She talks until it is light. Whatever it was, she leaves some of it by the fire (Nervous is gone).`; } s.res+=1; return 'She does not talk. But she sleeps the next night (+1 resolve).'; }},
+       {l:'Open the good bottle (−1 provision)',d:S.prov<1,f:()=>{ S.prov-=1; s.res+=2; return 'It is not a cure. It is a night.'; }},
+       {l:'Let her work it out',f:()=>{ s.res=Math.max(10,s.res-2); return 'She stops apologising. That is also worse.'; }}]}; }},
+ {k:'axle',w:6,run:()=>({t:'The Axle',
+    b:`<p>The lead wagon drops a wheel in a rut and the axle goes with a sound like a dropped plank.</p>`,
+    o:[{l:'Mend it properly (a day)',f:()=>{ S.day++; if(S.day%7===0)weeklyTick(); return 'A day in a ditch. It rolls true afterwards.'; }},
+       {l:'Pay a passing wright (15c)',d:S.coin<15,f:()=>{ S.coin-=15; return 'He has it shod and turning inside the hour and overcharges you with real dignity.'; }},
+       {l:'Shift the load and leave what will not fit (−4 provisions)',f:()=>{ S.prov=Math.max(0,S.prov-4); return 'The crows are on the sacks before you are out of sight.'; }}]})},
+ {k:'letter',w:7,run:()=>{ const s=evFolk(); if(!s)return null; const good=chance(50); return {t:'A Letter Finds the Company',
+    b:`<p>It has been through four hands and a river. It is for ${esc(s.name)}. She reads it standing up.</p><p class="hint">${good?'Whatever it says, she folds it very carefully.':'She reads it twice, and then asks for a week.'}</p>`,
+    o:good?[{l:'Ask her nothing',f:()=>{ s.res+=3; return `${esc(s.name)} is lighter for days (+3 resolve).`; }}]
+       :[{l:'Give her the week',f:()=>{ s.benchedUntil=S.week+1; s.res+=5; return `She goes, and — you find you were not sure — she comes back (+5 resolve; she misses a week).`; }},
+         {l:'Give her coin to send instead (20c)',d:S.coin<20,f:()=>{ S.coin-=20; s.res+=2; repAdd('folk',1); return 'She sends it with a carter she half trusts (+2 resolve).'; }},
+         {l:'The company cannot spare her',f:()=>{ s.res=Math.max(10,s.res-3); return 'She nods. She had expected it. That is the part that stays with you (−3 resolve).'; }}]}; }},
+ {k:'inquisitor',w:6,when:()=>S.roster.some(s=>(s.corr||0)>=2),run:()=>{ const s=evFolk(x=>(x.corr||0)>=2); if(!s)return null; return {t:'The Faith Asks to See Her Hands',
+    b:`<p>A Cindered Faith examiner and four lay-brothers stand across the road. They are polite. They have heard the company carries Ash, and they would like to look at ${esc(s.name)}.</p>`,
+    o:[{l:'Let them examine her',f:()=>{ s.hp=Math.max(1,s.hp-4); s.corr=Math.max(0,s.corr-1); return `It takes an hour and a brazier. They pronounce her “not yet beyond prayer” (−4 HP, −1 corruption).`; }},
+       {l:'An offering for the See (30c)',d:S.coin<30,f:()=>{ S.coin-=30; return 'The examiner discovers an urgent appointment elsewhere.'; }},
+       {l:'They can look at steel',cls:'danger',f:()=>evFight('The Examiner’s Escort',['shieldman','shieldman','pikeman','pikeman','acolyte'])}]}; }},
+ {k:'cachetip',w:5,run:()=>{ const reg=evHere(); return {t:'What the Dying Man Said',
+    b:`<p>A brigand with a hole in him has crawled as far as your picket. He wants water. He has something to trade for it, and no time to haggle.</p>`,
+    o:[{l:'Give him the water',f:()=>{ S.cacheTip=reg.id; return `“Under the… where the stones…” He gets most of it out. Your next field in ${esc(reg.name)} will have more to find than usual.`; }},
+       {l:'Give him a quicker mercy',f:()=>{ S.coin+=ri(4,12); return 'He had a few coin on him and a tooth on a string. Nothing else.'; }}]}; }},
+ {k:'lesson',w:6,when:()=>S.roster.some(s=>s.level>=4)&&S.roster.some(s=>s.level<=2),run:()=>{ const v=evFolk(s=>s.level>=4), j=evFolk(s=>s.level<=2); if(!v||!j)return null; return {t:'The Old Hand',
+    b:`<p>${esc(v.name)} has been watching ${esc(j.name)} drill, in the way of someone deciding whether to say something.</p>`,
+    o:[{l:'Let her take the green one in hand',f:()=>{ grantXp(j,3); return `It is not kind. It is thorough. ${esc(j.name)} is better by the end of the week than she had any right to be.`; }},
+       {l:'Have her drill the whole line instead',f:()=>{ S.roster.forEach(s=>{ if(s.level<=2)grantXp(s,1); }); return 'Everyone hates it. Everyone is a little sharper.'; }}]}; }},
+ {k:'wolves',w:6,run:()=>{ const r=S.roster.find(s=>s.cls==='ranger'); return {t:'Eyes at the Picket',
+    b:`<p>Something has been at the provision wagon two nights running. Not wolves — wolves do not untie knots.</p>`,
+    o:[{l:r?`${r.name} sets snares`:'Set snares',f:()=>{ if(r||chance(35)){ S.prov+=3; return 'In the morning: two hares, and a very embarrassed hedge-thief who is sent home with one of them (+3 provisions).'; } return 'The snares are empty, and one of them is missing.'; }},
+       {l:'Double the watch',f:()=>{ S.roster.forEach(s=>s.hp=Math.max(1,s.hp-1)); return 'Nothing comes. Everyone is tired (−1 HP, everyone).'; }},
+       {l:'Let it eat',f:()=>{ S.prov=Math.max(0,S.prov-3); return 'It eats (−3 provisions).'; }}]}; }},
+];
+function rollEvent(){
+  const seen=S.evSeen=S.evSeen||{};
+  const c=EVENTS.filter(e=>!(seen[e.k]!==undefined&&S.week-seen[e.k]<(e.cd||9))&&(!e.when||e.when()));
+  if(!c.length)return false;
+  const bag=[]; for(const e of c)for(let i=0;i<e.w;i++)bag.push(e);
+  const e=pick(bag); seen[e.k]=S.week;
+  queueModal(()=>{ if(S.over||S.battle||!S.roster.length){ closeModal(); return; } evShow(e.run()); });
+  return true;
+}
+
+/* ---- unfinished business: one per backstory ---- */
+const HOOKS={
+ 'Karsk deserter':{t:'Vesshold Answers',p:s=>`A levy-sergeant with half a face is drawing water at the well when ${s.name} walks up to it. He knows her. Vesshold has survivors, it turns out, and the survivors have a fund, and a list.`,
+   pay:{c:35,l:'Pay into the survivors’ fund, in her name, where he can see it',r:s=>`He counts it, then looks at her a long time. “It isn’t forgiveness.” He takes it anyway. ${s.name} stands straighter than she has since you met her.`},
+   tr:{stat:'res',l:'Let her stand in front of him and say what she did',w:s=>`She says all of it. He hears all of it. At the end he hands her the bucket, which seems to be an answer.`,x:s=>`She gets as far as the torch and cannot. He leaves the bucket in the mud.`},boon:{res:7}},
+ 'Thornwood exile':{t:'The Family at the Gate',p:s=>`The family ${s.name} was cast out for saving is two valleys over, and starving in the ordinary way. They sent no word. A carter mentioned it, not knowing who he was talking to.`,
+   pay:{p:6,l:'Send a wagon’s worth',r:s=>`${s.name} drives it herself and is back before dark. She does not say what was said. The debt is square.`},
+   tr:{stat:'skl',l:'She hunts for them — three nights in someone else’s wood',w:s=>`Three nights, a deer each. The Compact’s wardens find the gralloch and never find her.`,x:s=>`The wardens find her first. She comes back with a split scalp and nothing for anyone.`,xhp:4},boon:{maxhp:2,res:3}},
+ 'failed apprentice':{t:'The Last Verse',p:s=>`${s.name} has been saying the rite under her breath again — all of it but the end. Tonight she asks, flatly, whether she may finish it. Without the Conclave. Just to have it finished.`,
+   tr:{stat:'res',l:'Let her finish it, and stand witness',w:s=>`The last verse is short. Nothing answers. She laughs — once — and sleeps like the dead used to.`,x:s=>`Something answers. Briefly. She will not say what it offered.`,xcorr:1},
+   pay:{c:20,l:'Pay a hedge-priest to speak a counter-rite over her',r:s=>`It is mostly smoke and Latin he has half-remembered. It works anyway. Some things only need ending.`},boon:{res:8}},
+ 'gravedigger':{t:'Three Hundred Names',p:s=>`Someone has pulled the marker-stones at Barrowfen to mend a sheepfold. ${s.name} kept every one of those names. She has them still, on a cord, and she has stopped eating.`,
+   pay:{c:30,l:'Pay a mason to cut them new',r:s=>`It takes him a month and he gets two wrong. She goes back and corrects them with a nail.`},
+   tr:{stat:'res',l:'She recuts them herself, by lamp, however long it takes',w:s=>`Her hands are a ruin by the end. Three hundred names. She reads every one aloud to check.`,x:s=>`She gets to ninety and the cord breaks. She cannot remember the order.`},boon:{res:6,maxhp:1},rep:{folk:3}},
+ 'debt-runner':{t:'The Undercrown Always Collects',p:s=>`Three men are waiting at the crossroads with the patience of people paid by the day. They have a ledger. ${s.name}’s name is in it in red.`,
+   pay:{c:45,l:'Pay what she owes',r:s=>`They strike the line through in front of her. One of them shakes her hand. She watches them out of sight anyway.`},
+   fight:{l:'They can collect it from the company',cname:'The Undercrown’s Collectors',comp:['cutthroat','cutthroat','brigand','archer','deserter']},boon:{spd:1,res:3}},
+ 'plague survivor':{t:'What She Did at Old Wesh',p:s=>`A quarantine warden’s deposition has surfaced, and it names ${s.name}. It says how one person walked out of Old Wesh. A carter is reading it aloud in the next town for a penny a head.`,
+   pay:{c:30,l:'Buy every copy, and the carter’s silence',r:s=>`The carter is delighted. ${s.name} burns them one at a time and watches each.`},
+   tr:{stat:'res',l:'She tells the company herself, at the fire, all of it',w:s=>`Nobody moves away from her. Somebody passes her the bottle. That is the whole of it.`,x:s=>`It comes out wrong, and angry, and half. People are careful around her for a week.`},boon:{res:8}},
+ 'oathbreaker':{t:'A Brother’s Colours',p:s=>`Word from the Blight-line: a husk in a levy tabard, walking the same half-mile, wearing ${s.name}’s brother’s badge. She swore to bring him home. This is one way to.`,
+   fight:{l:'Go and put him down — together',cname:'The Brother',comp:['husk','graveguard','husk','hound']},
+   pay:{c:40,l:'Pay a Karsk patrol to do it, and to bring her the badge',r:s=>`They bring the badge. They do not bring anything else, and she does not ask.`},boon:{res:6,skl:1}},
+ 'temple ward':{t:'The Faith Has a Long Memory',p:s=>`A Cindered Faith proctor is asking in the market after a ward of the temple, gone these several years, of ${s.name}’s height and colouring. He has a writ. He has not read it to anyone yet.`,
+   pay:{c:40,l:'Buy an indulgence in her name — the expensive kind',r:s=>`The proctor seals it without looking up. “Then she was never ours,” he says, and that is that.`},
+   tr:{stat:'res',l:'She walks up and gives him her name',w:s=>`She recites the catechism at him from memory, in the old tongue, without a fault. He folds the writ. He has no question left that she has not answered.`,x:s=>`He has four men behind the stall. She comes back to the wagons at a run.`,xhp:3},boon:{res:8}},
+ 'poacher':{t:'The Village Still Starves',p:s=>`The village ${s.name} fed through two winters has had a third. She hears it from a tinker and is quiet all through supper.`,
+   pay:{p:8,l:'Send the wagon',r:s=>`It is not enough to matter and it matters completely. They ring the bell for her. She pretends not to hear it.`},
+   tr:{stat:'skl',l:'One more night in the King’s Wood',w:s=>`Two hinds and a boar, and not a keeper stirred. She is twenty years old again for a night.`,x:s=>`The keepers have dogs now.`,xhp:4},boon:{skl:1,res:3},rep:{folk:3}},
+ 'heir’s blade':{t:'The Heir Sends Regards',p:s=>`A courtier with a very good cloak is waiting by the wagons. He has a purse in one hand. ${s.name} looks only at the other.`,
+   pay:{c:50,l:'Pay for her name to be forgotten — more than he was paid to remember it',r:s=>`He weighs both purses, and chooses like a sensible man.`},
+   fight:{l:'He did not come alone, and neither did she',cname:'The Heir’s Regards',comp:['cutthroat','cutthroat','archer','archer','shieldman']},boon:{skl:1,res:4}},
+ 'cartwright':{t:'The Unfinished Wagon',p:s=>`${s.name} built half the caravan and calls the wagons her children. One was never finished — it has ridden for years on a borrowed bed and a prayer. There is seasoned oak for sale in this town.`,
+   pay:{c:25,l:'Buy the oak',r:s=>`She works three nights. The last wagon has a name burned under the seat now, where nobody will look.`},
+   tr:{stat:'skl',l:'She salvages a wreck off the road instead',w:s=>`It was a Karsk supply-wain. It is the best wagon you own, now.`,x:s=>`The timber is rotten to the pin. She burns it and does not talk.`},boon:{maxhp:2,res:3}},
+ 'bell-ringer':{t:'The Bell at Karsk Gate',p:s=>`${s.name} still hears it — the plague bell she rang until her hands bled. Last night she got up and walked toward it in her sleep. It was not ringing. She says it never stopped.`,
+   pay:{c:20,l:'Pay the Gate’s sexton to take the clapper out',r:s=>`He sends it to her in a sack. She carries it a week and then drops it in a river, and sleeps.`},
+   tr:{stat:'res',l:'She climbs the tower and rings it once more — for the last of them',w:s=>`One stroke. The whole Gate stops to listen. She comes down with her hands open, and they are steady.`,x:s=>`She gets as far as the rope.`},boon:{res:9}},
+ 'shieldbearer':{t:'The Man Beside Her',p:s=>`The man ${s.name} left at the Fords had a wife. She keeps the inn on this road. ${s.name} has known that for two days and has not been inside.`,
+   pay:{c:30,l:'Leave a purse on the bar and go',r:s=>`The innkeeper turns it over, finds the levy-mark on the leather, and understands. She keeps it.`},
+   tr:{stat:'res',l:'She goes in and tells her how it was',w:s=>`It takes all night. In the morning the innkeeper has packed her bread for the road.`,x:s=>`She is put out into the yard before she has finished. But it was said.`},boon:{res:6,maxhp:1}},
+ 'huntsman':{t:'The Bounty She Never Collected',p:s=>`${s.name} has found sign: the thing she tracked for the Undercrown before the roads closed, the one that got away. It is denning in the next valley. There was forty coin on it. There is, she thinks, still.`,
+   fight:{l:'Take the company and finish the hunt',cname:'The Old Quarry',comp:['hound','hound','houndrider','hound','hound'],bonus:40},
+   tr:{stat:'skl',l:'She goes alone, the way she should have the first time',w:s=>`She is back at dawn with a pelt over her shoulder and blood to the elbow, none of it hers.`,x:s=>`It remembered her too.`,xhp:5,wcoin:40},boon:{skl:1,spd:1}},
+ 'field-chirurgeon':{t:'The One She Couldn’t Close',p:s=>`He is alive. The soldier ${s.name} could not close is begging at the shrine outside town, bent double around the wound she left him. He does not recognise her.`,
+   pay:{c:25,l:'Pay for his keep — a bed, a year',r:s=>`She arranges it through the hedge-priest and never tells him who.`},
+   tr:{stat:'skl',l:'She opens him again, and does it right',w:s=>`Four hours. He walks out of the shrine upright. He still does not know her. She prefers it.`,x:s=>`He does not survive the table. She closes his eyes herself.`,xres:5},boon:{skl:1,res:5}},
+ 'ash-touched':{t:'The Cohort Calls',p:s=>`${s.name}’s graft has been pulling east for a week. The rest of her cohort is in a pit out there, grafts and all, and the grafts are still talking to each other.`,
+   fight:{l:'Dig them up and end it',cname:'The Cohort',comp:['husk','husk','acolyte','graveguard','husk']},
+   tr:{stat:'res',l:'She goes down alone and tells them to be quiet',w:s=>`She is down there until noon. When she climbs out the pulling has stopped, and her own graft is… listening to her, now.`,x:s=>`They were glad to see her.`,xcorr:2},boon:{res:6},corr:-1},
+ 'sellsword':{t:'The Broken Contract',p:s=>`A merchant’s factor has been asking after ${s.name} by three of her old names. She broke a contract with his house, once, and took the advance. He has a very long memory and a very small bill.`,
+   pay:{c:40,l:'Pay the advance back, with the interest he names',r:s=>`He writes a receipt. She keeps it folded in her boot — the first contract she has ever closed.`},
+   tr:{stat:'skl',l:'She works it off — one job for his house, done right',w:s=>`She is gone two weeks and comes back with a letter of good standing, of all things.`,x:s=>`The job goes bad the same way the first one did. He stops asking after her. That is not the same as settled.`,bench:2},boon:{skl:1,res:4}},
+ 'seminary novice':{t:'The Vows',p:s=>`A hedge-priest has set up under an oak. ${s.name} fled the seminary the night before her vows. She has been circling the oak all morning.`,
+   pay:{c:15,l:'An offering, and she speaks them at last',r:s=>`They are ordinary vows. She has been carrying them unspoken for years. She says them fast, like putting down something heavy.`},
+   tr:{stat:'res',l:'She speaks vows of her own making instead',w:s=>`Nobody hears what she promises, or to what. The hedge-priest, who did, will not look at her afterwards — but he bows.`,x:s=>`The words will not come in any order. She walks back to the wagons without them.`},boon:{res:8}},
+};
+function settleHook(s,how){
+  const H=HOOKS[bgOf(s).tag]; if(!H||s.hookDone)return;
+  s.hookDone=true; const b=H.boon||{};
+  if(b.res)s.res+=b.res; if(b.skl)s.skl+=b.skl; if(b.spd)s.spd+=b.spd; if(b.maxhp){ s.maxhp+=b.maxhp; s.hp+=b.maxhp; }
+  if(H.corr)s.corr=Math.max(0,(s.corr||0)+H.corr);
+  if(H.rep)for(const k in H.rep)repAdd(k,H.rep[k]);
+  const gain=[b.res?'+'+b.res+' resolve':'',b.skl?'+'+b.skl+' skill':'',b.spd?'+'+b.spd+' speed':'',b.maxhp?'+'+b.maxhp+' max HP':''].filter(Boolean).join(', ');
+  log(`${s.name} has nothing left unfinished — ${H.t}${how?' ('+how+')':''}. ${gain}.`,'good');
+  S.chronicle.push(`Week ${S.week}: ${s.name} settled it — ${H.t}.`);
+  deedAdd(s,'unfinished',H.t);
+  return gain;
+}
+function hookEvent(s){
+  if(!S.roster.includes(s)||s.hookDone||S.battle||S.over){ closeModal(); return; }
+  const H=HOOKS[bgOf(s).tag]; if(!H){ closeModal(); return; }
+  const o=[];
+  if(H.pay){ const c=H.pay.c||0, pv=H.pay.p||0;
+    o.push({l:`${H.pay.l} (${c?c+'c':pv+' provisions'})`,d:S.coin<c||S.prov<pv,f:()=>{ S.coin-=c; S.prov-=pv; const g=settleHook(s,'paid for'); return esc(H.pay.r(s))+` <span class="hint">(${g})</span>`; }}); }
+  if(H.tr)o.push({l:H.tr.l,f:()=>{
+      if(evTest(s,H.tr.stat,8)){ if(H.tr.wcoin)S.coin+=H.tr.wcoin; if(H.tr.bench)s.benchedUntil=S.week+H.tr.bench; const g=settleHook(s,'by her own hand'); return esc(H.tr.w(s))+` <span class="hint">(${g}${H.tr.wcoin?', +'+H.tr.wcoin+'c':''})</span>`; }
+      s.hookCool=S.week+7; if(H.tr.xhp)s.hp=Math.max(1,s.hp-H.tr.xhp); if(H.tr.xcorr)addCorruption(s,H.tr.xcorr); s.res=Math.max(10,s.res-(H.tr.xres||2));
+      return esc(H.tr.x(s))+` <span class="hint">(−${H.tr.xres||2} resolve${H.tr.xhp?', −'+H.tr.xhp+' HP':''}${H.tr.xcorr?', +'+H.tr.xcorr+' corruption':''}. It will come round again.)</span>`; }});
+  if(H.fight)o.push({l:H.fight.l,cls:'danger',f:()=>evFight(H.fight.cname,H.fight.comp,{hookSid:s.id,hookBonus:H.fight.bonus||0})});
+  o.push({l:'Not now. It will keep — it always has.',cls:'',f:()=>{ s.hookCool=S.week+6; s.res=Math.max(10,s.res-1); return `${esc(s.name)} nods. It is still there, the way a stone is still in a boot. (−1 resolve.)`; }});
+  evShow({t:H.t,b:`<div class="scard"><div class="face">${faceSvg(s.face,{size:54})}</div><div class="sbody"><p style="margin-top:0">${esc(H.p(s))}</p>
+      <p class="hint">Unfinished: ${esc(bgOf(s).hook)}. Settle it and it is a deed to her name — and nothing her revenant can ever throw at you.</p></div></div>`,o});
+}
+
+/* ---- named heads ---- */
+const NEM_KINDS={
+ brigand:{type:'patrol',comp:['deserter','brigand','cutthroat','archer','brigand','shieldman'],lead:'deserter',style:'bruiser',wpn:['greataxe','halberd','armingsword','flanged'],
+   names:['{N} Nine-Fingers','Red {N}','{N} the Toll','The Tallyman','{N} Halfpenny','Mother {N}','{N} Ropemaker'],
+   taunt:['“Mercenaries. I have buried better companies than yours for the boots.”','“You took the crown’s coin to come here. I’ll take it off you going back.”']},
+ dead:{type:'purge',comp:['graveguard','husk','husk','hound','graveguard','husk'],lead:'graveguard',style:'bruiser',wpn:['halberd','greataxe','pike'],
+   names:['The Drowned Sergeant','Old {N} Marrow','The Bellman','The Bride of Barrowfen','Sexton {N}','The Last of the Third Levy'],
+   taunt:['It does not speak. It salutes — the old levy salute, exactly right — and comes on.','It says a name. Not yours. It has been saying it for years.']},
+ conclave:{type:'purge',comp:['acolyte','acolyte','graveguard','husk','acolyte','graveguard'],lead:'acolyte',style:'skittish',wpn:['warbow','armingsword'],
+   names:['Envoy {N}','The Grey Stitcher','Sister {N} of the Ninth Rite','The Ledger-Keeper','{N} Who Counts'],
+   taunt:['“Ah — the company with the interesting graveyard. I have read your ledger. We keep a copy.”','“Do put up a fight. The ones who struggle take the grafts so much better.”']},
+};
+function nemesisSpawn(){
+  const kind=pick(Object.keys(NEM_KINDS)), K=NEM_KINDS[kind];
+  const taken=new Set((S.nemeses||[]).map(n=>n.name));
+  let name=null; for(let i=0;i<12&&!name;i++){ const c=pick(K.names).replace('{N}',pick(NAMES)); if(!taken.has(c))name=c; } if(!name)return null;
+  const n={id:nid(),name,kind,lvl:1+Math.min(3,Math.floor(S.week/8)),wpn:pick(K.wpn),aff:null,wins:0,slain:[],trophy:null,state:'alive',born:S.week,next:S.week};
+  const uq=chance(28)?rollUnique():null;
+  if(uq){ n.wpn=UNIQUES[uq].base; n.aff={uq}; (S.uniquesSeen=S.uniquesSeen||[]).push(uq); }
+  else n.aff={pre:pick(Object.keys(W_PREFIX)),suf:pick(Object.keys(W_SUFFIX).filter(k=>!W_SUFFIX[k].ranged||(WEAPONS[n.wpn].rng||1)>1))};
+  S.nemeses.push(n); return n;
+}
+function nemesisPost(n){
+  const K=NEM_KINDS[n.kind], regs=S.regions.filter(r=>!r.swallowed&&provKnown((REGION_DEFS[r.id]||{}).prov||0)&&!S.contracts.some(c=>c.regionId===r.id&&(c.story||c.qm)));
+  if(!regs.length)return;
+  const r=pick(regs), a=contractAnchor(r.id,K.type); if(!a)return;
+  n.regionId=r.id;
+  S.contracts.push({id:nid(),type:K.type,regionId:r.id,pay:Math.round((70+n.lvl*28)*diffOf().pay),danger:n.lvl>=3?3:2,q:a.q,r:a.r,expires:S.week+5,obj:'assassinate',
+    nemId:n.id,cname:n.name,comp:K.comp.slice(0,4+Math.min(2,Math.floor(n.lvl/2))),leader:K.lead,leaderName:n.name,leaderStyle:K.style});
+  log(`☠ A name is going round: <b>${esc(n.name)}</b> has taken ${esc(r.name)}${n.wins?' — and has beaten this company before':''}. There is a price on the head, and it carries ${esc(wpnName(n.trophy?n.trophy.key:n.wpn,n.trophy?n.trophy.aff:n.aff))}${n.trophy&&n.trophy.from?' — '+esc(n.trophy.from)+'’s':''}.`,'bad');
+}
+function nemesisWeekly(){
+  S.nemeses=S.nemeses||[];
+  const alive=S.nemeses.filter(n=>n.state==='alive');
+  if(S.week>=4&&alive.length<(S.mapWide?2:1)&&chance(alive.length?18:32)){ const n=nemesisSpawn(); if(n)alive.push(n); }
+  for(const n of alive)if(S.week>=(n.next||0)&&!S.contracts.some(c=>c.nemId===n.id))nemesisPost(n);
+}
+// arm the leader as the nemesis it is: its level, its steel (or the steel it took off your dead)
+function nemesisArm(B,lead,nemId){
+  const n=(S.nemeses||[]).find(x=>x.id===nemId); if(!n||!lead)return;
+  B.nemId=n.id; lead.nem=n.id;
+  lead.hp+=n.lvl*4; lead.maxhp+=n.lvl*4; lead.skl+=Math.floor(n.lvl/2); lead.arm=Math.max(lead.arm,1+Math.floor(n.lvl/3));
+  lead.weapon=n.trophy?n.trophy.key:n.wpn; lead.wAff=n.trophy?n.trophy.aff:n.aff; lead.wMod=Math.min(2,Math.floor(n.lvl/2));
+  lead.xpv=(lead.xpv||4)+n.lvl*2; lead.dropSure=true; lead.dropName=n.trophy?n.trophy.name:null;
+  queueModal(()=>{ const K=NEM_KINDS[n.kind];
+    showModal(n.name,`<div class="face" style="float:right;margin-left:8px">${enemyFace(lead.ekey,60)}</div>
+      <p>Across the field: <b>${esc(n.name)}</b>${n.wins?`, who has sent this company home ${n.wins===1?'once':n.wins+' times'} already`:''}. In its hand: <b style="color:${RARITY[(lead.wAff&&lead.wAff.uq)?3:2].c}">${esc(wpnName(lead.weapon,lead.wAff))}</b>.</p>
+      ${n.slain.length?`<p class="bond">It has ${esc(n.slain.slice(-2).join(' and '))} to its name.${n.trophy&&n.trophy.from?' That is '+esc(n.trophy.from)+'’s steel it is holding.':''}</p>`:''}
+      <div class="callout">${esc(pick(K.taunt))}</div>
+      <p class="hint">Kill it and what it carries is yours. Lose, and it will remember — and be worse.</p>`,
+      [{label:'Take the head',cls:'danger',fn:()=>closeModal()}]); });
+}
+function nemesisAfter(B,outcome,R){
+  const n=(S.nemeses||[]).find(x=>x.id===B.nemId); if(!n)return;
+  if(outcome==='victory'){
+    n.state='dead'; S.renown++; legacyMark('nemesis');
+    log(`☠ ${n.name} is dead. The roads will say who did it (+1 renown).`,'good');
+    S.chronicle.push(`Week ${S.week}: the company took the head of ${n.name}.`);
+    R.notes.push(`<b>${esc(n.name)}</b> is dead. What it carried is in the wagons.`);
+    return;
+  }
+  n.wins++; n.lvl=Math.min(6,n.lvl+1); n.next=S.week+2;
+  const killed=B.units.filter(u=>u.kind==='pc'&&!u.sword&&u.hp<=0&&u.killedBy===B.leaderUid);
+  for(const u of killed){ n.slain.push(u.name);
+    const g=S.graves.find(x=>x.soldierId===u.ref);
+    if(g&&g.snap&&!n.trophy&&(g.snap.wAff||((WEAPONS[g.snap.weapon]||{}).tier||1)>=2)){   // it takes the best thing she had
+      n.trophy={key:g.snap.weapon,aff:g.snap.wAff||null,name:`${g.name}’s ${WEAPONS[g.snap.weapon].n}`,from:g.name};
+      g.snap.wAff=null; g.snap.wMod=0; g.taken=n.name; } }
+  log(`☠ ${n.name} holds the field${killed.length?' — and '+killed.map(u=>u.name).join(', ')+' with it':''}. It will be bolder next time.`,'bad');
+  S.chronicle.push(`Week ${S.week}: ${n.name} sent the company home${killed.length?' without '+killed.map(u=>u.name).join(', '):''}.`);
+  R.notes.push(`<b>${esc(n.name)}</b> will remember this.${n.trophy&&killed.length?` It took ${esc(n.trophy.name)} off the body.`:''}`);
+}
+function weeklyStory(){
+  if(S.over||S.battle||S.week<2)return;
+  nemesisWeekly();
+  if(!S.roster.length)return;
+  const due=S.roster.filter(s=>!s.hookDone&&!s.guest&&(s.battles||0)>=2&&(s.hookCool||0)<=S.week&&HOOKS[bgOf(s).tag]&&!isStationed(s));
+  if(due.length&&chance(14+due.length*2)){ const s=pick(due); s.hookCool=S.week+5; queueModal(()=>hookEvent(s)); return; }
+  if(chance(40))rollEvent();
+}
+
 /* ============================== v0.70 — SOUND ==============================
    Every sound is synthesised on the spot with WebAudio — oscillators and filtered noise, no files, no downloads,
    nothing to cache. The context is created on the first real input (browsers require a gesture), and every call
@@ -5879,6 +6168,7 @@ function hexSvg(){
   // fogged provinces are drawn, but drained of colour — you can see the SHAPE of the world you haven't walked
   const FOG={plains:'#262218',forest:'#232b1d',hills:'#2c2822',marsh:'#232926',mountain:'#332f28'};
   const G=hexGeo();
+  const wide=!!S.mapWide&&S.mapView!=='prov';              // the whole realm on one sheet, or the province you stand in (your choice once the frame is off)
   let out='<defs><radialGradient id="vig" cx="50%" cy="42%" r="78%"><stop offset="60%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,.45)"/></radialGradient></defs>',glyphs='';
   const CP=caravanProv();
   const focus=h=>h.prov===CP||(h.choke&&hexNbrs(h.q,h.r).some(n=>n.prov===CP));
@@ -5899,21 +6189,21 @@ function hexSvg(){
     const t=provTier(P.id), a0=hexCenter(P.q0,P.r0), b0=hexCenter(P.q0+PW-1,P.r0+PH-1);
     const cx=(a0.x+b0.x)/2, cy=(a0.y+b0.y)/2;
     const col=t>=2?'#c9b48a':t===1?'#9d907a':'#6b6353';
-    const fs=S.mapWide?34:16;                      // the label must read at realm zoom, not just up close
+    const fs=wide?34:16;                      // the label must read at realm zoom, not just up close
     out+=`<text x="${cx.toFixed(0)}" y="${cy.toFixed(0)}" text-anchor="middle" pointer-events="none" `
-       +`style="fill:${col};font-size:${fs}px;letter-spacing:${S.mapWide?6:2}px;font-weight:bold;`
+       +`style="fill:${col};font-size:${fs}px;letter-spacing:${wide?6:2}px;font-weight:bold;`
        +`opacity:${t>=2?0.8:t===1?0.62:0.42}">`
        +`${esc(t===0?'? ? ?':P.n.toUpperCase())}</text>`;
-    if(S.mapWide&&t>0)out+=`<text x="${cx.toFixed(0)}" y="${(cy+26).toFixed(0)}" text-anchor="middle" pointer-events="none" `
+    if(wide&&t>0)out+=`<text x="${cx.toFixed(0)}" y="${(cy+26).toFixed(0)}" text-anchor="middle" pointer-events="none" `
        +`style="fill:${col};font-size:15px;opacity:.55">${esc(P.blurb.split('.')[0])}</text>`;
   }
   for(const k in S.hexes){ const h=S.hexes[k];
     if(h.prov<0||focus(h)||h.setl===null)continue;
     const c=hexCenter(h.q,h.r), known=provKnown(h.prov);
-    out+=`<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${S.mapWide?4.5:2.6}" fill="${known?'#c9b48a':'#6b6353'}" pointer-events="none"/>`;
+    out+=`<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${wide?4.5:2.6}" fill="${known?'#c9b48a':'#6b6353'}" pointer-events="none"/>`;
     if(known)out+=`<text x="${c.x.toFixed(1)}" y="${(c.y+HXS-3).toFixed(1)}" class="hx" style="fill:#8a7f6a;font-size:7px">${esc(REGION_DEFS[h.setl].s)}</text>`;
   }
-  if(S.mapWide){ const FB=provOf(CP), fa=hexCenter(FB.q0,FB.r0), fb=hexCenter(FB.q0+PW-1,FB.r0+PH-1);
+  if(wide){ const FB=provOf(CP), fa=hexCenter(FB.q0,FB.r0), fb=hexCenter(FB.q0+PW-1,FB.r0+PH-1);
     out+=`<rect x="${(fa.x-HXS).toFixed(0)}" y="${(fa.y-HXS).toFixed(0)}" width="${(fb.x-fa.x+HXS*2).toFixed(0)}" `
        +`height="${(fb.y-fa.y+HXS*2).toFixed(0)}" fill="none" stroke="#c9a227" stroke-width="2.5" `
        +`stroke-dasharray="10 7" opacity=".55" pointer-events="none"/>`; }
@@ -5925,7 +6215,7 @@ function hexSvg(){
     if(h.setl!==null&&!h.blighted)fill='#3d352a';
     if(h.prov!==CP)fill='#1a1712';                      // the far side of a crossing: seen, not entered
     const seld=sel===k;
-    out+=`<g onclick="HEX(${h.q},${h.r})" style="cursor:pointer"><title>${esc(hexTitle(h))}</title>
+    out+=`<g style="cursor:pointer"><title>${esc(hexTitle(h))}</title>
       <polygon points="${G.pts[k]}" fill="${fill}" stroke="${seld?'#c9a227':'#191612'}" stroke-width="${seld?2.2:1}"/></g>`;
     glyphs+=hexArt(h,x,y);
     if(h.setl!==null)glyphs+=`<text x="${x}" y="${y+HXS-3}" class="hx" style="fill:#c9b48a;font-size:8.5px">${esc(REGION_DEFS[h.setl].s)}</text>`;
@@ -5950,7 +6240,7 @@ function hexSvg(){
         +`<text x="${x}" y="${y-HXS*0.55+3.5}" style="font-size:9px;fill:#c9a227;text-anchor:middle;font-weight:bold">⇄</text></g>`; }
   out+=glyphs;
   for(const c of S.contracts){const{x,y}=hexCenter(c.q,c.r);
-    out+=`<g onclick="HEX(${c.q},${c.r})" style="cursor:pointer"><circle cx="${x+HXS*0.5}" cy="${y-HXS*0.5}" r="${c.story?7:6}" fill="${c.story?'#b08bc9':'#c9a227'}" ${c.story?'stroke="#e8d9f5" stroke-width="1.2"':''}/><text x="${x+HXS*0.5}" y="${y-HXS*0.5+3.5}" class="hxC">!</text></g>`;}
+    out+=`<g style="cursor:pointer"><circle cx="${x+HXS*0.5}" cy="${y-HXS*0.5}" r="${c.story?7:6}" fill="${c.story?'#b08bc9':'#c9a227'}" ${c.story?'stroke="#e8d9f5" stroke-width="1.2"':''}/><text x="${x+HXS*0.5}" y="${y-HXS*0.5+3.5}" class="hxC">!</text></g>`;}
   for(const d of (S.deserters||[])){const c0=hexCenter(realmQ(d.town),realmR(d.town));
     out+=`<g pointer-events="none"><circle cx="${(c0.x-HXS*0.5).toFixed(1)}" cy="${(c0.y-HXS*0.5).toFixed(1)}" r="6" fill="#17130e" stroke="#7d93a3" stroke-width="1.6"/><text x="${(c0.x-HXS*0.5).toFixed(1)}" y="${(c0.y-HXS*0.5+3).toFixed(1)}" style="font-size:9px;fill:#a8b7c4;text-anchor:middle;font-weight:bold">⚐</text></g>`;}
   const byHex={};
@@ -5979,7 +6269,7 @@ function hexSvg(){
   // Act I frames ONE province, inflated so the neighbours' coastlines bleed off every edge and cannot
   // be followed. The reveal does not draw more world — it stops cropping the world already drawn.
   let vx,vy,W,Hh;
-  if(S.mapWide){
+  if(wide){
     const c1=hexCenter(COLS-1,ROWS-1);
     vx=0; vy=0; W=(c1.x+HXS*2).toFixed(0); Hh=(c1.y+HXS*2).toFixed(0);
   } else {
@@ -5988,8 +6278,19 @@ function hexSvg(){
     vx=(pa.x-bw*pad/2-HXS).toFixed(0); vy=(pa.y-bh*pad/2-HXS).toFixed(0);
     W=(bw*(1+pad)+HXS*2).toFixed(0); Hh=(bh*(1+pad)+HXS*2).toFixed(0);
   }
-  return `<svg viewBox="${vx} ${vy} ${W} ${Hh}" style="width:100%;background:#131009;border:1px solid var(--line);border-radius:4px;box-shadow:inset 0 0 30px rgba(0,0,0,.5)">${out}<rect width="100%" height="100%" fill="url(#vig)" pointer-events="none"/></svg>`;
+  return `<svg viewBox="${vx} ${vy} ${W} ${Hh}" onclick="MAPCLICK(event)" style="width:100%;cursor:pointer;background:#131009;border:1px solid var(--line);border-radius:4px;box-shadow:inset 0 0 30px rgba(0,0,0,.5)">${out}<rect width="100%" height="100%" fill="url(#vig)" pointer-events="none"/></svg>`;
 }
+// One handler for the whole sheet: the nearest hex to the click. Every province is selectable this way at no cost in
+// nodes — before v0.70 only the province you stood in could be clicked, so the rest of the realm was a picture.
+window.MAPCLICK=function(ev){
+  const svg=ev.currentTarget; if(!svg||!svg.createSVGPoint||!svg.getScreenCTM)return;
+  const m=svg.getScreenCTM(); if(!m)return;
+  const pt=svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY; const p=pt.matrixTransform(m.inverse());
+  let best=null,bd=1e9;
+  for(const k in S.hexes){ const h=S.hexes[k]; if(h.prov===-1)continue; const c=hexCenter(h.q,h.r), dd=(c.x-p.x)*(c.x-p.x)+(c.y-p.y)*(c.y-p.y); if(dd<bd){bd=dd;best=h;} }
+  if(best&&bd<=HXS*HXS*1.15)HEX(best.q,best.r);
+};
+window.MAPVIEW=function(){ S.mapView=(S.mapView==='prov')?'realm':'prov'; save(); render(); };
 function soldierCard(s,inHire,idx){
   const bg=bgOf(s);
   const bondTxt=s.bonds.map(b=>{const o=soldierById(b.id);return o?`${o.name} (${b.type})`:null;}).filter(Boolean).join(', ');
@@ -6018,14 +6319,14 @@ function soldierCard(s,inHire,idx){
 function reforgeCost(s){ const t3=!!(s&&WEAPONS[s.weapon]&&WEAPONS[s.weapon].up&&WEAPONS[WEAPONS[s.weapon].up].tier>=3), c=t3?95:45; return (S.story&&S.story.heir==='aldric')?Math.round(c*0.8):c; }
 function armorButton(s){
   const next=ARMORS[s.armor+1]; if(!next)return '';
-  if(!(S.unlocks&&S.unlocks.armor))return `<span class="hint tt" data-tip="Locked. Recover the Armorsmith's Tools on a Quartermaster commission to fit heavier armor.">🔒 Armorsmith's Tools</span>`;
+  if(!(S.unlocks&&S.unlocks.armor))return '';              // locked — the Quartermaster panel says how to earn it; eight repeats on eight cards said nothing more
   if(next.master&&!masterForgeHere())return `<span class="hint tt" data-tip="${esc(next.n)} is master-forge work. Only the court smiths of Karsk Proper and the deep forges of the Underway can fit it.">⚒ ${esc(next.n)} — master forge only</span>`;
   if(atSettlement()===null&&next.master)return '';
   return `<button ${S.coin<armorCost(s.armor+1)?'disabled':''} onclick="BUYARM(${s.id})">Fit ${next.n} (${armorCost(s.armor+1)}c)</button>`;
 }
 function reforgeButton(s){
   const w=WEAPONS[s.weapon]; if(!w||!w.up||atSettlement()===null)return '';
-  if(!(S.unlocks&&S.unlocks.reforge))return `<span class="hint tt" data-tip="Locked. Recover the Blacksmith's Anvil on a Quartermaster commission to reforge weapons.">🔒 Blacksmith's Anvil</span>`;
+  if(!(S.unlocks&&S.unlocks.reforge))return '';
   const up=WEAPONS[w.up];
   if(up.tier>=3&&!masterForgeHere())return `<span class="hint tt" data-tip="A ${esc(up.n)} is master-forge work. Only the court smiths of Karsk Proper and the deep forges of the Underway can draw steel that fine.">⚒ ${esc(up.n)} — master forge only</span>`;
   return `<button ${S.coin<reforgeCost(s)?'disabled':''} onclick="REFORGE(${s.id})" title="Reforge to a finer weapon at the smithy">Reforge → ${up.n} (${reforgeCost(s)}c)</button>`;
@@ -6063,7 +6364,7 @@ function stationButton(s){
   if(isStationed(s))
     return `<button onclick="STATION(${s.id},null)" title="Bring her back to the column.">⚔ Recall from ${esc(provOf(s.stationedProv).n)}</button>`;
   if(atSettlement()===null||S.roster.length<3)return '';
-  return `<button onclick="STATION(${s.id},${cp})" title="She holds this province: fresh word every week, and the Blight comes on slower. She cannot march while she does.">⚑ Leave her holding ${esc(provOf(cp).n)}</button>`;
+  return `<button onclick="STATION(${s.id},${cp})" title="Leave her holding ${esc(provOf(cp).n)}: fresh word every week, and the Blight comes on slower. She cannot march while she does.">⚑ Garrison</button>`;
 }
 function nameButtons(s){
   if(atSettlement()===null)return '';
@@ -6163,6 +6464,7 @@ function renderCompany(){
     </div>
     <div class="col" id="mapCol"><h2>The March</h2>
       ${realmStrip()}
+      ${S.mapWide?`<div style="margin-bottom:5px"><button onclick="MAPVIEW()" title="Switch between the whole realm and the province the caravan stands in">${S.mapView==='prov'?'🗺 Show the realm':'⌖ Show this province'}</button> <span class="hint">Tap any province to march for its crossing.</span></div>`:''}
       <div id="mapwrap"${S._mapFlip?' class="mapflip"':''}>${hexSvg()}</div>
       <div class="hint" style="margin-top:4px">Tap any hex to inspect it. <span style="color:var(--gold)">!</span> contract · ⚑ brigands · ☠ Blight horde · ♞ Karsk column · ⚰ your dead · ⛺ the caravan. Purple ground is His.</div>
       ${sel?`<div class="mobileonly">${selectedPanel()}</div>`:''}
@@ -6215,6 +6517,7 @@ function renderCompany(){
       ${S.contracts.map(c=>`<div class="statline" style="cursor:pointer" onclick="HEX(${c.q},${c.r})"><span style="color:${c.story?'#b08bc9':'var(--gold)'}">!</span> ${esc(c.cname||CONTRACT_TYPES[c.type].n)} <span class="hint">(${OBJECTIVES[c.obj||'slay'].n})</span> — <span class="pay">${c.pay}c</span> · ${esc(S.regions[c.regionId].name)}</div>${(S.scouted||doc('scoutcorps'))?`<div class="hint" style="margin:0 0 3px 14px;color:#8fb0c9">🔭 ${contractScout(c)}</div>`:''}`).join('')||'<p class="hint">Nothing posted. Rest a week.</p>'}
       <h2 style="margin-top:8px">Rumors</h2>
       ${risen.map(g=>`<div class="statline" style="color:#b08bc9;cursor:pointer" onclick="${(()=>{const a=S.agents.find(a=>a.kind==='revenant'&&a.graveId===g.id);return a?`HEX(${a.q},${a.r})`:''})()}">⚰ ${esc(g.name)} walks ${esc(S.regions[g.regionId].name)}${g.iter?` · improved ×${g.iter}`:''} — <i>${esc(g.hook)}</i></div>`).join('')||'<p class="hint">Your dead are quiet — the ones you kept.</p>'}
+      ${(S.nemeses||[]).filter(n=>n.state==='alive').map(n=>{ const c=S.contracts.find(x=>x.nemId===n.id); return `<div class="statline" style="color:#d98074;cursor:${c?'pointer':'default'}" ${c?`onclick="HEX(${c.q},${c.r})"`:''}>☠ ${esc(n.name)}${c?' — '+esc(S.regions[c.regionId].name):' — gone to ground'}${n.wins?` · has beaten you ×${n.wins}`:''}${n.slain.length?` · killed ${esc(n.slain.join(', '))}`:''}</div>`; }).join('')}
       ${(S.deserters&&S.deserters.length)?`<h2 style="margin-top:8px">Deserters</h2>${S.deserters.map(d=>`<div class="statline" style="cursor:pointer;color:#a8b7c4" onclick="HEX(${REGION_DEFS[d.town].q},${REGION_DEFS[d.town].r})">⚐ ${esc(d.name)}${d.wasCommander?' — your old Commander':''} · ${esc(REGION_DEFS[d.town].town)} · ${Math.max(0,d.weekGone+4-S.week)} wk to find them</div>`).join('')}`:''}
       <h2 style="margin-top:8px">Grave ledger</h2>
       ${graves.length?graves.map(g=>`<div class="statline">⚰ ${esc(g.name)} — <i>${g.state}</i>${g.state==='rest'?' ✓':''}</div>`).join(''):'<p class="hint">Empty. It won’t stay that way.</p>'}
@@ -6249,7 +6552,15 @@ function selectedPanel(){
   const parts=sel.split(',').map(Number);
   const h=hex(parts[0],parts[1]); if(!h){sel=null;return '';}
   const q=h.q,r=h.r;
-  const reg=S.regions[h.region];
+  if(h.prov>=0&&!provKnown(h.prov)){   // ground the company has never walked: what is known is rumour, and the way in is a crossing
+    const P=provOf(h.prov), it=provIntelOf(h.prov);
+    return `<div class="card"><span class="nm">${esc(P.n)}</span> <span class="tag">unwalked</span>
+      <div class="bg">${esc(P.blurb)}</div>
+      <div class="statline">${it?`Blight pressure ${it.pressure}% <span class="hint">(${it.seen?'seen':'said'}, week ${it.week})</span>`:'You have heard nothing you would repeat.'}</div>
+      <div style="margin-top:6px"><button onclick="TRAVEL(${q},${r})" ${S.roster.length&&moveCost(h)!==Infinity?'':'disabled'}>${moveCost(h)===Infinity?'No road leads there':'March for the crossing'}</button></div>
+      <div class="hint" style="margin-top:4px">Every way between provinces is held by somebody, and each asks for something.</div></div>`;
+  }
+  const reg=S.regions[h.region]; if(!reg){ sel=null; return ''; }
   const c=S.contracts.find(c=>c.q===q&&c.r===r);
   const ags=S.agents.filter(a=>a.q===q&&a.r===r);
   const here=S.caravan.q===q&&S.caravan.r===r;
@@ -6275,7 +6586,7 @@ function selectedPanel(){
   html+='</div>';
   return html;
 }
-window.HEX=function(q,r){ const k=hexKey(q,r); sel=(sel===k)?null:k; render(); };
+window.HEX=function(q,r){ const h=hex(q,r); if(!h||h.prov===-1)return; const k=hexKey(q,r); sel=(sel===k)?null:k; render(); };
 window.TAKE=function(cid){
   const c=S.contracts.find(x=>x.id===cid); if(!c)return;
   if(S.caravan.q===c.q&&S.caravan.r===c.r){ pickSquad(sq=>startBattle(c,sq)); return; }
@@ -6285,6 +6596,7 @@ window.TRAVEL=function(q,r){ travelTo(q,r,null); };
 function partyCap(){ return 4+(S.partyUp||0); } // base 4; quartermaster upgrades raise it to 5 then 6
 function pickSquad(cb,opts){
   opts=opts||{};
+  if(activeModal){ const cur=activeModal; modalQ.unshift(()=>{ activeModal=cur; render(); }); activeModal=null; }   // closeModal() may have pumped the next queued modal — keep it for after the muster
   const picked=new Set();
   const loadout={kit:false,horn:false};
   const build=()=>{
