@@ -13,6 +13,69 @@ Single-file game — no build, no backend, no audio or image files; saves to you
 - **Keys**: `Tab`/`Space` next soldier · `1`–`9` abilities · `B` brace · `U` undo a step · `E`/`Enter` end turn · `WASD`/arrows pan · `+`/`−` zoom · `M` whole field · `C` centre · `V` inspect · `L` log · `R` retreat · `Esc` cancel · `?` help.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.72 (2026-11-13) — The Whole Field, Rendered
+v0.71 put the rendered company on a field that was still flat colour and hand-drawn tokens. This version redraws
+everything else so the game is one picture. **None of the new art has had a review pass** — it is wired so it can be
+judged in the game (`art/ASSETS.md` lists each piece and where it falls short of the plan), and
+**Settings → Art → Classic** puts every drawn figure and the flat ground back.
+
+**Every enemy.** All fourteen foes are Blender sprites built from the company's own kit: the brigands, the Husk
+and its Ironbound and Bloated looks, the Karsk deserters (Shieldman behind a scraped heater, Levy Pikeman, Deserter
+in a cut tabard), the Conclave in ash robes and bone masks (Acolyte, Blight-Mage, Blight-Sorcerer), the Graveguard,
+the Blight-hound, the Hound-Rider and the Blight-Troll. Each unit is dealt a look by its id, its tier's look when its
+name carries one, and the captain's when it leads. The ring under its feet carries the side: red for the living,
+green for the dead.
+
+**The ground and what stands on it.** Each battlefield lies on painted earth for its theme (heath, forest floor,
+marsh, scree, yard dirt, ashen Blight-ground, grave turf, crypt flagstones), with roads, mire, water, bridge planks
+and the chasm painted too, and one ground running ragged over the next instead of meeting in a square edge. Trees,
+boulders, brush, columns, standing stones and ruined walls are rendered and stand up the screen; so are the
+Blight-nest and menhir, the escort wagon, the villagers, supply caches, the fallen, and a scatter of bones, barrels
+and wreckage. Move, dash and threat highlights sit over the paint rather than replacing it.
+
+**The march.** The hex map is painted country with the battlefield's own trees and rocks on it, and whoever walks it
+stands on it as a miniature: brigands under their standard, a horde, the Conclave's hunters, your own dead.
+
+**Faces and chrome.** Every soldier's card shows a portrait cut from her own sprite (the head she wears on the field);
+panels and buttons carry a worn-leather grain; the title screen musters the company under the banner.
+
+**Known rough edges.** The hound, hound-rider and troll are first passes of a new rig and read coarser than the
+humanoids. The Graveguard is the Fighter's plate with no corpse flesh showing; the Conclave have no hood-down look;
+several foes have no tier or leader look yet and draw their base look. The Karsk column on the map borrows the
+Shieldman deserter. Story portraits (the princess, contacts) are still the drawn faces. Walls show a course line at
+each tile when stacked north to south. The sprite folder is now about 9 MB.
+
+**Under the hood.** No save change (shape stays 71). `art/tools/ground.py` paints the ground sheets, edge masks,
+map sheets and UI grain (numpy and Pillow, no Blender). `art/tools/wire.py` takes groups
+(`foe prop terr deco ground map ui`) and skips a sprite a render is still writing. Asset scripts for the new foes,
+terrain and props are in `art/blender/assets/`, their shared pieces in `gb/karsk.py`, `conclave.py`, `risen.py`,
+`beast.py` and `terrain.py`. The regression suite adds a rendered-field check (26).
+
+## v0.71 (2026-11-13) — The Company, Rendered
+Two pieces of work built on their own branches in September and October never reached `main`, and v0.70 was built
+without them. This version merges both into v0.70.
+
+**The rendered company.** The Blender pipeline's sprites now draw the Fighter, Ranger, Cleric and Ash Acolyte on the
+field: every soldier is her kit's body — the weapon kit if her class has one for what she carries, the Commander's
+banner, the Veteran's mismatched dead-men's armour from level 5, the Revenant's rot — under **a head of her own**,
+dealt when she signs on and never shared with anyone alive. Sworn swords and your risen dead are drawn the same way.
+The figure stands a tile and a half tall on a ring in the team's colour (gold when selected, violet for your dead).
+Enemies keep the v0.70 top-down figures until the enemy art is done, and the Shade (no sprites yet) keeps hers.
+**Settings → Company art → Classic** puts the hand-drawn company back. The Ranger, Cleric and Acolyte are wired while
+their art is still in review (`art/ASSETS.md`).
+
+**The trust patch (v0.68)** lands with it: the finale fields *every* soldier you lost and never laid to rest (it
+quietly capped at three), earned ranks show on any foe's name, the region panel draws its Blight bar again, the muster
+names the sworn swords who stay with the baggage, and the copy that still promised acts already shipped is gone.
+
+**Under the hood.** Save shape 70 → 71: every soldier, sword and grave is dealt a head matched to the face it has worn
+all along (the skin first, then the hair), and a hollow released-oath record that a buy-back had already carried onto
+the roster is swept out (v0.70 only swept the deserters). Heads are dealt from the run's seeded stream, so a seed
+draws the same faces. `art/tools/wire.py` ships re-rendered sprites in one step and keeps the page's manifest equal to
+the files on disk. An empty banner's cheapest hire is now priced against the strongbox *plus* what the wagons would
+fetch — the same sum the game-over check uses (the fuzz bot found the one seed where they disagreed). Tests: the
+branch's four save checks and the trust suite are merged in; the regression suite adds a sprite-wiring check (25).
+
 ## v0.70 (2026-11-13) — A Run, a Road, and Somewhere to Put the Loot
 The biggest build since the realm opened. Four things at once: the engine stops having dead ends, the battlefield becomes readable and playable from the keyboard, loot gets somewhere to live, and every campaign becomes a *run* that is different from the last one.
 
@@ -63,6 +126,25 @@ The biggest build since the realm opened. Four things at once: the engine stops 
 Save shape 67 → 70 through the v0.67 registry: old records get a stream, a company name, empty wagons, and credit in the Hall for what they already did. `test/` gains a **fuzz harness** (a bot plays whole campaigns — 29 campaigns and 551 battles over this build's verification, the last 11 campaigns on the shipped code, the authored spine through to the reveal, zero errors) and a **regression suite** (24 checks; the six that test a v0.67 bug were each confirmed failing on v0.67).
 
 An independent read of the diff then found eleven things random play had not, all fixed and each now a regression check where it can be: a lost story contract could be re-fought at once for XP and a fresh cache (it now goes to ground for a week, and the field stays picked clean); game over ignored a wagon full of sellable steel; marching into an event's fight could be interrupted — and replaced — by an arrival modal queued behind it; a nemesis that took a trophy destroyed its own named weapon; First Blood was never used up by Cleave, Trip, Disarm or a riposte; the Wedding-Iron Ring healed three real hit points a battle; two weeks turning at once sent two debt collectors; backing out of an event fight was billed as a brigand robbery.
+
+## v0.68 (2026-09-04) — Every Word the Game Says Is True
+_Built on its own branch in September and merged with the graphics overhaul in v0.71. Where it and v0.70 fixed the same thing (a lost story beat), v0.70's version won: the contract stays on the map with a one-week cooldown, rather than being re-posted fresh — a fresh re-post reopened the retry farm v0.70's review closed._
+
+No new systems. Six places the game printed something it did not deliver, made honest.
+
+**The spine cannot dead-end.** A fought contract is consumed whether you won, lost, or fled — and two beats of the main story rode on ordinary contracts: the Magister's Courier, and the heir's price. Flee either, or lose it, and the posting was simply gone; the hint on the map kept pointing at a purple mark that no longer existed, forever. Worse, a region swallowed by the Blight took its story posting down with it. Now a story beat outlives its region, and whenever the stage says a beat is owed and nothing carries it — after any battle you did not win, and at every weekly refresh — it is posted again, with a line in the log that says so. A won heir beat advances the story the instant the field resolves — not when its epilogue modal runs — so a reload in the middle of the post-battle modals can never leave the record saying "owed" with nothing to claim it.
+
+**The finale keeps its promise.** v0.14 said *every* soldier you lost and never laid to rest walks in Vell's colors. The code fielded three, and the throne-room callout named three. Now the reckoning fields the whole graveyard: the revenants first, every one of them, up to the engine's ceiling; then their sworn and their risen in the same order with whatever room remains — and the throne room's own reinforcements leave that room open instead of filling to the ceiling first. If the room runs out the field log says how many wait beyond the doors — staged waves and budget pricing for this fight are a later version; until then the room is the bound and it says so. The callout names them all.
+
+**No more ghosts.** The satchel and the ledger both closed with "Act III arrives in a future build" — it shipped fifty versions ago — and the in-game act numbering contradicted the realm's (the whole March is Act I; the realm is what follows). The ghost lines are gone, the beats now point forward to what actually comes next, the "Act I — Proven" card no longer talks about where alpha v0.1 ends, and the ending card signs off as Act I: The March.
+
+**Elite foes wear their rank.** The power budget's top-up promoted foes to Veteran and Elite by rewriting their name — but only if the name was still the bare stock one. A foe that had already earned a tier tag took the power silently and fought as an elite while reading as chaff. The rank now rides in front of whatever the name already is; a named leader keeps its name and takes the power.
+
+**The clock reads as a clock.** The manual's first line calls the Blight pressure bars "the clock." The bars had been dead CSS for a while; pressure was a bare number. The region panel draws the bar again.
+
+**Two swords ride, and it says so.** Sworn swords take no muster slot — but only two of them march, in muster order, and a third banneret's sword simply never appeared. The muster now names which swords ride and which stay with the baggage, and the field log says it again when the fight opens.
+
+**Verified headless** (`test/trust.mjs`): the pressure bar renders; a fled Courier re-posts with its stage intact; a story posting survives a swallowed region; a fled heir quest re-posts and a won one does not; three swords on one banneret → muster names the one that stays, the field benches it and logs it; five risen graves → the reckoning fields all five under the ceiling, with retinue behind them.
 
 ## v0.67 (2026-09-04) — One Record, One Road Through It
 Nothing you can see. Everything the next twenty versions stand on.

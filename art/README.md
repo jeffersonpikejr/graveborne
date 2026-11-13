@@ -1,0 +1,166 @@
+# art/ — the Blender pipeline
+
+Everything here is source for the graphics overhaul. Nothing in `art/` ships in the page; approved sprites are
+copied to `assets/` when they are wired into `index.html`. The review order and status live in
+[`ASSETS.md`](ASSETS.md).
+
+Every asset is **built by a Python script**, not sculpted by hand: proportions, pose, kit and palette are numbers
+in `blender/assets/<name>.py`, so any render can be reproduced, and a change (a darker surcoat, a longer blade)
+is a one-line edit followed by a re-render.
+
+## Setup (once)
+
+Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 3.11):
+
+    python3.11 -m venv .bvenv && .bvenv/bin/pip install "bpy==4.5.*" pillow
+
+## Render → review → ship
+
+    .bvenv/bin/python art/blender/render.py fighter            # all variants → art/renders/fighter/*.png
+    .bvenv/bin/python art/blender/render.py fighter --draft    # 384px / 24 samples, ~15s each, for iterating
+    .bvenv/bin/python art/blender/render.py fighter --portrait # head-and-shoulders portraits (face review, unit card)
+    .bvenv/bin/python art/tools/post.py sheet art/renders/fighter/*.png --out review.png   # at real game sizes
+    .bvenv/bin/python art/tools/post.py ship  art/renders/fighter/*.png --out art/sprites  # 384px WebP
+    python3 -m http.server 8931 --directory . &
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review    # the real game, before/after
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad ranger   # Rangers beside the Commander
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad cleric   # Clerics beside the Commander
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --squad acolyte  # Acolytes beside the Commander
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --foes husk      # a pod of Husks before the company
+    node art/tools/ingame.mjs --sprites art/sprites --out /tmp/review --foes warband   # a doctrine's pod, with its ♛
+
+`ingame.mjs` swaps sprites in at runtime and screenshots the same board state before and after, on desktop and
+phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/path/to/playwright/index.mjs`).
+`index.html` is not modified until an asset is approved.
+
+    .bvenv/bin/python art/tools/ground.py                     # paint the ground sheets, edge masks, map sheets and UI grain (no Blender)
+    python3 art/tools/wire.py fighter ranger cleric acolyte foe prop terr deco ground map ui   # ship: copy those to assets/sprites, rewrite the manifest
+    python3 art/tools/wire.py --check                         # the page's manifest matches assets/sprites exactly
+
+`wire.py` is the last step: it copies the named classes from `art/sprites` to `assets/sprites` (the only sprite folder
+the page reads) and regenerates the `SPR_MAN` block in `index.html` from what is on disk, so the game never asks for a
+file that is missing. In the game, `pcTopDown()` draws a sprited class as the kit's body under the soldier's own head
+(the same selection rules as `ingame.mjs`), and falls back to the hand-drawn SVG for any class not wired and for the
+"Classic" company-art setting. Re-run it after every re-render of a wired class.
+
+## Foes (whole sprites)
+
+A foe doesn't persist, so it ships a few whole sprites instead of body and head layers (ASSETS.md, the enemy plan):
+`foe_<key>[_<tag>]_<n>_<m|f>.webp`, where `key` is the game's `ENEMIES` key, `n` one of its looks and `tag` a tier
+look named for the tag its `TIER_UPGRADES` entry puts in the unit's name (`foe_husk_ironbound_1_m`), or `captain`
+for the look a pod's ♛ leader wears (`foe_brigand_captain_1_f`). Their heads come from the same genome as the
+company's, from its enemy pool (`looks.foe(form, n)`, rolled from `looks.FOE_LOOKS` = 1000 on), so a foe never wears a
+soldier's face; the living are dealt rougher (more scars and broken noses, dirtier), the dead as rolled. `--foes <key>`
+stages a pod before the company (by default a mixed squad: the Commander, a Ranger, a Cleric and an Acolyte): four of
+a foe, the last two carrying its tier tags, or a doctrine's pod (`--foes warband`) with a tier look of its first foe
+and that foe again as the ♛; each unit is dealt a sprite by its id, the leader from its `captain` looks.
+
+    .bvenv/bin/python art/blender/render.py husk                  # every variant -> art/renders/husk/*.png
+    .bvenv/bin/python art/blender/render.py brigand               # the Warband: brigand, cutthroat, archer
+    .bvenv/bin/python art/tools/post.py ship art/renders/husk/*.png --out art/sprites
+
+The brigands share a kit (`assets/brigand.py`: the palette, what's worn from the belt down, the belt, a rag mask's
+ends), which `cutthroat.py` and `archer.py` import.
+
+## Every soldier's own face (`blender/gb/looks.py`)
+
+A soldier is dealt a **look** when the game creates them: one of `looks.POOL` heads per form, rolled from a seeded
+genome (face shape on the male-female dial moved by build, length, lean and age; hair and beard; skin, hair and eye
+colour; greying, a receding hairline, scars, a broken nose). `looks.roll(form, n)` is deterministic, so the save
+stores only the id (`'f07'`) and the pipeline re-renders exactly that head. The game deals from `LOOKS` in
+`index.html`, which must equal `sprites/heads/looks.json` (`test/spine.mjs` checks).
+
+A soldier's sprite is two layers on the same canvas, so each kit is rendered once and each face once:
+
+    .bvenv/bin/python art/blender/render.py fighter --looks      # layers/<variant>.png + heads/<asset>_<id>[_revenant].png
+    .bvenv/bin/python art/tools/post.py ship art/renders/fighter/layers/*.png --out art/sprites/body
+    .bvenv/bin/python art/tools/post.py ship art/renders/fighter/heads/*.png art/renders/fighter/heads/looks.json --out art/sprites/heads
+
+The body layer is the variant with its head hidden from the camera (still casting its shadow); the head layer is a
+look's head on the base kit held out, so the scarf and collar still cut it, rendered in a border round the head.
+The head goes over the body. To review faces rather than sprites:
+
+    .bvenv/bin/python art/blender/review_heads.py views    # both anchors: front, both three-quarters, profile, perspective neck
+    .bvenv/bin/python art/blender/review_heads.py styles   # every hairstyle and beard on each anchor
+    .bvenv/bin/python art/blender/review_heads.py looks    # the pool, one three-quarter each, labelled with its genes
+    .bvenv/bin/python art/blender/review_bodies.py         # bare bodies (head counts), the kit on them, silhouettes
+
+Master renders (`art/renders/`) are not committed: they are reproducible from the scripts. The shippable
+`art/sprites/*.webp` are.
+
+## The house contract (`blender/gb/rig.py`)
+
+Every sprite obeys the same rules, so sprites drop into the battle grid with no per-asset tuning:
+
+| | |
+|---|---|
+| Scale | 1 Blender unit = 1 battle tile; tile centre = world origin; +Y north; +Z up |
+| Camera | orthographic, looking north, pitched 45° down |
+| Canvas | 1.5 × 1.5 tiles; the tile centre lands at 50% across, 74% down |
+| Placement in CSS | `width: 1.5·TS; left: −0.25·TS; top: −0.61·TS` relative to the tile |
+| Light | warm key from upper-left front (the only shadow-caster), cool fill right, cold rim behind, soft overhead contact |
+| Grade | the `grit` look: AgX High Contrast under a dim overcast dome (`rig.LOOKS`) |
+| Facing | figures face the camera (−Y), turned 4° |
+| Scale | humanoids are modelled in metres; `FIG_SCALE = 0.6` makes a 1.85 m mercenary ~1.1 tiles tall |
+
+## Materials (`blender/gb/grit.py`)
+
+Battle-worn realism, per the art direction in `ASSETS.md`. Every surface is a base material plus the damage a
+campaign leaves, in order: scratches and pitting → worn-bright edges → grime packed in recesses → rust or
+tarnish → oxblood smears → mud climbing from the ground (in world space, so it rises from the same ground line
+on every part). Library: `steel`, `paint_over_steel` (the bone-white shield), `maille`, `brass` (tarnished),
+`cloth` (with an optional painted device or dyed cross; ash settled on what faces up, a scorched hem), `leather` (the
+same ash; edges worn to a colour of its own),
+`skin` (windburn, dirt, stubble; with `face=face.marks(...)`: lips, sockets, dark circles, shadowed lid margins and
+eye corners, the undercut's stubble, a sunken scar; with `rot`: a corpse's flesh, rot-green and livid, split to the
+bone, the feet black with grave dirt), `graft` (Blight-grafted flesh, veins lit from the graft), `hair`, `wood`,
+`planks` (boards under paint worn to chips, a crude device daubed on: a round shield's face). `cloth(patches=)` sews
+on squares of other cloth where it wore through, their edges stitched.
+
+**Revenant mode** (`mat.set_mode(revenant=True)`) re-renders any asset corrupted: palette drained toward grave-grey,
+skin gone pale, sparse blight-violet fissures and glowing eyes; `render.py` adds the violet back-light to any variant
+flagged `revenant`. **Corpse mode** (`set_mode(corpse=True)`, the Risen) keeps the violet eyes but sinks the palette
+toward grave-earth and black iron instead of lifting it to grey, turns flesh the grey-green of rot at its own
+lightness (capped), and keeps the fissures in the flesh alone. Its foes carry no `revenant` flag, so no violet
+back-light: that marks the company's risen, and a foe's side is its ring. (`gb/mat.py` also keeps the first,
+painted-miniature materials.)
+
+## Layout
+
+    blender/gb/rig.py       camera, lights, world, grade presets, render settings, shadow catcher
+    blender/gb/grit.py      battle-worn materials (the house look)
+    blender/gb/mat.py       palette, colour helpers, revenant and corpse corruption, emitters and a light's bloom
+                            (halo), the first painted materials
+    blender/gb/kit.py       primitives: skin-modifier limbs, lathes, tubes, blades, hafted weapons
+    blender/gb/armor.py     humanoid kit: plate shells, pauldrons, cops, gauntlets, straps, torn cloth,
+                            the great shield, the broadsword, a round shield of planks, a nasal helm
+    blender/gb/face.py      heads carved from one skull: a signed-distance field of anatomical masses about
+                            one centreline, meshed (numpy surface nets) and decimated to readable planes;
+                            eyes in carved sockets, hair/beard/brows as shells of the same field; marks()
+                            gives the skin shader its landmarks (lips, sockets, lids and eye corners, scar);
+                            a head fits its hair under a hood or a helm (HOOD_*, HELM_*) and wears a mask
+                            (MASKS: a rag, a wrap) laid over its own face
+    blender/gb/looks.py     the appearance genome: roll(form, n) -> a soldier's look; foe(form, n) -> a foe's,
+                            from the enemy pool; build_head(look) (hood, helm, mask; rot: the face of a corpse)
+    blender/gb/body.py      bodies: male and female anchors on one dial, Frame (the dimensions kits are laid on;
+                            hunch() tips the upper body forward, bends the knees and sets the feet apart, reach()
+                            poses an arm, a gripping hand closes into a fist, open_hand() turns an open hand at
+                            the wrist), and the body's field
+    blender/gb/garb.py      light kit laid on the body: garments as layers offset from the posed body (Dressed),
+                            capes and cloaks draped over it (Drape), a hood worn low over the brow (the head
+                            fits its hair under face.HOOD_*); quilting and leg wraps; a longbow (braced, or drawn,
+                            recurved), arrows, a quiver, a boar spear, a knife, a chapel lantern, a cord, a
+                            ribbon, a girdle book, a skirt of leather strips, the Acolyte's ashfire, a broken
+                            manacle, a trophy standard
+    blender/assets/*.py     one script per asset: build(variant) + VARIANTS
+    blender/render.py       CLI renderer (--looks: body and head layers)
+    blender/review_heads.py head review sheets: views, hairstyles, the look pool
+    blender/review_bodies.py body review sheets: bare bodies with head counts, the kit on them, silhouettes
+    tools/post.py           review sheets at real display sizes; WebP export
+    tools/ingame.mjs        before/after screenshots inside the running game
+    renders/                master renders (768px PNG, 1.5 tiles square) — gitignored, reproducible
+    sprites/                shippable 384px WebP, named <class>[_<weapon>][_commander|_veteran][_revenant]_<m|f>.webp
+                            (a weapon's own kit, e.g. ranger_spear_*, else the class's: the Ranger's bow), and
+                            foes' whole sprites, foe_<key>[_<tag>]_<n>_<m|f>.webp
+    sprites/body/           the same variants with the head left off (the looks' bodies)
+    sprites/heads/          <class>_<look>[_revenant].webp, one per look, and looks.json (the pool the game deals)

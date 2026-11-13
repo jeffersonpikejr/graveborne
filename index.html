@@ -319,6 +319,66 @@
   @media (max-width:760px){ .bbanner{font-size:16px;white-space:normal;text-align:center;width:88%;letter-spacing:.08em} .bbanner.pl,.bbanner.open{font-size:14px} .unit .hpn{font-size:9px} .hitpct{font-size:11px} }
   @media (hover:none){ .keyhint{display:none} }
   @media (max-width:760px){ #zoombtns{top:auto;bottom:calc(196px + env(safe-area-inset-bottom));gap:5px} #zoombtns button{width:38px;height:38px;font-size:17px} }
+  /* ---- v0.71: the rendered company — the sprite stands 1.5 tiles tall on the tile, a ring under its feet ---- */
+  #grid .unit.sprited{background:none !important;border-color:transparent !important;box-shadow:none !important;overflow:visible;z-index:5}
+  #grid .unit.sprited.current:not(.dodge):not(.hitflash){animation:none}   /* the ring carries the selection pulse; the dodge jig and hit flash still play on the token */
+  #grid .unit.sprited .spr{overflow:visible}
+  #grid .unit.sprited img.sp{position:absolute;max-width:none;pointer-events:none;width:calc(var(--ts)*1.5);height:calc(var(--ts)*1.5);
+    left:calc(var(--ts)*-0.25 - 2px);top:calc(var(--ts)*-0.61 - 2px);filter:drop-shadow(0 0 .7px rgba(0,0,0,.95));-webkit-user-drag:none}
+  #grid .unit.sprited::before{content:'';position:absolute;left:50%;top:50%;width:calc(var(--ts)*.76);height:calc(var(--ts)*.5);transform:translate(-50%,-50%);
+    border-radius:50%;--ring:#7fa3c9;border:2px solid var(--ring);box-shadow:0 0 0 1px rgba(0,0,0,.65),inset 0 0 0 1px rgba(0,0,0,.5);
+    background:radial-gradient(closest-side,rgba(0,0,0,.34),transparent 85%);pointer-events:none}
+  #grid .unit.sprited.rev::before{--ring:#a77fd6;box-shadow:0 0 0 1px rgba(0,0,0,.65),0 0 8px rgba(154,111,201,.85)}
+  #grid .unit.sprited.current::before{--ring:#d9b23a;animation:ringpulse 1.5s ease-in-out infinite}
+  #grid .unit.sprited.rev.current::before{--ring:#ff7a5c}
+  @keyframes ringpulse{0%,100%{box-shadow:0 0 0 1px rgba(0,0,0,.65),0 0 6px 1px rgba(201,162,39,.55)}50%{box-shadow:0 0 0 1px rgba(0,0,0,.65),0 0 14px 3px rgba(201,162,39,.95)}}
+  #grid .unit.sprited.spent .spr{filter:grayscale(.85) brightness(.62)}
+  #grid .unit.sprited .hp{bottom:-5px} #grid .unit.sprited .hpn{bottom:-8px}
+  #grid .unit.sprited.hitflash img.sp{filter:drop-shadow(0 0 .7px #000) drop-shadow(0 0 6px rgba(224,89,63,.95))}
+  /* ---- v0.72: the rest of the field, rendered — painted ground under everything, terrain and foes standing on it ---- */
+  #grid .tile.gt,#grid .ge{background-size:calc(var(--ts)*8) calc(var(--ts)*8);background-position:calc(var(--gx)*var(--ts)*-1) calc(var(--gy)*var(--ts)*-1)}
+  #grid .g-heath{background-image:url(assets/sprites/ground_heath.webp)} #grid .g-forest{background-image:url(assets/sprites/ground_forest.webp)} #grid .g-marsh{background-image:url(assets/sprites/ground_marsh.webp)} #grid .g-stony{background-image:url(assets/sprites/ground_stony.webp)} #grid .g-dirt{background-image:url(assets/sprites/ground_dirt.webp)} #grid .g-ashen{background-image:url(assets/sprites/ground_ashen.webp)} #grid .g-grave{background-image:url(assets/sprites/ground_grave.webp)} #grid .g-flag{background-image:url(assets/sprites/ground_flag.webp)} #grid .g-road{background-image:url(assets/sprites/ground_road.webp)} #grid .g-mire{background-image:url(assets/sprites/ground_mire.webp)} #grid .g-water{background-image:url(assets/sprites/ground_water.webp)} #grid .g-planks{background-image:url(assets/sprites/ground_planks.webp)} #grid .g-chasm{background-image:url(assets/sprites/ground_chasm.webp)} #grid .g-blight{background-image:url(assets/sprites/ground_blight.webp)}
+  #grid .ge,#grid .gbr{position:absolute;inset:0;pointer-events:none}
+  #grid .ge{-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+  #grid .ge-n{-webkit-mask-image:url(assets/sprites/ground_edge_n.webp);mask-image:url(assets/sprites/ground_edge_n.webp)}
+  #grid .ge-e{-webkit-mask-image:url(assets/sprites/ground_edge_e.webp);mask-image:url(assets/sprites/ground_edge_e.webp)}
+  #grid .ge-s{-webkit-mask-image:url(assets/sprites/ground_edge_s.webp);mask-image:url(assets/sprites/ground_edge_s.webp)}
+  #grid .ge-w{-webkit-mask-image:url(assets/sprites/ground_edge_w.webp);mask-image:url(assets/sprites/ground_edge_w.webp)}
+  #grid .gbl{animation:bpulse 3.2s ease-in-out infinite}
+  #grid .grl{position:absolute;pointer-events:none;background:linear-gradient(#3a2a19,#1a120a);box-shadow:0 0 0 1px rgba(0,0,0,.55),0 0 6px rgba(0,0,0,.6)}
+  #grid .grl-n{left:0;right:0;top:0;height:calc(var(--ts)*.085)} #grid .grl-s{left:0;right:0;bottom:0;height:calc(var(--ts)*.085)}
+  #grid .grl-w{top:0;bottom:0;left:0;width:calc(var(--ts)*.085)} #grid .grl-e{top:0;bottom:0;right:0;width:calc(var(--ts)*.085)}
+  #grid .gbr.ns{transform:rotate(90deg)} #grid .tile.g-planks.gt:has(.gbr.ns){background-image:none}
+  #grid .gbr.ns{background:url(assets/sprites/ground_planks.webp) 0 0/calc(var(--ts)*8) calc(var(--ts)*8)}
+  #grid img.ts{position:absolute;max-width:none;pointer-events:none;width:calc(var(--ts)*1.5);height:calc(var(--ts)*1.5);left:calc(var(--ts)*-0.25);top:calc(var(--ts)*-0.61);-webkit-user-drag:none}
+  #grid img.ts.tw{top:calc(var(--ts)*-0.5)}   /* a wall's render is cut 0.11 tile above its foot (the canvas ends there): set it down so the foot meets the tile's south edge */
+  #grid .tile.fogseen img.ts{filter:brightness(.45) saturate(.6)} #grid .tile.fogseen .ge{opacity:.45}
+  #grid .tile.gt.moveable::after,#grid .tile.gt.dashable::after,#grid .tile.gt.threat::after,#grid .tile.gt.objtile::after{content:'';position:absolute;inset:0;pointer-events:none;background-image:var(--ovo,none),var(--ovt,none),var(--ovm,none)}
+  #grid .tile.gt.moveable{--ovm:linear-gradient(rgba(96,160,235,.17),rgba(96,160,235,.17));outline-color:rgba(124,184,245,.5)}
+  #grid .tile.gt.dashable{--ovm:linear-gradient(rgba(214,172,44,.12),rgba(214,172,44,.12));outline-color:rgba(222,184,70,.42)}
+  #grid .tile.gt.threat{--ovt:repeating-linear-gradient(45deg,rgba(190,62,44,.22) 0 4px,transparent 4px 8px)}
+  #grid .tile.gt.objtile{--ovo:repeating-linear-gradient(-45deg,rgba(201,162,39,.16) 0 6px,transparent 6px 12px)}
+  #grid .unit.sprited.foe img.sp,#grid .unit.sprited.undead img.sp{filter:brightness(1.16) drop-shadow(0 0 .7px rgba(0,0,0,.95))}   /* the enemy's kit is darker than the company's: lift it off the ground */
+  #grid .unit.sprited.foe::before{--ring:#c9573f} #grid .unit.sprited.undead::before{--ring:#8fa573} #grid .unit.sprited.ally::before{--ring:#c9b48a}
+  #grid .unit.sprited.foe.current::before,#grid .unit.sprited.undead.current::before{--ring:#ff7a5c}
+  /* ---- v0.72: chrome — worn leather over every panel, plates for buttons, a muster line on the title ---- */
+  body{background:url(assets/sprites/ui_grain.webp),radial-gradient(1100px 700px at 28% -8%,#1c1711,var(--bg) 62%) fixed,var(--bg)}
+  #header{background:url(assets/sprites/ui_grain.webp),linear-gradient(#211b14,#17130e);border-bottom:1px solid #000;box-shadow:0 1px 0 rgba(201,162,39,.14),0 6px 18px rgba(0,0,0,.5)}
+  .col{background:url(assets/sprites/ui_grain.webp),linear-gradient(#1e1913,#191510);border-color:#34291c;box-shadow:inset 0 0 0 1px rgba(201,162,39,.05),inset 0 1px 0 rgba(255,236,190,.05),0 4px 14px rgba(0,0,0,.5)}
+  .card{background:linear-gradient(#27221a,#221d16);border-color:#3a3023;box-shadow:inset 0 1px 0 rgba(255,236,190,.04),0 1px 3px rgba(0,0,0,.4)}
+  #modal{background:url(assets/sprites/ui_grain.webp),linear-gradient(#201a13,#17130e)}
+  h2{letter-spacing:.14em;border-bottom:1px solid transparent;border-image:linear-gradient(90deg,rgba(201,162,39,.55),rgba(201,162,39,.12) 60%,transparent) 1}
+  button{background:linear-gradient(#3a301f,#272116 55%,#201b12);border-color:#4a3d29;box-shadow:inset 0 1px 0 rgba(255,236,190,.09),0 1px 2px rgba(0,0,0,.5);border-radius:3px}
+  button:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
+  button.primary{background:linear-gradient(#5a4718,#3b2f11 55%,#2e250e);border-color:#9a7c2e;box-shadow:inset 0 1px 0 rgba(255,236,170,.2),0 1px 2px rgba(0,0,0,.5)}
+  button.danger{background:linear-gradient(#3a211c,#261512)}
+  .scard .face .spr-card,.face>.spr-card{border-color:#4a3d29;border-radius:3px}
+  #title{background:radial-gradient(900px 640px at 50% 34%,rgba(42,32,21,.55),rgba(8,7,5,.94) 72%),url(assets/sprites/ground_ashen.webp) center/900px,#0c0a07}
+  .tmuster{position:relative;height:150px;width:min(560px,92vw);margin:0 auto -34px;pointer-events:none;-webkit-mask-image:linear-gradient(#000 62%,transparent 96%);mask-image:linear-gradient(#000 62%,transparent 96%)}
+  .tmuster img{position:absolute;bottom:-34px;width:210px;height:210px;left:calc(50% - 105px + var(--x));filter:drop-shadow(0 6px 10px rgba(0,0,0,.8)) brightness(var(--b,1))}
+  @media (max-width:760px){ .tmuster{height:118px;margin-bottom:-26px} .tmuster img{width:160px;height:160px;left:calc(50% - 80px + var(--x)*.72);bottom:-24px} }
+  .spr-card.pt{background-size:330%;background-position:50% 19.5%;background-color:#1b1712;box-shadow:inset 0 0 10px rgba(0,0,0,.7)} .spr-card.pt.rv{background-color:#1d1626;border-color:#5a4372}
+  .spr-card{display:block;border:1px solid var(--line);border-radius:3px;background-color:#161310;background-repeat:no-repeat;background-size:175%;background-position:50% 64%}
 </style>
 </head>
 <body>
@@ -326,7 +386,7 @@
 <script>
 'use strict';
 /* ============================== UTILITIES ============================== */
-const VERSION='0.70';                                   // the one place the build names itself (title, header, title screen)
+const VERSION='0.72';                                   // the one place the build names itself (title, header, title screen)
 let S=null;                                             // the campaign record — declared first so the RNG below can read it
 /* ---- v0.70 ONE DIE. Every roll the simulation makes goes through rnd(), a mulberry32 stream whose state lives ON the
    record (S.rng) — so a run is a function of its seed, a reload continues the same stream, and a failing fuzz seed
@@ -994,7 +1054,7 @@ const BOND_TYPES={ 'shield-kin':'stood back to back once too often', rival:'can�
    this section is either static data or lives OUTSIDE the campaign record (prefs, legacy), so none of it can be
    lost to a bad save. */
 const PREFS_KEY='graveborne_prefs_v1', LEGACY_KEY='graveborne_legacy_v1';
-const PREFS={sound:true,vol:0.5,confirmEnd:true,autoEnd:true,shake:true};
+const PREFS={sound:true,vol:0.5,confirmEnd:true,autoEnd:true,shake:true,sprites:true};
 function loadPrefs(){ try{ Object.assign(PREFS,JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')); }catch(e){} }
 function savePrefs(){ try{ localStorage.setItem(PREFS_KEY,JSON.stringify(PREFS)); }catch(e){} }
 
@@ -1110,7 +1170,7 @@ function legacyRecordRun(how){
     heir:(S.story&&S.story.heir)||null,act:(S.story&&S.story.stage>=10)?1:0,docs:(S.doctrines||[]).slice()});
   L.runs=L.runs.slice(0,30);
   const worst=walking.filter(g=>g.snap&&!g.seed&&!g.heirloom).sort((a,b)=>((b.snap.level||1)+(b.iter||0))-((a.snap.level||1)+(a.iter||0)))[0];
-  if(worst)L.dead={name:worst.name,face:worst.face,bg:worst.bg,company:S.cname||'the old company',hook:worst.hook,
+  if(worst)L.dead={name:worst.name,face:worst.face,look:worst.look||null,bg:worst.bg,company:S.cname||'the old company',hook:worst.hook,
     snap:{maxhp:Math.min(worst.snap.maxhp,16),skl:Math.min(worst.snap.skl,5),spd:Math.min(worst.snap.spd,5),weapon:worst.snap.weapon,wMod:Math.min(worst.snap.wMod||0,1),
       wAff:worst.snap.wAff||null,aAff:null,armor:Math.min(worst.snap.armor||0,1),feats:(worst.snap.feats||[]).slice(0,2),level:2,cls:worst.snap.cls||'fighter',commander:false,deeds:[],retinue:[]}};
   legacySave(L);
@@ -1282,7 +1342,7 @@ function outfitModal(sid){
   const s=soldierById(sid); if(!s){ closeModal(); return; }
   const st=S.stash||[], at=A_TEMPER[s.aAff];
   const again=()=>{ save(); outfitModal(sid); };
-  const head=`<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+  const head=`<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
       <p style="margin:0"><b>${esc(s.name)}</b> <span class="tag">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">Lv ${s.level}</span></p>
       <div class="wline">${wpnIcon(s.weapon)} ${itemHtml(weaponItemOf(s))}</div>
       <div class="wline">🛡 <span class="tt" data-tip="${esc(armorTip(s.armor,s.aAff))}">${at?esc(at.n)+' ':''}${ARMORS[s.armor].n}</span></div>
@@ -1346,6 +1406,41 @@ function aarModal(R){
 const SKINS=['#c9a184','#a9825f','#8a6a4f','#e0b89a'];
 const HAIRC=['#2b2118','#54381f','#6b4a2a','#8a8578','#40404a'];
 function makeFace(){return{skin:ri(0,3),hair:ri(0,5),hc:ri(0,4),eyes:ri(0,2),mouth:ri(0,2),extra:ri(0,9)};}
+/* ---- v0.69 LOOKS: every soldier's own rendered head. The art pipeline rolls a pool of heads per form from a seeded
+   genome (art/blender/gb/looks.py: face shape, hair, beard, colouring, age, scars) and renders each one. A soldier is
+   dealt one look id ('f07') at creation and keeps it for life and into the grave. Never two alike among the living
+   (roster, hire pool, deserters and every sworn sword); the dead's heads are avoided while the pool allows. Each
+   entry is what the procedural face shows for that head: [skin, hair colour, hair] (SKINS, HAIRC, faceInner's HAIR).
+   The first LOOKS.founders of each form carry the founding scar and go only to a founding Commander. Must equal
+   art/sprites/heads/looks.json, which the pipeline writes (test/spine.mjs checks). ---- */
+const LOOKS={founders:2,
+  m:[[0,0,5],[1,2,5],[3,1,0],[1,0,0],[0,2,0],[2,4,4],[2,1,3],[3,1,3],[0,0,5],[0,2,2],[2,0,5],[0,2,2],[1,1,5],[0,0,5],[0,0,3],[3,2,4],[3,4,5],[1,0,0],[1,0,2],[2,4,5],[1,1,2],[2,2,0],[0,1,5],[0,0,5]],
+  f:[[0,0,4],[0,1,4],[0,0,1],[0,1,4],[2,2,1],[2,4,4],[0,4,0],[0,2,1],[1,0,1],[1,2,0],[2,1,4],[3,3,4],[1,2,0],[0,0,1],[0,0,1],[2,4,4],[1,1,4],[2,1,4],[0,1,2],[3,0,2],[0,2,1],[3,2,2],[2,2,4],[1,0,0]]};
+const LOOK_F=0.5;   // the share of new soldiers dealt a female head
+function lookId(form,n){ return form+(n<10?'0':'')+n; }
+function lookEntry(id){ return (id&&LOOKS[id[0]])?LOOKS[id[0]][+id.slice(1)]:null; }
+function looksHeld(){
+  const live=new Set(), dead=new Set(), add=(set,p)=>{ if(p&&p.look)set.add(p.look); };
+  for(const arr of [S.roster,S.hirePool,S.deserters]) for(const p of (arr||[])){ add(live,p); for(const w of (p&&p.retinue)||[]) if(w.alive!==false)add(live,w); }
+  for(const g of (S.graves||[])){ add(dead,g); for(const w of ((g.snap&&g.snap.retinue)||[])) add(dead,w); }
+  return {live,dead};
+}
+function lookIds(form,founder){ return LOOKS[form].map((_,n)=>n).filter(n=>founder?n<LOOKS.founders:n>=LOOKS.founders).map(n=>lookId(form,n)); }
+function makeLook(founder){
+  const {live,dead}=looksHeld(), pref=chance(LOOK_F*100)?'f':'m', other=pref==='f'?'m':'f';
+  for(const [form,shunDead] of [[pref,true],[pref,false],[other,true],[other,false]]){
+    const free=lookIds(form,founder).filter(id=>!live.has(id)&&!(shunDead&&dead.has(id)));
+    if(free.length)return pick(free);
+  }
+  return pick(lookIds(pref,founder));   // more of the living than heads: a double, never a crash
+}
+// the procedural face that agrees with a head: its skin, hair colour and hair; eyes, mouth and marks still rolled
+function faceFor(look){ const f=makeFace(), e=lookEntry(look); if(e){ f.skin=e[0]; f.hc=e[1]; f.hair=e[2]; } return f; }
+// a soldier's portrait on a card: head and shoulders cut from their own rendered sprite (the same head they wear on the
+// field); the drawn face where the art is off or the class has no sprite
+function portrait(s,size,o){ o=o||{}; const p=spritesOn()&&s&&s.cls?sprPick(s,o):null;
+  if(!p)return faceSvg((s&&s.face)||{skin:0,hc:0},{size,revenant:o.revenant});
+  return `<div class="spr-card pt${o.revenant?' rv':''}" style="width:${size}px;height:${size}px;background-image:${p.whole?`url(${p.whole})`:`url(${p.head}),url(${p.body})`}"></div>`; }
 function faceSvg(f,o){ o=o||{}; const size=o.size||46; return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${faceInner(f,o)}</svg>`; }
 // grimdark board token: the soldier's own face framed in class-distinct armour + weapon (fighter/ranger/cleric/ash-acolyte/shade),
 // with a banner if they carry it. Reads by silhouette & colour when zoomed out, by detail when zoomed in.
@@ -1423,7 +1518,103 @@ function faceInner(f,o){
 }
 // TOP-DOWN battle sprite — the soldier seen from a high angle: crown of head + shoulders + gear projected onto the ground.
 // Grittier & more realistic than the front bust; reads by class silhouette (kite shield, bow arc, mace, ashfire orb, twin daggers) at a glance.
+/* ---- v0.71 THE RENDERED COMPANY. Fighter, Ranger, Cleric and Ash Acolyte are drawn from the Blender pipeline's
+   sprites (art/ → shipped to assets/sprites/). A soldier is two layers: the kit's body — class, then the weapon kit if
+   the class has one for her weapon, then Commander (any level) or Veteran (level 5+), living or Revenant, her form from
+   her head — with her own head (LOOKS) on top. Without a head, the whole sprite of the kit. A class with no sprites
+   (the Shade) and the "Classic art" setting both fall through to the hand-drawn SVG below. The anchor is the
+   pipeline's integration contract (art/tools/ingame.mjs): 1.5 tiles tall, 50%/74% on the tile centre, a team ring
+   drawn under the feet in CSS. The manifest is generated from assets/sprites, so a key is only emitted if the file
+   exists. ---- */
+/*SPR_MAN:begin — written by art/tools/wire.py; do not edit by hand*/
+const SPR_MAN={whole:["acolyte_commander_f","acolyte_commander_m","acolyte_commander_revenant_f","acolyte_commander_revenant_m","acolyte_f","acolyte_m","acolyte_revenant_f","acolyte_revenant_m","acolyte_spear_f","acolyte_spear_m","acolyte_veteran_f","acolyte_veteran_m","cleric_commander_f","cleric_commander_m","cleric_commander_revenant_f","cleric_commander_revenant_m","cleric_f","cleric_m","cleric_revenant_f","cleric_revenant_m","cleric_shortsword_f","cleric_shortsword_m","cleric_spear_f","cleric_spear_m","cleric_veteran_f","cleric_veteran_m","deco_barrel_1","deco_bones_1","deco_crate_1","deco_fern_1","deco_log_1","deco_plank_1","deco_reeds_1","deco_rock_1","deco_rock_2","deco_skull_1","deco_stump_1","deco_wheel_1","fighter_commander_f","fighter_commander_m","fighter_commander_revenant_f","fighter_commander_revenant_m","fighter_f","fighter_m","fighter_revenant_f","fighter_revenant_m","fighter_veteran_f","fighter_veteran_m","foe_acolyte_1_f","foe_acolyte_1_m","foe_acolyte_2_f","foe_acolyte_2_m","foe_archer_1_f","foe_archer_1_m","foe_archer_2_f","foe_archer_2_m","foe_blightmage_1_f","foe_blightmage_1_m","foe_blightmage_2_f","foe_blightmage_2_m","foe_blightsorc_1_f","foe_blightsorc_1_m","foe_blightsorc_2_f","foe_blightsorc_2_m","foe_blighttroll_1","foe_blighttroll_2","foe_brigand_1_f","foe_brigand_1_m","foe_brigand_2_f","foe_brigand_2_m","foe_brigand_captain_1_f","foe_brigand_captain_1_m","foe_brigand_hardened_1_f","foe_brigand_hardened_1_m","foe_cutthroat_1_f","foe_cutthroat_1_m","foe_cutthroat_2_f","foe_cutthroat_2_m","foe_deserter_1_f","foe_deserter_1_m","foe_deserter_2_f","foe_deserter_2_m","foe_graveguard_1_f","foe_graveguard_1_m","foe_graveguard_2_f","foe_graveguard_2_m","foe_hound_1","foe_hound_2","foe_houndrider_1_f","foe_houndrider_1_m","foe_houndrider_2_f","foe_houndrider_2_m","foe_husk_1_f","foe_husk_1_m","foe_husk_2_f","foe_husk_2_m","foe_husk_bloated_1_f","foe_husk_bloated_1_m","foe_husk_ironbound_1_f","foe_husk_ironbound_1_m","foe_pikeman_1_f","foe_pikeman_1_m","foe_pikeman_2_f","foe_pikeman_2_m","foe_shieldman_1_f","foe_shieldman_1_m","foe_shieldman_2_f","foe_shieldman_2_m","ground_ashen","ground_blight","ground_chasm","ground_dirt","ground_edge_e","ground_edge_n","ground_edge_s","ground_edge_w","ground_flag","ground_forest","ground_grave","ground_heath","ground_marsh","ground_mire","ground_planks","ground_road","ground_stony","ground_water","map_blight","map_forest","map_hills","map_marsh","map_mountain","map_plains","map_setl","prop_cache_1","prop_corpse_1","prop_corpse_2","prop_corpse_3","prop_menhir_1","prop_menhir_2","prop_nest_1","prop_villager_1_f","prop_villager_1_m","prop_villager_2_f","prop_villager_2_m","prop_wagon_1","ranger_commander_f","ranger_commander_m","ranger_commander_revenant_f","ranger_commander_revenant_m","ranger_f","ranger_m","ranger_revenant_f","ranger_revenant_m","ranger_spear_f","ranger_spear_m","ranger_veteran_f","ranger_veteran_m","terr_boulder_1","terr_boulder_2","terr_boulder_3","terr_brush_1","terr_brush_2","terr_brush_3","terr_column_1","terr_column_2","terr_stone_1","terr_stone_2","terr_tree_1","terr_tree_2","terr_tree_3","terr_tree_4","terr_wall_1","terr_wall_2","terr_wall_3","terr_wall_4","ui_grain"],
+  body:["acolyte_commander_f","acolyte_commander_m","acolyte_commander_revenant_f","acolyte_commander_revenant_m","acolyte_f","acolyte_m","acolyte_revenant_f","acolyte_revenant_m","acolyte_spear_commander_f","acolyte_spear_commander_m","acolyte_spear_commander_revenant_f","acolyte_spear_commander_revenant_m","acolyte_spear_f","acolyte_spear_m","acolyte_spear_revenant_f","acolyte_spear_revenant_m","acolyte_spear_veteran_f","acolyte_spear_veteran_m","acolyte_veteran_f","acolyte_veteran_m","cleric_commander_f","cleric_commander_m","cleric_commander_revenant_f","cleric_commander_revenant_m","cleric_f","cleric_m","cleric_revenant_f","cleric_revenant_m","cleric_shortsword_commander_f","cleric_shortsword_commander_m","cleric_shortsword_commander_revenant_f","cleric_shortsword_commander_revenant_m","cleric_shortsword_f","cleric_shortsword_m","cleric_shortsword_revenant_f","cleric_shortsword_revenant_m","cleric_shortsword_veteran_f","cleric_shortsword_veteran_m","cleric_spear_commander_f","cleric_spear_commander_m","cleric_spear_commander_revenant_f","cleric_spear_commander_revenant_m","cleric_spear_f","cleric_spear_m","cleric_spear_revenant_f","cleric_spear_revenant_m","cleric_spear_veteran_f","cleric_spear_veteran_m","cleric_veteran_f","cleric_veteran_m","fighter_commander_f","fighter_commander_m","fighter_commander_revenant_f","fighter_commander_revenant_m","fighter_f","fighter_m","fighter_revenant_f","fighter_revenant_m","fighter_veteran_f","fighter_veteran_m","ranger_commander_f","ranger_commander_m","ranger_commander_revenant_f","ranger_commander_revenant_m","ranger_f","ranger_m","ranger_revenant_f","ranger_revenant_m","ranger_spear_commander_f","ranger_spear_commander_m","ranger_spear_commander_revenant_f","ranger_spear_commander_revenant_m","ranger_spear_f","ranger_spear_m","ranger_spear_revenant_f","ranger_spear_revenant_m","ranger_spear_veteran_f","ranger_spear_veteran_m","ranger_veteran_f","ranger_veteran_m"],
+  heads:{"acolyte":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]},"cleric":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]},"fighter":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]},"ranger":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]}}};
+/*SPR_MAN:end*/
+const SPR_SET={whole:new Set(SPR_MAN.whole),body:new Set(SPR_MAN.body)};
+const SPR_ROOT='assets/sprites/';
+function spritesOn(){ return PREFS.sprites!==false; }
+// the kit a soldier's weapon calls for: a class that rolls more than one weapon has a kit per weapon; the rest wear the
+// class's own (the Fighter's broadsword, the Ranger's bow, the Cleric's mace, the Acolyte's shortsword)
+function sprKits(cls,weapon){ const fam=weapon?({sword:'shortsword',spear:'spear'})[wpnFam(weapon)]:null; return fam?[cls+'_'+fam,cls]:[cls]; }
+function sprPick(s,o){
+  s=s||{}; o=o||{};
+  const cls=s.cls||'fighter'; if(!SPR_MAN.heads[cls]&&!SPR_MAN.whole.some(k=>k.startsWith(cls+'_')))return null;
+  const rev=o.revenant?'_revenant':'', look=s.look&&lookEntry(s.look)?s.look:null;
+  const form=look?look[0]:(s.commander?'f':'m');
+  const tiers=s.commander?['_commander','']:((s.level||1)>=5?['_veteran','']:['']);
+  const kits=sprKits(cls,s.weapon);
+  const H=SPR_MAN.heads[cls], hasHead=!!(look&&H&&(rev?H.r:H.l).includes(look));
+  if(hasHead){ for(const k of kits)for(const t of tiers){ const key=`${k}${t}${rev}_${form}`; if(SPR_SET.body.has(key))return {body:SPR_ROOT+'body/'+key+'.webp',head:SPR_ROOT+'heads/'+cls+'_'+look+rev+'.webp'}; } }
+  for(const k of kits)for(const t of tiers)for(const f of [form,form==='m'?'f':'m']){ const key=`${k}${t}${rev}_${f}`; if(SPR_SET.whole.has(key))return {whole:SPR_ROOT+key+'.webp'}; }
+  return null;
+}
 function pcTopDown(s,size,o){
+  o=o||{};
+  const p=spritesOn()?sprPick(s,o):null;
+  if(!p)return pcTopDownSvg(s,size,o);
+  if(size>=44&&!o.token){ const bg=p.whole?`url(${p.whole})`:`url(${p.head}),url(${p.body})`;   // a card: the sprite cropped to head and shoulders
+    return `<div class="spr-card" style="width:${size}px;height:${size}px;background-image:${bg}"></div>`; }
+  return p.whole?`<img class="sp" src="${p.whole}" alt="" draggable="false">`:`<img class="sp" src="${p.body}" alt="" draggable="false"><img class="sp" src="${p.head}" alt="" draggable="false">`;
+}
+// warm the cache with the squad about to march, so nobody walks onto the field as an empty ring
+function sprPreload(list){ if(!spritesOn())return; for(const s of list){ const p=sprPick(s,{}); if(!p)continue; for(const u of [p.whole,p.body,p.head])if(u){ const i=new Image(); i.src=u; } } }
+// v0.72 — everything else on the field, rendered: foes (foe_<key>[_<tag>]_<n>[_<m|f>]: whole sprites, each unit dealt one by
+// its id, from its tier's looks if its name carries the tag, the ♛ from the 'captain' looks), props and terrain
+// (prop_/terr_/deco_<kind>_<n>), and the painted ground (ground_<name>, one 8-tile sheet under the whole field).
+const SPR_IDX=(()=>{ const foe={},oth={},ground={},map={};
+  for(const n of SPR_MAN.whole){
+    let m=n.match(/^foe_([a-z]+)(?:_([a-z]+))?_(\d+)(?:_[mf])?$/);
+    if(m){ const k=foe[m[1]]=foe[m[1]]||{base:[],tags:{}}; if(m[2])(k.tags[m[2]]=k.tags[m[2]]||[]).push(n); else k.base.push(n); continue; }
+    m=n.match(/^(prop|terr|deco)_([a-z]+)_(\d+)(?:_[mf])?$/); if(m){ (oth[m[1]+'_'+m[2]]=oth[m[1]+'_'+m[2]]||[]).push(n); continue; }
+    m=n.match(/^ground_([a-z]+)$/); if(m){ ground[m[1]]=1; continue; }
+    m=n.match(/^map_([a-z]+)$/); if(m)map[m[1]]=1;
+  }
+  return {foe,oth,ground,map}; })();
+function sprHash(x,y){ return (((x*73856093)^(y*19349663))>>>0); }
+function foeSprite(u){
+  if(!spritesOn())return null; const k=SPR_IDX.foe[u.ekey]; if(!k||!k.base.length)return null;
+  const B=S.battle, tag=String(u.name||'').split(' ')[0].toLowerCase();
+  const pool=(B&&B.leaderUid===u.uid&&k.tags.captain)||k.tags[tag]||k.base;
+  return SPR_ROOT+pool[(u.uid||0)%pool.length]+'.webp';
+}
+function sprOf(kind,x,y){ if(!spritesOn())return null; const l=SPR_IDX.oth[kind]; return l?SPR_ROOT+l[sprHash(x,y)%l.length]+'.webp':null; }
+function sprImg(src,cls){ return `<img class="${cls||'sp'}" src="${src}" alt="" draggable="false">`; }
+// the ground a tile shows: its own kind for roads, water and the like; else the earth of the battlefield's theme
+const THEME_EARTH={marsh:'marsh',causeway:'marsh',woods:'forest',pass:'stony',cliffs:'stony',quarry:'stony',ruins:'dirt',town:'dirt',camp:'dirt',
+  menhir:'ashen',ritual:'heath',river:'heath',boulders:'heath',fields:'heath',crypt:'flag',graveyard:'grave'};
+const GROUND_OF={road:'road',bridge:'planks',mire:'mire',water:'water',chasm:'chasm'};
+const GROUND_PRIO={road:4,planks:3,mire:2,water:1,chasm:0};          // the earth itself is 5: the higher ground runs ragged over the lower
+function groundKind(B,t){ return GROUND_OF[t.t]||THEME_EARTH[B.mapTheme]||'heath'; }
+function groundOn(k){ return spritesOn()&&!!SPR_IDX.ground[k]; }
+const TERR_SPR={tree:'terr_tree',boulder:'terr_boulder',rubble:'terr_wall',column:'terr_column',stone:'terr_stone',brush:'terr_brush'};
+const DECO_SPR={rock:'deco_rock',bone:'deco_bones',skull:'deco_skull',barrel:'deco_barrel',crate:'deco_crate',wheel:'deco_wheel',stump:'deco_stump',log:'deco_log',plank:'deco_plank',reed:'deco_reeds',fern:'deco_fern'};
+// what a tile carries over its ground when the rendered art is on: the neighbours' ragged edges, the Blight's stain, the
+// terrain sprite or the scatter. Returns null when this tile has nothing rendered, and the SVG draws it as before.
+function tileRendered(B,x,y,t,gk){
+  if(!groundOn(gk))return null;
+  let s='';
+  const my=GROUND_PRIO[gk]==null?5:GROUND_PRIO[gk];
+  for(const [dx,dy,side] of [[0,-1,'n'],[1,0,'e'],[0,1,'s'],[-1,0,'w']]){
+    const nb=tileAt(B,x+dx,y+dy); if(!nb||!B.seen[(x+dx)+','+(y+dy)])continue;
+    const nk=groundKind(B,nb); if(nk===gk||nk==='planks'||!groundOn(nk))continue;
+    if((GROUND_PRIO[nk]==null?5:GROUND_PRIO[nk])>my)s+=`<i class="ge ge-${side} g-${nk}"></i>`;
+  }
+  if(t.t==='bridge'){ const wet=(dx,dy)=>{ const nb=tileAt(B,x+dx,y+dy); return nb&&(nb.t==='water'||nb.t==='chasm')?1:0; };
+    const br=(dx,dy)=>{ const nb=tileAt(B,x+dx,y+dy); return nb&&nb.t==='bridge'?1:0; };
+    const a=wet(-1,0)+wet(1,0)+br(0,-1)+br(0,1), b=wet(0,-1)+wet(0,1)+br(-1,0)+br(1,0);
+    const ns=a>b||(a===b&&br(0,-1)+br(0,1)>0);        // water to the sides, deck ahead and behind: the bridge runs north-south
+    s+=`<i class="gbr ${ns?'ns':''}"></i>`;
+    for(const [dx,dy,side] of (ns?[[-1,0,'w'],[1,0,'e']]:[[0,-1,'n'],[0,1,'s']]))if(!br(dx,dy))s+=`<i class="grl grl-${side}"></i>`; }   // a rail on each open side
+  if(t.blighted&&t.t!=='water'&&t.t!=='chasm'&&groundOn('blight'))s+=`<i class="ge g-blight gbl"></i>`;
+  const tk=TERR_SPR[t.t], src=tk?sprOf(tk,x,y):null;
+  if(src)s+=sprImg(src,'ts'+(t.t==='rubble'?' tw':''));
+  else if(tk)return s+(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t));      // no sprite for it yet: the old drawing, on the new ground
+  if(t.deco&&(t.t==='grass'||t.t==='road'||t.t==='mire')){ const dk=DECO_ALIAS[t.deco]||t.deco, ds=DECO_SPR[dk]?sprOf(DECO_SPR[dk],x,y):null;
+    s+=ds?sprImg(ds,'ts td'):`<svg class="decor" viewBox="0 0 46 46">${decoInner(t.deco,x,y)}</svg>`; }
+  return s;
+}
+function pcTopDownSvg(s,size,o){
   o=o||{}; const rev=!!o.revenant, cls=(s&&s.cls)||'fighter', cmdr=!!(s&&s.commander), K='#0e0b07';
   const f=(s&&s.face)||{skin:0,hc:0}; const skin=rev?'#9aa396':(SKINS[f.skin]||SKINS[0]);
   const shadow=`<ellipse cx="23" cy="39" rx="12" ry="3.4" fill="#000" opacity=".34"/>`;
@@ -1457,6 +1648,7 @@ function pcTopDown(s,size,o){
 }
 function enemyFace(key,size){
   size=size||32;
+  { const k=spritesOn()&&SPR_IDX.foe[key]; if(k&&k.base.length)return `<div class="spr-card" style="width:${size}px;height:${size}px;background-image:url(${SPR_ROOT+k.base[0]}.webp)"></div>`; }
   const F=(fill)=>`<ellipse cx="50" cy="58" rx="23" ry="26" fill="${fill}" stroke="#17130e" stroke-width="2.5"/>`;
   let s='';
   switch(key){
@@ -1660,6 +1852,7 @@ function newGame(opts){
   S.caravan={q:realmQ(1),r:realmR(1)};
   O.squad.forEach(c=>S.roster.push(makeSoldier(c)));       // the founding spread — who it is depends on who raised the banner
   S.roster[0].commander=true;
+  S.roster[0].look=makeLook(true); S.roster[0].face=faceFor(S.roster[0].look);   // the founder wears the founding scar
   S.story={stage:0};
   S.rep={karsk:0,folk:0,conclave:0};
   // The founding grave: the company already has one debt walking. Guarantees the signature loop fires by week ~3
@@ -1667,11 +1860,12 @@ function newGame(opts){
   const inherited=(L.dead&&L.dead.snap&&WEAPONS[L.dead.snap.weapon])?L.dead:null;
   const foundGrave=(heir)=>{
     if(heir){ if(!S.usedNames.includes(heir.name))S.usedNames.push(heir.name);
-      S.graves.push({id:nid(),soldierId:-nid(),name:heir.name,bg:clamp(heir.bg|0,0,BACKSTORIES.length-1),face:heir.face||makeFace(),snap:heir.snap,
+      const hl=(heir.look&&lookEntry(heir.look)&&!looksHeld().live.has(heir.look))?heir.look:makeLook();
+      S.graves.push({id:nid(),soldierId:-nid(),name:heir.name,bg:clamp(heir.bg|0,0,BACKSTORIES.length-1),face:heir.face||faceFor(hl),look:hl,snap:heir.snap,
         bonds:[S.roster[0].id],state:'lost',regionId:0,weekDied:0,iter:0,hook:heir.hook||'left walking by the last banner',seed:true,heirloom:true,from:heir.company});
       return S.graves[S.graves.length-1]; }
     const fd=makeSoldier();
-    S.graves.push({id:nid(),soldierId:fd.id,name:fd.name,bg:fd.bg,face:fd.face,
+    S.graves.push({id:nid(),soldierId:fd.id,name:fd.name,bg:fd.bg,face:fd.face,look:fd.look,
       snap:{maxhp:fd.maxhp,skl:fd.skl,spd:fd.spd,weapon:fd.weapon,wMod:1,armor:fd.armor,feats:['duelist'],level:2,cls:fd.cls,commander:!!fd.commander},
       bonds:[S.roster[0].id],state:'lost',regionId:0,weekDied:0,iter:0,hook:bgOf(fd).hook,seed:true});
     return S.graves[S.graves.length-1];
@@ -1707,10 +1901,10 @@ function makeSoldier(clsKey){
   if(!choices.length)choices=all.filter(i=>!S.usedBg.includes(i));
   if(!choices.length)choices=all;
   const bgIdx=pick(choices); S.usedBg.push(bgIdx);
-  const maxhp=ri(C.hp[0],C.hp[1]);
+  const maxhp=ri(C.hp[0],C.hp[1]), look=makeLook();
   return {id:nid(),name,cls,bg:bgIdx,hp:maxhp,maxhp,skl:ri(C.skl[0],C.skl[1]),spd:ri(C.spd[0],C.spd[1]),res:ri(C.res[0],C.res[1]),
           weapon:pick(C.wpns),wMod:0,wName:null,wAff:null,aAff:null,armor:ri(C.arm[0],C.arm[1]),feats:(C.start?[C.start]:[]),xp:0,level:1,bonds:[],battles:0,
-          rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:makeFace(),traits:[],corr:0,
+          rattledPerm:0,gravetempered:false,alive:true,cost:ri(20,35),kills:0,face:faceFor(look),look,traits:[],corr:0,
           deeds:[],retinue:[],oath:null,bannerWeek:0,trinket:null,hookDone:false};
 }
 function makeCinderling(){ // the rare underkingdom smoke-runner: fights as a guest, joins if they live
@@ -1754,6 +1948,9 @@ function noteKill(att,def){
   else if(def.ekey==='blightsorc')m.push('sorc');
 }
 function isSword(u){ return !!(u&&u.sword); }
+// a revenant wears the kit she died in — her class, her weapon (as it is now: the field may have upgraded it), her rank
+function revSprite(g,u){ const sn=g.snap||{}; return {cls:sn.cls,face:g.face,look:g.look,commander:sn.commander,weapon:(u&&u.weapon)||sn.weapon,level:(u&&u.revLvl)||sn.level}; }
+function swordOf(u){ const o=soldierById(u.ownerId), w=o&&(o.retinue||[]).find(x=>x.id===u.swordId); return w||{cls:(WEAPONS[u.weapon]||{}).rng>1?'ranger':'fighter',face:null}; }
 // Name Levels are earned, never bought with XP. L6 needs three tellings, one of them hers alone.
 function nameEligible(s){
   if(!s||!s.alive||s.guest)return 0;
@@ -1766,8 +1963,8 @@ function livingSwords(s){ return ((s&&s.retinue)||[]).filter(w=>w.alive); }
 function makeSword(){
   const cls=chance(70)?'fighter':'ranger', C=CLASSES[cls];
   const name=freshName();
-  const hookId=ri(0,SWORD_HOOKS.length-1), maxhp=12+ri(0,2);
-  return {id:nid(),name,face:makeFace(),cls,weapon:pick(C.wpns),wMod:0,wAff:null,aAff:null,armor:1,
+  const hookId=ri(0,SWORD_HOOKS.length-1), maxhp=12+ri(0,2), look=makeLook();
+  return {id:nid(),name,face:faceFor(look),look,cls,weapon:pick(C.wpns),wMod:0,wAff:null,aAff:null,armor:1,
     hp:maxhp,maxhp,skl:C.skl[0]+1,spd:C.spd[0],res:20,
     tier:0,battlesWith:0,alive:true,joined:S.week,hookId};
 }
@@ -1781,14 +1978,15 @@ function bgOf(s){return BACKSTORIES[s.bg];}
 function refreshHirePool(){
   // whoever was not hired walks back out of the story — and hands their name and their past back to the roll
   for(const h of (S.hirePool||[])){ releaseName(h.name); if(S.usedBg){ const i=S.usedBg.indexOf(h.bg); if(i>=0)S.usedBg.splice(i,1); } }
-  S.hirePool=[makeSoldier(),makeSoldier()];
+  S.hirePool=[]; for(let i=0;i<2;i++)S.hirePool.push(makeSoldier());   // one at a time: each new head is dealt knowing the last
   for(const h of S.hirePool){
     if(doc('oldhands')){ h.level=2; h.xp=XP_LVL[1]; h.maxhp+=2; h.cost+=8; const f=offerFeats(h)[0]; if(f)h.feats.push(f); }
     h.hp=omen('plagueyear')?Math.ceil(h.maxhp*0.75):h.maxhp;
   }
   // A banner with no one under it draws the desperate: while the company is empty, one of the two will always sign
   // for what is actually in the strongbox. (Otherwise 21 coin could wait weeks for a 21-coin sellsword to wander in.)
-  if(!S.roster.length){ const floor=20, h=S.hirePool[0]; if(hireCost(h)>S.coin&&S.coin>=hireCost({cost:floor})){ while(h.cost>floor&&hireCost(h)>S.coin)h.cost--; } }
+  if(!S.roster.length){ const floor=20, h=S.hirePool[0], purse=S.coin+(S.stash||[]).reduce((a,i)=>a+itemSell(i),0);   // the purse is the strongbox plus what the wagons would fetch — the same sum the game-over check uses
+    if(hireCost(h)>purse&&purse>=hireCost({cost:floor})){ while(h.cost>floor&&hireCost(h)>purse)h.cost--; } }
 }
 function log(msg,cls){ S.log.unshift({msg,cls:cls||'',week:S.week}); if(S.log.length>140)S.log.pop(); }
 
@@ -1801,10 +1999,12 @@ function save(){ if(!S||S.battle) return; try{ localStorage.setItem('graveborne_
    hand-synced migration lists (and drifted once: a version bump landing while a battle was stashed resumed into
    a save with no deeds). To change the save shape: bump SAVE_VER and append {to:SAVE_VER, run}. Never edit a
    shipped entry — it has already run on someone's record. ---- */
-const SAVE_VER=70;
+const SAVE_VER=71;
 const MIGRATIONS=[
   {to:67, run:migrateLegacy},   // everything from v0.1 to v0.66, as it always ran
   {to:70, run:migrateV070},     // the run (seed stream, origin, omens, doctrines), the wagons, charms, the muster roll
+  {to:71, run:migrateV071},     // the graphics overhaul: every soldier, sword and grave is dealt a head (LOOKS); and the
+                                // oath-release stubs swept from the ROSTER too, where a buy-back had already carried one
 ];
 // v0.70 — a record from before the run existed becomes one: it gets a stream of its own (unseeded — its world is already
 // drawn), a name, empty wagons, and credit in the Hall for what it has already done. Presence-tested, like every entry.
@@ -1913,6 +2113,57 @@ function migrateV063(){
   if(S.crossTried===undefined)S.crossTried={};
   if(S.actOneClosed===undefined)S.actOneClosed=!!(S.story&&S.story.stage>=10);
   return true;
+}
+// v0.68: releasing a soldier in an oath crisis used to push a stub {name,level,town,released:true} into S.deserters.
+// It was never a soldier: with no weekGone it never expired and showed "NaN wk to find them"; it kept a dead run
+// alive at the game-over check; and buying it back put it on the roster, where its card threw on the missing
+// bonds. A release is final (the chronicle keeps it), so the stubs go, from the deserters and from any roster a
+// buy-back already carried one into. The v0.67 walk may have stamped a class and oath fields onto them; the
+// `released` flag survives that, and nothing else ever set it.
+function migrateReleasedStubs(){
+  let touched=false;
+  const stub=p=>!!p&&p.released===true;
+  for(const key of ['deserters','roster']){
+    if(!Array.isArray(S[key]))continue;
+    const kept=S[key].filter(p=>!stub(p));
+    if(kept.length!==S[key].length){ S[key]=kept; touched=true; }
+  }
+  return touched;
+}
+// v0.69: a company already on the books is dealt heads that match the faces it has worn all along (the skin first,
+// then the hair colour, then the hair), the living before the dead, so the living claim the closest heads. The
+// founder gets a founder's head: the first Commander to fall, else one who deserted with the banner, else the one
+// who holds it now. A record that somehow holds two of the living in one head has the later one re-dealt.
+function lookMatching(face,founder){
+  const {live,dead}=looksHeld(), beard=!!face&&face.hair===5;
+  for(const strict of [true,false]){    // a beard on the face means a beard on the head, and none means none, while any are free
+    let best=null, top=-1;
+    for(const form of ['m','f']) for(const id of lookIds(form,founder)){
+      const e=lookEntry(id);
+      if(live.has(id)||dead.has(id)||(strict&&(e[2]===5)!==beard))continue;
+      const sc=(face?(e[0]===face.skin?4:0)+(e[1]===face.hc?2:0)+(e[2]===face.hair?1:0):0)+rnd()*0.5;
+      if(sc>top){ top=sc; best=id; }
+    }
+    if(best)return best;
+  }
+  return makeLook(founder);
+}
+function migrateV071(){ const a=migrateReleasedStubs(), b=migrateLooks(); return a||b; }
+function migrateLooks(){
+  let touched=false;
+  const living=[], dead=[];
+  for(const arr of [S.roster,S.hirePool,S.deserters]) for(const p of (arr||[])){ if(!p)continue; living.push(p); for(const w of (p.retinue||[]))living.push(w); }
+  for(const g of (S.graves||[])){ dead.push(g); for(const w of ((g.snap&&g.snap.retinue)||[]))dead.push(w); }
+  const founder=(S.graves||[]).find(g=>g.snap&&g.snap.commander)||(S.deserters||[]).find(p=>p&&p.wasCommander)
+    ||S.roster.find(p=>p.commander)||null;
+  const seen=new Set();
+  for(const p of living){
+    if(p.look&&!seen.has(p.look)&&lookEntry(p.look)){ seen.add(p.look); continue; }
+    if(p.look){ p.look=null; }                                    // a double among the living (or a head the pool lost)
+    p.look=lookMatching(p.face,p===founder); seen.add(p.look); touched=true;
+  }
+  for(const g of dead){ if(!g.look){ g.look=lookMatching(g.face,g===founder); touched=true; } }
+  return touched;
 }
 function migrateV060(){
   let touched=false;
@@ -2165,6 +2416,11 @@ function dangerOf(region){ return region.swallowed?3:(region.pressure>=70?3:regi
 function worldTier(){ return Math.floor((S.week||1)/3); } // difficulty heartbeat: tier 0 (wk1-2), 1 (wk3-5), 2 (wk6-8), 3 (wk9-11)…
 // Ash grafts are only found where the Blight actually is — a clean, low-pressure region yields no relics
 function isBlightField(B,region){ return region.swallowed || region.pressure>=40 || B.obj==='burn' || B.obj==='reclaim' || (S.hexes&&Object.values(S.hexes).some(h=>h.region===region.id&&h.blighted)); }
+// v0.68 — the spine never dead-ends. A story contract is consumed like any other when fought (won, lost, or fled),
+// and used to be culled with its region if the Blight swallowed it; on the loss paths nothing ever re-posted it, so
+// the main quest stranded with the hint still pointing at a mark that no longer existed. Re-post whenever the stage
+// says the beat is owed and no posting carries it. Called after every non-victory battle and every contract refresh.
+function ensureStorySpine(){ storyHeal(); return true; }   // v0.68 name kept for its callers; v0.70's storyHeal() is the one implementation
 function genContracts(){
   // top-up semantics: contracts persist until fought or expired, so travel can't orphan them
   S.contracts=S.contracts.filter(c=>c.story||((c.expires||99)>S.week&&!(S.regions[c.regionId].swallowed&&c.type!=='delve')));   // the spine's contracts outlive expiry and the Swallowing — losing one must never strand the story
@@ -2696,7 +2952,7 @@ window.BUYBACK=function(idx){
   }
   opts.push({label:'Leave them to the tavern',fn:()=>closeModal()});
   showModal(`${s.name}, run to ${town}`,
-    `<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+    `<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
      <p>You find ${esc(s.name)} ${s.wasCommander?'nursing a bottle and what is left of your company’s honor':'three drinks deep'} in a ${esc(town)} tavern. Back-wages and a bruised apology will bring them home${canPay?'.':' — but you cannot cover it right now.'}</p></div></div>`,
     opts);
 };
@@ -2720,7 +2976,7 @@ function grantXp(s,amt){
 }
 function featModal(s,opts,stat){
   const up=k=>stat===k?' statup':'';
-  const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
+  const body=`<div class="scard"><div class="face">${portrait(s,56)}</div><div class="sbody">
       <p style="margin:0"><b>${esc(s.name)}</b>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> reaches <b>level ${s.level}</b>.</p>
       <div class="statgrid">
         <span class="${up('maxhp')}"><span class="tt" data-tip="${esc(STAT_TIPS.hp)}">HP</span> ${s.hp}/${s.maxhp}${stat==='maxhp'?' (+2)':''}</span>
@@ -3157,10 +3413,11 @@ function topUpFoes(B,budget){
     if(w&&w.up)ups.push({c:3,f:()=>u.weapon=w.up});
     if(!u.wAff&&(B.danger||1)>=2)ups.push({c:2,f:()=>u.wAff={pre:pick(Object.keys(W_PREFIX))}});   // named steel in enemy hands — and loot-table foreshadowing
     const up=pick(ups); up.f(); u._pb=(u._pb||0)+up.c; total+=up.c;
-    const base=ENEMIES[u.ekey].n;                        // earned prefixes, only on untagged names
-    if(u._pb>=6&&u.name==='Veteran '+base)u.name='Elite '+base;
-    else if(u._pb>=6&&u.name===base)u.name='Elite '+base;
-    else if(u._pb>=3&&u.name===base)u.name='Veteran '+base;
+    // earned rank on ANY name — a tier-tagged foe ("Ironbound Husk") used to take the power silently, and a player
+    // read a chaff name on an elite stat block. The rank rides in front of whatever the name already is.
+    // A named leader (the Magister's Blade, Vell) takes the power but keeps its name — a proper name is not chaff.
+    const rank=u._pb>=6?'Elite':u._pb>=3?'Veteran':null;
+    if(rank&&u._rank!==rank&&u.uid!==B.leaderUid){ u.name=rank+' '+(u._rank?u.name.slice(u._rank.length+1):u.name); u._rank=rank; }
   }
 }
 function deployPods(B,contract,ct,danger,budget,ceil){
@@ -3275,7 +3532,7 @@ function startBattle(contract,squadIds){
     const s=soldierById(id); if(!s)return;
     const pcu=B.units.find(z=>z.kind==='pc'&&z.ref===id); if(!pcu)return;
     for(const w of livingSwords(s)){
-      if(swordsOut>=MAX_FIELD_SWORDS)break;
+      if(swordsOut>=MAX_FIELD_SWORDS){ blog(B,`${w.name} stays with the baggage — only ${MAX_FIELD_SWORDS} swords ride.`); continue; }   // the muster said so; the field says it again
       const spot=nearOpen(B,pcu.x,pcu.y,3); if(!spot)break;
       swordsOut++;
       B.units.push({uid:nid(),kind:'pc',sword:true,ref:null,swordId:w.id,ownerId:s.id,name:w.name,
@@ -3296,7 +3553,10 @@ function startBattle(contract,squadIds){
   const danger=contract.danger;
   const flank=(B.obj==='escort'||B.obj==='protect');
   const P=rosterBestPower(), budget=battleBudget(P,danger);   // priced to your best possible muster, not who you brought
-  const ceil=Math.min(MAXFOES,PB_CEIL[clamp(danger||1,1,3)]+(contract.type==='hold'?1:0));
+  // The reckoning fields EVERY risen grave, so its comp fill must leave them room (plus a little for their retinue):
+  // revenants ride on top of the budget, never inside it, and a late-game comp would otherwise fill to the ceiling first.
+  const reserve=contract.reckoning?Math.min(MAXFOES-3,S.graves.filter(g=>g.state==='risen').length+2):0;
+  const ceil=Math.max(3,Math.min(MAXFOES,PB_CEIL[clamp(danger||1,1,3)]+(contract.type==='hold'?1:0))-reserve);
   B.ppower=Math.round(P); B.pbudget=Math.round(budget);
   B.podsActive=podsEligible(B,contract)&&!contract.comp;
   if(B.podsActive){
@@ -3348,13 +3608,22 @@ function startBattle(contract,squadIds){
   // revenant injection
   const risenHere=S.graves.filter(g=>g.state==='risen'&&g.regionId===region.id);
   let revs=[];
-  if(contract.reckoning){ revs=S.graves.filter(g=>g.state==='risen').slice(0,3); } // the finale: all your unresolved dead
+  if(contract.reckoning){ revs=S.graves.filter(g=>g.state==='risen'); }   // the finale: ALL your unresolved dead — the promise is literal (it was capped at three until v0.68)
   else if(contract.revGraveId){ revs=[S.graves.find(g=>g.id===contract.revGraveId)]; }
   else if(risenHere.length&&chance(65)){ revs=[risenHere[0]]; }
-  for(const g of revs){ if(g&&g.state==='risen') spawnRevenant(B,g); }
+  if(contract.reckoning){
+    // Two passes, so every named dead walks BEFORE any retinue fills the room: the revenants first, up to the engine's
+    // ceiling; then their sworn and their risen, in the same order, with whatever room is left. Staged waves and
+    // budget pricing for this field are a later session — until then the room is the bound, and it says so.
+    const spawned=[]; let held=0;
+    for(const g of revs){ if(!g||g.state!=='risen')continue; if(foeCount(B)>=MAXFOES){held++;continue;} spawned.push(spawnRevenant(B,g,true)); }
+    for(const r of spawned){ if(foeCount(B)>=MAXFOES)break; spawnRevenantRetinue(B,r.u,r.revLvl,r.it); }
+    if(held)blog(B,`${held} more of your dead wait beyond the doors — the room holds no more.`);
+  } else for(const g of revs){ if(g&&g.state==='risen') spawnRevenant(B,g); }
   ensureFoesReachable(B);                                       // no enemy stranded behind sealed walls — every battle winnable
   placeCaches(B,contract);                                      // something on the field worth walking to
   S.battle=B;
+  sprPreload(squadIds.map(soldierById).filter(Boolean).concat(B.revGraveIds.map(id=>{ const g=S.graves.find(x=>x.id===id); return g?revSprite(g,null):null; }).filter(Boolean)));
   // quartermaster loadout & scouting are spent the moment the mission begins
   const lo=S._loadout||{}; S._loadout=null; S.scouted=false;
   if(lo.kit&&(S.kits||0)>0){ S.kits--; B.units.forEach(u=>{ if(u.kind==='pc')u.hp=u.maxhp; }); blog(B,'The chirurgeon’s kit does its work — the squad marches in whole.'); }
@@ -3422,7 +3691,7 @@ function spawnProp(B,kind,x,y){
     skl:0,spd:0,res:99,weapon:'shortsword',wMod:0,arm:wagon?1:0,feats:[],traits:[],undead:false,x,y,
     moved:true,acted:true,shakenBy:null,rattled:0,reaper:0,fled:false,graveId:null,face:wagon?null:makeFace()});
 }
-function spawnRevenant(B,g){
+function spawnRevenant(B,g,noRetinue){   // noRetinue: the caller places the retinue itself (the reckoning's two-pass fill)
   const it=(g.iter||0)+(g.snap.ashPromised?1:0); // the Ash keeps its side of the bargain
   const snapLvl=g.snap.level||2, cls=g.snap.cls||'fighter', CL=CLASSES[cls]||CLASSES.fighter;
   // A revenant scales UP to the company — it always overmatches your best by ~2 levels (plus each Conclave
@@ -3442,7 +3711,8 @@ function spawnRevenant(B,g){
     skl,spd,res:99,weapon:g.snap.weapon,wMod,wAff:g.snap.wAff||null,aAff:g.snap.aAff||null,arm,dmgBonus,traits:[],dbl,revLvl,ai:null,regen:0,podId:null,
     feats,undead:true,x:0,y:0,moved:false,acted:false,shakenBy:null,rattled:0,reaper:0,xpv:10+it*3+graft,graveId:g.id};
   placeRight(B,u); B.units.push(u); B.revGraveIds.push(g.id);
-  spawnRevenantRetinue(B,u,revLvl,it);
+  if(!noRetinue)spawnRevenantRetinue(B,u,revLvl,it);
+  return {u,revLvl,it};
 }
 // The dead do not walk alone: a revenant leads a detachment of the risen, buffed to match its advance.
 // Built as its own pod so the retinue coordinates (patrol → charge together) around the revenant as anchor.
@@ -3466,7 +3736,7 @@ function spawnRevenantRetinue(B,rev,revLvl,it){
     h.podId=pod.id; h.undead=true; h.revguard=true;   // rides on top of the power budget, like the revenant itself
     h.hp+=bump; h.maxhp+=bump; h.skl+=1;
     if(revLvl>=5&&WEAPONS[h.weapon]&&WEAPONS[h.weapon].up)h.weapon=WEAPONS[h.weapon].up;
-    if(rw){ h.name=rw.name+', Still Sworn'; h.face=rw.face; h.stillSworn=true;
+    if(rw){ h.name=rw.name+', Still Sworn'; h.face=rw.face; h.look=rw.look; h.stillSworn=true;
             if(rw.weapon)h.weapon=rw.weapon; h.hp+=2*(rw.tier||0); h.maxhp+=2*(rw.tier||0); }
     else h.name=(revLvl>=6?'Dread ':'Risen ')+h.name.replace(/^Dread /,'');   // (a tier-upgraded Dread Graveguard was coming out "Dread Dread")
     pod.members.push(h.uid);
@@ -4048,10 +4318,10 @@ function killSoldier(s){
               // her whole retinue is captured here because the soldier object leaves the roster with her;
               // endBattle then PRUNES every sword that survived (walked or stayed). Only the ones who fell
               // beside her remain — which is what rises with her. Skipping the prune is the double-life bug.
-              retinue:(s.retinue||[]).map(w=>({id:w.id,name:w.name,face:w.face,cls:w.cls,weapon:w.weapon,tier:w.tier,hookId:w.hookId}))};
+              retinue:(s.retinue||[]).map(w=>({id:w.id,name:w.name,face:w.face,look:w.look,cls:w.cls,weapon:w.weapon,tier:w.tier,hookId:w.hookId}))};
   const bonds=s.bonds.map(b=>b.id);
   S.graves.push({id:nid(),soldierId:s.id,name:s.name,bg:s.bg,snap,bonds,state:'field',regionId:S.battle?S.battle.regionId:0,
-                 weekDied:S.week,iter:0,hook:s.ashPromised?'a promise to the Ash, unkept':(s.hookDone?'nothing — she saw to it herself':bgOf(s).hook),settled:!!s.hookDone&&!s.ashPromised,face:s.face});
+                 weekDied:S.week,iter:0,hook:s.ashPromised?'a promise to the Ash, unkept':(s.hookDone?'nothing — she saw to it herself':bgOf(s).hook),settled:!!s.hookDone&&!s.ashPromised,face:s.face,look:s.look});
   if(s.commander){ s.commander=false; ensureCommander(); if(S.story)S._cmdrLost=s.name; log('The Commander has fallen with the banner in hand.','bad'); }
   S.chronicle.push(`Week ${S.week}: ${s.name} (${bgOf(s).tag}) fell — ${bgOf(s).hook}.`);
   // bonded survivors take it hard — and carry it until she rests
@@ -4126,7 +4396,7 @@ function calloutModal(B,g){
   const deedLine=(g.snap&&g.snap.deeds&&g.snap.deeds.length)
     ? `<p class="hint">The stories you told about her walk with her: ${esc(g.snap.deeds.map(d=>DEEDS[d]?DEEDS[d].n:'').filter(Boolean).join(', '))}.</p>`:'';
   return showModal(`${g.name}, Returned`,
-    `<div class="face revf" style="float:right;margin-left:8px">${faceSvg(g.face,{size:60,revenant:true})}</div>
+    `<div class="face revf" style="float:right;margin-left:8px">${portrait(revSprite(g),60,{revenant:true})}</div>
      <p>Across the field, a figure in your old colors — <b>Level ${shownLvl}</b> now, grown past what you buried. ${esc(FEATS[g.snap.feats[0]]?FEATS[g.snap.feats[0]].n:'')}${g.snap.feats.length>1?' + '+(g.snap.feats.length-1)+' more':''} — the build is yours. The face is hers. Barely.${retLine}</p>${deedLine}${swornLine}<div class="callout">“${esc(line)}”</div>${effect}${it}`,
     [{label:'Steel yourselves',fn:()=>closeModal()}]);
 }
@@ -4556,7 +4826,7 @@ function deedsModal(){
   const primer=!S.deedPrimerSeen?`<p class="hint" style="margin-bottom:8px">There is nothing left to teach a soldier past five. Kills are wages, and wages get spent. What counts now is what gets told at other fires — the revenant put back in the ground, the road that held. <b>Three tellings</b> to her name, one of them hers alone, and a town to hear them, and the company can raise her banner.</p>`:'';
   S.deedPrimerSeen=true;
   const rows=batch.map(e=>{ const s=soldierById(e.sid), D=DEEDS[e.id];
-    return `<div class="scard"><div class="face">${s?faceSvg(s.face,{size:44}):''}</div><div class="sbody">
+    return `<div class="scard"><div class="face">${s?portrait(s,44):''}</div><div class="sbody">
       <p style="margin:0"><b>${esc(s?s.name:'—')}</b> — <span style="color:var(--gold)">${esc(D.n)}</span></p>
       <p class="hint" style="margin:2px 0 0">${esc(D.line)}</p></div></div>`; }).join('');
   showModal('Deeds of the Field',primer+rows,[{label:'It will be told',cls:'primary',fn:()=>closeModal()}]);
@@ -4604,11 +4874,11 @@ function oathDemandModal(s){
   if(!s||!s.oath){closeModal();return;}
   const to=s.oath.to, O=OATHS[to];
   const body=to==='karsk'
-    ? `<div class="scard"><div class="face">${faceSvg(s.face,{size:50})}</div><div class="sbody">
+    ? `<div class="scard"><div class="face">${portrait(s,50)}</div><div class="sbody">
        <p style="margin-top:0"><b>${esc(s.name)}</b> — sworn to the Crown</p></div></div>
        <p>The rider wears the Gate’s grey and does not dismount. “The crown calls its sworn to the Fords. Two weeks’ garrison. Her oath, her duty — your inconvenience is noted, Commander, and irrelevant.”</p>
        <p class="hint">She told you this would come. It was written into the oath.</p>`
-    : `<div class="scard"><div class="face">${faceSvg(s.face,{size:50})}</div><div class="sbody">
+    : `<div class="scard"><div class="face">${portrait(s,50)}</div><div class="sbody">
        <p style="margin-top:0"><b>${esc(s.name)}</b> — sworn to the Folk</p></div></div>
        <p>The bell rings at first light and keeps ringing. A tithe of bread, they said, when the bell rings. It is ringing.</p>
        <p class="hint">She told you this would come. It was written into the oath.</p>`;
@@ -4660,7 +4930,7 @@ function swearOath(s,to){
 }
 function oathModal(s){
   const opts=['banner'].concat(oathAffinity(s).slice(0,2));
-  const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+  const body=`<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
     <p style="margin-top:0"><b>${esc(s.name)}</b> <span class="tag">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">${esc(bgOf(s).tag)}</span></p>
     <p class="hint" style="margin:2px 0">${esc(bgOf(s).line)}</p></div></div>
     <p>Word of the deed travels. At six a soldier has a name; at seven the name has suitors. ${esc(s.name)} comes to your fire with an offer already in her hand — and it is hers to take, not yours.</p>`;
@@ -4691,7 +4961,7 @@ function sellStrainApply(g){
 function oathCrisisModal(s){
   if(!s||!s.oath||s.oath.state==='broken'){closeModal();return;}
   const O=OATHS[s.oath.to], last=(s.oath.receipts||[]).slice(-1)[0]||'what the company has been doing';
-  const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+  const body=`<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
      <p style="margin-top:0"><b>${esc(s.name)}</b> — sworn to ${esc(O.patron)}</p>
      <p class="hint" style="margin:2px 0">Because ${esc(last)}.</p></div></div>
     <p>${esc(s.name)} stands at the wagon-tongue with her arms folded. “I swore to ${esc(O.patron)} before I swore to your ledger. Make it right, or ride out one short.”</p>`;
@@ -4823,6 +5093,9 @@ function endBattleInner(outcome){
         queueModal(()=>ledgerScene());
       }
       if(B.storyBeat==='heir'&&S.story&&S.story.stage===7){
+        // Advance NOW, not when the epilogue modal runs: the modal queue is in-memory and a reload mid-chain (rites,
+        // level-ups ahead of it) drops it — and a stage-7 record with no posting must mean "owed", never "won".
+        S.story.stage=8; S.story.heirWeek=S.week;   // heirEpilogue re-sets both, idempotently
         queueModal(()=>heirEpilogue());
       }
       if(B.storyBeat==='finale'&&S.story&&S.story.stage===9){
@@ -4879,8 +5152,8 @@ function endBattleInner(outcome){
     S.prov=Math.max(0,S.prov-5*B.wagonsLost);
     log(`${B.wagonsLost} wagon${B.wagonsLost>1?'s':''} lost — provisions spill into the mud (−${5*B.wagonsLost}).`,'bad');
   }
-  if(S.renown>=12&&!S.actOne){ S.actOne=true; queueModal(()=>showModal('Act I — Proven',
-    `<p>Twelve contracts. The company has a name now, and a graveyard.</p><p class="hint">The March knows your banner now. The court will, soon enough.</p>`,
+  if(S.renown>=12&&!S.actOne){ S.actOne=true; queueModal(()=>showModal('A Name on the Road',
+    `<p>Twelve contracts. The company has a name now, and a graveyard.</p><p class="hint">The story does not stop for renown — follow the purple marks, and keep the graveyard quiet.</p>`,
     [{label:'Play on',fn:()=>closeModal()}])); }
   S.battle=null;
   clearStashedBattle();   // the fight is over — don't resurrect it on the next boot
@@ -4910,7 +5183,7 @@ function ritesModal(g){
   const buryCost=(doc('gravewardens')||S.origin==='gravediggers')?0:12, burnFree=doc('gravewardens');
   const canBury=S.coin>=buryCost;
   return showModal(`Rites for ${g.name}`,
-    `<div class="scard"><div class="face">${faceSvg(g.face,{size:50})}</div><div class="sbody">
+    `<div class="scard"><div class="face">${portrait(revSprite(g),50)}</div><div class="sbody">
      <p style="margin-top:0">${esc(g.name)} — ${esc(BACKSTORIES[g.bg].line)}</p><p class="hint">Unfinished: ${esc(g.hook)}.</p>
      <p>The body is yours to answer for.</p></div></div>`,
     [
@@ -5306,7 +5579,7 @@ function postCourierContract(quiet){
     comp:['acolyte','acolyte','archer','graveguard'],leader:'graveguard',leaderName:'The Magister’s Blade',
     weatherLock:'fog',layout:'pass'});
   S.story.stage=4;
-  log(quiet?'Word comes again: the Magister’s courier still rides the pass road. The purple mark is back on the map.':'Posted: The Magister’s Courier — a night road, a fog, a blade with a list. The purple mark on the map.','wk');
+  log(quiet?'The Courier rides again — the Magister does not send one blade when he has many. The purple mark is back on the map.':'Posted: The Magister’s Courier — a night road, a fog, a blade with a list. The purple mark on the map.','wk');
   if(!quiet){ save(); render(); }
 }
 function storyAnchorFallback(){   // any workable wild hex in the March — a story contract must always have somewhere to stand
@@ -5327,7 +5600,7 @@ function satchelScene(){
     `<p>Inside: names. Dates. A meeting place under a barrow, three weeks hence. And one line in the Magister’s precise, unhurried hand:</p>
      <div class="callout">“The mercenaries. Find what they love.”</div>
      <p>He knows your banner now.</p>
-     <p class="hint">+80c through Maren’s channels, +2 renown. Grey riders — the Magister’s Hunters — now walk the March, and they are looking for you.</p>`,
+     <p class="hint">+80c through Maren’s channels, +2 renown. Grey riders — the Magister’s Hunters — now walk the March, and they are looking for you. The barrow meeting is set. Be there.</p>`,
     [{label:'Burn everything but the names',cls:'primary',fn:()=>closeModal()}]);
   log('The Magister’s Blade is dead; his letters are yours. Somewhere in Karsk Gate, a precise, unhurried man writes your company’s name.','blight');
 }
@@ -5387,16 +5660,16 @@ function heirEpilogue(){
      <div class="callout">“The King has asked for the bedside candles. Whatever is decided in that room, the March will bleed for it.”</div>
      <p class="hint">+3 renown. The King is dying. When he passes, Magister Vell will move — and you will be sent for. Watch the log.</p>`,
     [{label:'The company endures',cls:'primary',fn:()=>closeModal()}]);
-  log('Act III part 1 closes: an heir is chosen, a debt is owed, and the candles at the King’s bedside are lit.','wk');
+  log('An heir is chosen, a debt is owed, and the candles at the King’s bedside are lit.','wk');
 }
-/* ---- ACT III FINALE: the deathbed & the reckoning ---- */
+/* ---- THE FINALE — the close of Act I: the deathbed & the reckoning ---- */
 function startFinale(){
   if(!S.story||S.story.stage!==9)return;
   const risen=S.graves.filter(g=>g.state==='risen');
   showModal('The Throne of Karsk',
     `<p>The King is three days dead. In the throne room, Magister Vell stands over the empty seat with the calm of a man who has already won an argument no one else knew they were having.</p>
      <p>“You mistake me for a traitor. I am the only loyalist left. The kingdom dies in war within two generations — I have read the numbers. Better a still, painless world than a burning one. Your ${S.story.heir==='maren'?'princess':S.story.heir==='aldric'?'prince':'Casmir'} cannot stop the arithmetic. Neither can you.”</p>
-     ${risen.length?`<div class="callout">Behind him, in your old colors: ${risen.slice(0,3).map(g=>esc(g.name)).join(', ')}. The dead you never laid to rest. He kept them for exactly this.</div>`:`<p class="hint">Your graveyard is quiet. Every soldier you lost, you laid to rest — and Vell stands with only his own dead to hide behind.</p>`}
+     ${risen.length?`<div class="callout">Behind him, in your old colors: ${risen.map(g=>esc(g.name)).join(', ')}. The dead you never laid to rest. He kept them for exactly this.</div>`:`<p class="hint">Your graveyard is quiet. Every soldier you lost, you laid to rest — and Vell stands with only his own dead to hide behind.</p>`}
      <p class="hint">⚑ Cut Off the Head — kill <b>Magister Vell</b>. Your unresolved dead fight for him.</p>`,
     [{label:'End the argument',cls:'danger',fn:()=>{activeModal=null; pickSquad(sq=>startBattle({
         id:nid(),type:'putdown',cname:'The Throne of Karsk',regionId:3,pay:0,danger:3,obj:'assassinate',story:'finale',
@@ -5456,14 +5729,14 @@ function ledgerScene(){
   showModal('The Envoy’s Ledger',
     `<p>The Grey Envoy carried a ledger: payments, bodies, dates — the Magister’s hand on one page, the Conclave’s seal on the facing one. Bound together. Undeniable.</p>
      <div class="callout">“The King must see this. But the King is dying — and three heirs are listening at his door.”</div>
-     <p class="hint">+150c, +3 renown. Act II is closed. The Hunters that remain ride harder now. Take the ledger to <b>the palace at Karsk Gate</b> — the succession is the next war.</p>`,
+     <p class="hint">+150c, +3 renown. The Hunters that remain ride harder now. Next comes the succession — three heirs, one ledger, and whoever inherits the Blight. Maren is waiting at Karsk Gate.</p>`,
     [{label:'Wrap it in oilcloth, next to the letters',cls:'primary',fn:()=>closeModal()}]);
-  log('Act II closes: the Envoy is dead and the ledger is yours. The war for the March is about to become a war for the crown.','wk');
+  log('The Envoy is dead and the ledger is yours. The war for the March is about to become a war for the crown.','wk');
 }
 function whisperEvent(s){
   s.whispered=true;
   showModal(`${s.name} — The Whisper`,
-    `<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
+    `<div class="scard"><div class="face">${portrait(s,56)}</div><div class="sbody">
      <p>${esc(s.name)} has started answering the graft when it talks. Quietly. At night. It is asking to be <i>used</i>.</p></div></div>`,
     [{label:'Indulge it — let it feed (+1 SKL, +1 corruption)',cls:'pick',fn:()=>{s.skl++;addCorruption(s,1);log(`${s.name} lets the graft feed. Her hands are steadier. Her eyes are worse.`,'blight');closeModal();}},
      {label:'Help her fight it (−2 resolve, −1 corruption)',cls:'pick',fn:()=>{s.res=Math.max(10,s.res-2);s.corr=Math.max(0,s.corr-1);log(`${s.name} grits through the whispering. It costs her sleep.`,'good');closeModal();}},
@@ -5472,7 +5745,7 @@ function whisperEvent(s){
 function demandEvent(s){
   s.demanded=true;
   showModal(`${s.name} — The Demand`,
-    `<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
+    `<div class="scard"><div class="face">${portrait(s,56)}</div><div class="sbody">
      <p>The graft has stopped whispering and started <i>negotiating</i>. It wants a promise from ${esc(s.name)} — and through her, from you.</p>
      <p class="hint">Promise it, and she fights like something unchained. But a promise to the Ash is an unfinished story — and you know where unfinished stories go.</p></div></div>`,
     [{label:'Make the promise (+2 damage, permanently; her revenant will rise stronger)',cls:'pick',fn:()=>{s.dmgBonus=(s.dmgBonus||0)+2; s.ashPromised=true; log(`${s.name} promises. The graft goes warm and quiet, like something fed.`,'blight');closeModal();}},
@@ -5695,7 +5968,7 @@ function hookEvent(s){
       return esc(H.tr.x(s))+` <span class="hint">(−${H.tr.xres||2} resolve${H.tr.xhp?', −'+H.tr.xhp+' HP':''}${H.tr.xcorr?', +'+H.tr.xcorr+' corruption':''}. It will come round again.)</span>`; }});
   if(H.fight)o.push({l:H.fight.l,cls:'danger',f:()=>evFight(H.fight.cname,H.fight.comp,{hookSid:s.id,hookBonus:H.fight.bonus||0})});
   o.push({l:'Not now. It will keep — it always has.',cls:'',f:()=>{ s.hookCool=S.week+6; s.res=Math.max(10,s.res-1); return `${esc(s.name)} nods. It is still there, the way a stone is still in a boot. (−1 resolve.)`; }});
-  evShow({t:H.t,b:`<div class="scard"><div class="face">${faceSvg(s.face,{size:54})}</div><div class="sbody"><p style="margin-top:0">${esc(H.p(s))}</p>
+  evShow({t:H.t,b:`<div class="scard"><div class="face">${portrait(s,54)}</div><div class="sbody"><p style="margin-top:0">${esc(H.p(s))}</p>
       <p class="hint">Unfinished: ${esc(bgOf(s).hook)}. Settle it and it is a deed to her name — and nothing her revenant can ever throw at you.</p></div></div>`,o});
 }
 
@@ -5864,11 +6137,17 @@ function ambient(on){
    between a player and a fight in progress. */
 let owedQueued=false;
 function bannerSvg(sz){ return `<svg width="${sz}" height="${Math.round(sz*1.3)}" viewBox="0 0 20 26"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>`; }
+// the title's muster line: the company as it is rendered, the Commander under the banner at the centre
+function titleMuster(){
+  if(!spritesOn())return '';
+  const line=[['ranger_veteran_f',-190,.72],['acolyte_m',190,.72],['cleric_f',-98,.86],['fighter_veteran_m',98,.86],['fighter_commander_f',0,1]].filter(l=>SPR_SET.whole.has(l[0]));
+  return line.length<3?'':`<div class="tmuster">${line.map(l=>`<img src="${SPR_ROOT+l[0]}.webp" alt="" style="--x:${l[1]}px;--b:${l[2]}">`).join('')}</div>`;
+}
 function renderTitle(){
   const live=S&&!S.over, L=legacyLoad();
   return `<div id="title"><div class="tembers"></div>
     <div class="tbox">
-      <div class="tbanner">${bannerSvg(54)}</div>
+      ${titleMuster()||`<div class="tbanner">${bannerSvg(54)}</div>`}
       <h1 class="tlogo">GRAVEBORNE</h1>
       <p class="ttag">You will fight everyone you fail to protect.</p>
       <div class="tmenu">
@@ -5932,7 +6211,8 @@ window.HOWTO=function(){
 };
 function settingsHtml(){
   const row=(lab,val,fn,tip)=>`<div class="setrow"><span class="tt" data-tip="${esc(tip)}">${lab}</span><button onclick="${fn}">${val}</button></div>`;
-  return row('Sound',PREFS.sound?'On':'Off',"SETP('sound')",'Synthesised in the browser — no downloads.')
+  return row('Art',PREFS.sprites!==false?'Rendered':'Classic',"SETP('sprites')",'Rendered: the Blender sprites for the company, its enemies and the battlefield, on painted ground. Classic: the hand-drawn figures and flat ground from before.')
+    +row('Sound',PREFS.sound?'On':'Off',"SETP('sound')",'Synthesised in the browser — no downloads.')
     +`<div class="setrow"><span>Volume</span><span><button onclick="SETVOL(-1)">−</button> <b>${Math.round(PREFS.vol*100)}%</b> <button onclick="SETVOL(1)">＋</button></span></div>`
     +row('Confirm End Turn',PREFS.confirmEnd?'When soldiers can still act':'Never',"SETP('confirmEnd')",'Ask before ending the turn while someone still has an action or a full step left.')
     +row('Auto-end the turn',PREFS.autoEnd?'When the squad is spent':'Never',"SETP('autoEnd')",'Hand the turn over by itself once every soldier has nothing left to do.')
@@ -6216,9 +6496,22 @@ function hexTitle(h){
   }
   return t;
 }
+// a rendered sprite set down on the march map: s units across, its tile centre (50%/74% of the canvas) on (x,y)
+function mapSpr(kind,x,y,s,seed){ const src=sprOf(kind,seed||Math.round(x),Math.round(y)); return src?`<image href="${src}" x="${(x-s/2).toFixed(1)}" y="${(y-s*0.74).toFixed(1)}" width="${s}" height="${s}" pointer-events="none"/>`:''; }
 function hexArt(h,x,y){
   const P='pointer-events="none"';
   let a='';
+  if(spritesOn()&&h.setl===null){      // the same trees and stones the battlefield stands on, seen from the march
+    let r='';
+    if(h.t==='forest')r=mapSpr('terr_tree',x-6,y+1,25,h.q*3+1)+mapSpr('terr_tree',x+6,y+6,23,h.q*5+2);
+    else if(h.t==='mountain')r=mapSpr('terr_boulder',x-4,y+1,34,h.q)+mapSpr('terr_boulder',x+7,y+6,22,h.q+9);
+    else if(h.t==='hills')r=mapSpr('terr_boulder',x+2,y+5,17,h.q);
+    else if(h.t==='marsh')r=mapSpr('deco_reeds',x,y+4,22,h.q);
+    if(r){ a+=r;
+      if(h.feat==='ruin'){ const f=mapSpr('terr_column',x,y+5,24,h.q); if(f)return a+f+hexBlight(h,x,y,P); }
+      if(h.feat==='shrine'){ const f=mapSpr('terr_stone',x,y+5,22,h.q); if(f)return a+f+hexBlight(h,x,y,P); }
+      return a+hexFeat(h,x,y,P)+hexBlight(h,x,y,P); }
+  }
   if(h.setl!==null){
     a+=`<g ${P}><rect x="${x-8}" y="${y-2}" width="8" height="7" fill="#5a4a35" stroke="#17130e"/><path d="M${x-9} ${y-2} L${x-4} ${y-8} L${x+1} ${y-2} Z" fill="#7a5a3a" stroke="#17130e"/>
       <rect x="${x+1}" y="${y}" width="7" height="5" fill="#4c3f2d" stroke="#17130e"/><path d="M${x} ${y} L${x+4.5} ${y-5} L${x+9} ${y} Z" fill="#6b4f33" stroke="#17130e"/></g>`;
@@ -6234,21 +6527,40 @@ function hexArt(h,x,y){
   } else if(h.t==='marsh'){
     a+=`<g ${P} stroke="#4a5a4e" stroke-width="1.3"><path d="M${x-5} ${y+5} v-8 M${x-2} ${y+6} v-10 M${x+1} ${y+5} v-7"/><path d="M${x-8} ${y+7} h6 M${x+4} ${y+6} h6" stroke="#3d4a42"/></g>`;
   }
+  return a+hexFeat(h,x,y,P)+hexBlight(h,x,y,P);
+}
+function hexFeat(h,x,y,P){ let a='';
   if(h.feat==='ruin')a+=`<g ${P}><rect x="${x-6}" y="${y-4}" width="3.5" height="10" fill="#5c5548" stroke="#17130e" transform="rotate(-7 ${x-4} ${y})"/><rect x="${x+2}" y="${y-1}" width="3.5" height="7" fill="#524b3f" stroke="#17130e" transform="rotate(9 ${x+4} ${y+2})"/></g>`;
   if(h.feat==='shrine')a+=`<g ${P} stroke="#8a8578" stroke-width="1.8"><path d="M${x} ${y+6} v-11 M${x-4} ${y-1.5} h8"/></g>`;
   if(h.feat==='barrow')a+=`<g ${P}><path d="M${x-8} ${y+5} q8 -12 16 0 Z" fill="#4a4234" stroke="#17130e"/><circle cx="${x}" cy="${y+3}" r="1.8" fill="#17130e"/></g>`;
   if(h.feat==='battlefield')a+=`<g ${P} stroke="#6b6353" stroke-width="1.6"><path d="M${x-6} ${y+5} L${x+5} ${y-6} M${x+5} ${y+5} L${x-6} ${y-6}"/></g>`;
   if(h.feat==='watchtower')a+=`<g ${P}><rect x="${x-3}" y="${y-8}" width="6" height="14" fill="#524b3f" stroke="#17130e"/><path d="M${x-4.5} ${y-8} h2.5 v-2.5 h1.8 v2.5 h2.5 v-2.5 h1.8 v2.5 h2.4" stroke="#17130e" fill="none"/></g>`;
-  if(h.blighted)a+=`<g ${P} opacity=".75"><path d="M${x-8} ${y+8} q4 -10 2 -16 M${x+7} ${y+9} q-5 -8 -1 -15" stroke="#7a4fa3" stroke-width="1.4" fill="none"/><circle cx="${x+4}" cy="${y-6}" r="1.5" fill="#9a6fc9"/></g>`;
   return a;
 }
+function hexBlight(h,x,y,P){ return h.blighted?`<g ${P} opacity=".75"><path d="M${x-8} ${y+8} q4 -10 2 -16 M${x+7} ${y+9} q-5 -8 -1 -15" stroke="#7a4fa3" stroke-width="1.4" fill="none"/><circle cx="${x+4}" cy="${y-6}" r="1.5" fill="#9a6fc9"/></g>`:''; }
+// who walks the march, as medallions cut from their own sprites: a column of the Crown's, a horde, brigands, the Conclave's
+// hunters, one of your dead. No sprite yet: the old glyph.
+function mapTokenSrc(a){
+  if(!spritesOn())return null;
+  if(a.kind==='revenant'){ const g=a.graveId!=null&&S.graves.find(z=>z.id===a.graveId), sn=g?revSprite(g):{cls:'fighter'}, p=sprPick({cls:sn.cls,commander:sn.commander,weapon:sn.weapon,level:sn.level},{revenant:true}); return p&&p.whole||null; }   // the class's own risen sprite (a medallion is too small for the face)
+  const key={army:'shieldman',horde:'husk',hunters:'acolyte'}[a.kind]||'brigand', k=SPR_IDX.foe[key];
+  return k&&k.base.length?SPR_ROOT+((k.tags.captain||k.base)[0])+'.webp':null;
+}
+function mapToken(id,x,y,r,src,col,s){ s=s||42; const by=y+4;      // a miniature standing on the map: its ring in its faction's colour
+  return `<ellipse cx="${x}" cy="${by}" rx="${r}" ry="${(r*0.56).toFixed(1)}" fill="rgba(10,8,5,.55)" stroke="${col}" stroke-width="1.7"/><ellipse cx="${x}" cy="${by}" rx="${r+1.3}" ry="${(r*0.56+1.3).toFixed(1)}" fill="none" stroke="#000" stroke-width=".8" opacity=".7"/>`
+    +`<image href="${src}" x="${(x-s/2).toFixed(1)}" y="${(by-s*0.74).toFixed(1)}" width="${s}" height="${s}" style="filter:brightness(1.25) drop-shadow(0 0 .6px #000)"/>`; }
 function hexSvg(){
   const TC={plains:'#2e2a20',forest:'#26301f',hills:'#37322a',marsh:'#28302c',mountain:'#453f35'};
   // fogged provinces are drawn, but drained of colour — you can see the SHAPE of the world you haven't walked
   const FOG={plains:'#262218',forest:'#232b1d',hills:'#2c2822',marsh:'#232926',mountain:'#332f28'};
   const G=hexGeo();
   const wide=!!S.mapWide&&S.mapView!=='prov';              // the whole realm on one sheet, or the province you stand in (your choice once the frame is off)
-  let out='<defs><radialGradient id="vig" cx="50%" cy="42%" r="78%"><stop offset="60%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,.45)"/></radialGradient></defs>',glyphs='';
+  // v0.72: the country itself is painted — one sheet per kind of land, laid under the hexes as a pattern (4 hexes a repeat)
+  const MT=spritesOn()&&SPR_IDX.map.plains?SPR_IDX.map:null, MPW=HXS*7.2;
+  const pat=k=>MT&&MT[k]?`url(#mp-${k})`:null;
+  let out='<defs><radialGradient id="vig" cx="50%" cy="42%" r="78%"><stop offset="60%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,.45)"/></radialGradient>'
+    +(MT?Object.keys(MT).map(k=>`<pattern id="mp-${k}" patternUnits="userSpaceOnUse" width="${MPW}" height="${MPW}"><image href="${SPR_ROOT}map_${k}.webp" width="${MPW}" height="${MPW}" preserveAspectRatio="none"/></pattern>`).join(''):'')
+    +'</defs>',glyphs='';
   const CP=caravanProv();
   const focus=h=>h.prov===CP||(h.choke&&hexNbrs(h.q,h.r).some(n=>n.prov===CP));
   // ---- batched tier: every province you are NOT standing in, as one path per terrain bucket ----
@@ -6257,11 +6569,13 @@ function hexSvg(){
     const h=S.hexes[k];
     if(h.prov<0||focus(h))continue;
     const known=provKnown(h.prov);
-    const fill=h.blighted?(known?'#2c2138':'#231b2c'):(known?TC[h.t]:FOG[h.t]);
+    const tk=h.blighted?'blight':h.t;
+    const fill=pat(tk)?pat(tk)+(known?'|k':'|f'):(h.blighted?(known?'#2c2138':'#231b2c'):(known?TC[h.t]:FOG[h.t]));
     (buckets[fill]=buckets[fill]||[]).push(G.d[k]);
   }
-  for(const fill in buckets)
-    out+=`<path d="${buckets[fill].join('')}" fill="${fill}" stroke="#191612" stroke-width="0.6" pointer-events="none"/>`;
+  for(const fill in buckets){ const [f,dim]=fill.split('|'), dd=buckets[fill].join('');
+    out+=`<path d="${dd}" fill="${f}" stroke="${dim?'rgba(8,6,4,.5)':'#191612'}" stroke-width="0.6" pointer-events="none"/>`;
+    if(dim)out+=`<path d="${dd}" fill="${dim==='k'?'rgba(14,11,7,.5)':'rgba(16,14,11,.78)'}" pointer-events="none"/>`; }   // walked country dims; the unwalked is all but ash
   // province names + settlement dots carry the far world without per-hex cost
   for(const P of PROV_DEFS){
     if(P.id===CP)continue;
@@ -6290,12 +6604,12 @@ function hexSvg(){
   for(const k in S.hexes){
     const h=S.hexes[k]; if(!focus(h))continue;
     const{x,y}=hexCenter(h.q,h.r);
-    let fill=h.blighted?'#2c2138':TC[h.t];
-    if(h.setl!==null&&!h.blighted)fill='#3d352a';
+    let fill=h.blighted?(pat('blight')||'#2c2138'):(pat(h.t)||TC[h.t]);
+    if(h.setl!==null&&!h.blighted)fill=pat('setl')||'#3d352a';
     if(h.prov!==CP)fill='#1a1712';                      // the far side of a crossing: seen, not entered
     const seld=sel===k;
     out+=`<g style="cursor:pointer"><title>${esc(hexTitle(h))}</title>
-      <polygon points="${G.pts[k]}" fill="${fill}" stroke="${seld?'#c9a227':'#191612'}" stroke-width="${seld?2.2:1}"/></g>`;
+      <polygon points="${G.pts[k]}" fill="${fill}" stroke="${seld?'#c9a227':(MT?'rgba(8,6,4,.6)':'#191612')}" stroke-width="${seld?2.2:1}"/></g>`;
     glyphs+=hexArt(h,x,y);
     if(h.setl!==null)glyphs+=`<text x="${x}" y="${y+HXS-3}" class="hx" style="fill:#c9b48a;font-size:8.5px">${esc(REGION_DEFS[h.setl].s)}</text>`;
   }
@@ -6329,10 +6643,12 @@ function hexSvg(){
     const ox=c0.x+(idx?9*idx-4:0), oy=c0.y-(idx?6:0);
     const col=a.kind==='army'?'#7d93a3':a.kind==='revenant'?'#c9a9e0':a.kind==='horde'?'#9a6fc9':a.kind==='hunters'?'#8a6f9f':'#e0593f';
     const g=a.kind==='army'?'♞':a.kind==='horde'?'☠':a.kind==='revenant'?'⚰':a.kind==='hunters'?'⚚':'⚑';
+    const tsrc=mapTokenSrc(a);
     out+=`<g pointer-events="none">
-      ${a.kind==='revenant'?`<circle cx="${ox}" cy="${oy}" r="11" fill="none" stroke="#b08bc9" stroke-width="1.3" opacity=".6"/>`:''}
-      <circle cx="${ox}" cy="${oy}" r="8.5" fill="#17130e" stroke="${col}" stroke-width="1.8"/>
-      <text x="${ox}" y="${oy+4}" style="font-size:11.5px;fill:${col};text-anchor:middle;font-weight:bold">${g}</text></g>`;
+      ${a.kind==='revenant'?`<circle cx="${ox}" cy="${oy}" r="11" fill="none" stroke="#b08bc9" stroke-width="1.3" opacity="${tsrc?0:.6}"/>`:''}
+      ${tsrc?mapToken('',ox,oy,9,tsrc,col)
+            :`<circle cx="${ox}" cy="${oy}" r="8.5" fill="#17130e" stroke="${col}" stroke-width="1.8"/>
+      <text x="${ox}" y="${oy+4}" style="font-size:11.5px;fill:${col};text-anchor:middle;font-weight:bold">${g}</text>`}</g>`;
   });
   if(S.story&&S.story.stage===5&&S.story.meetHex&&S.week<=S.story.meetWeek){
     const{x,y}=hexCenter(S.story.meetHex.q,S.story.meetHex.r);
@@ -6340,8 +6656,9 @@ function hexSvg(){
       <text x="${x}" y="${y-14}" style="font-size:9px;fill:#c9a9e0;text-anchor:middle">wk ${S.story.meetWeek}</text></g>`;
   }
   {const{x,y}=hexCenter(S.caravan.q,S.caravan.r);
-    out+=`<g pointer-events="none"><circle cx="${x}" cy="${y}" r="10" fill="#17130e" stroke="#c9a227" stroke-width="2"/>
-      <text x="${x}" y="${y+5}" style="font-size:13px;text-anchor:middle">⛺</text></g>`;}
+    const cv=sprOf('prop_wagon',1,1);
+    out+=`<g pointer-events="none">${cv?mapToken('tkcar',x,y,11,cv,'#c9a227',40):`<circle cx="${x}" cy="${y}" r="10" fill="#17130e" stroke="#c9a227" stroke-width="2"/>
+      <text x="${x}" y="${y+5}" style="font-size:13px;text-anchor:middle">⛺</text>`}</g>`;}
   if(sel){const [q,r]=sel.split(',').map(Number);const p=hexPath(S.caravan,{q,r},false,true);
     if(p&&p.length>1){let d='';p.forEach((st,i)=>{const c=hexCenter(st.q,st.r);d+=(i?'L':'M')+c.x.toFixed(1)+' '+c.y.toFixed(1)+' ';});
       out+=`<path d="${d}" fill="none" stroke="#c9a227" stroke-width="1.5" stroke-dasharray="4 3" pointer-events="none"/>`;}}
@@ -6375,7 +6692,7 @@ function soldierCard(s,inHire,idx){
   const bondTxt=s.bonds.map(b=>{const o=soldierById(b.id);return o?`${o.name} (${b.type})`:null;}).filter(Boolean).join(', ');
   const nextArm=ARMORS[s.armor+1];
   return `<div class="card scard">
-    <div class="face">${faceSvg(s.face,{size:46})}</div>
+    <div class="face">${portrait(s,46)}</div>
     <div class="sbody">
       <span class="nm">${esc(s.name)}</span>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag tt" data-tip="${esc((CLASSES[s.cls]||CLASSES.fighter).d)}">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">${esc(bg.tag)}</span> <span class="tag">Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}</span>
       ${oathChip(s)}${isStationed(s)?`<span class="tag tt" style="border-color:#7d93a3;color:#a8b7c4" data-tip="Holding ground. She sends true word from ${esc(provOf(s.stationedProv).n)} and cannot be mustered.">⚑ Holding ${esc(provOf(s.stationedProv).n)}</span>`:''}
@@ -6468,7 +6785,7 @@ function offerBanner(s){
   })();
   const deedList=deedsOf(s).map(d=>`<div class="statline">⚑ <b>${esc(DEEDS[d.id].n)}</b>${d.note?' — '+esc(d.note):''} <span class="hint">(week ${d.week})</span></div>`).join('');
   const head=first
-    ? `<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+    ? `<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
         <p style="margin-top:0">The company sews a banner no lord issued.</p>${deedList}</div></div>${witness}
        <p>Choose the sword who kneels to it. The oath is to <b>her</b>, not to you.</p>`
     : `<p>${esc(s.name)}’s banner has no hands to hold it. Another comes to kneel.</p>`;
@@ -6646,7 +6963,8 @@ function selectedPanel(){
   const p=here?null:hexPath(S.caravan,{q,r},false,true);
   const dys=p&&p.length>1?travelDays(p):0;
   let html=`<div class="card"><span class="nm">${esc(hexDesc(h))}</span>
-    <div class="statline">${esc(reg.name)} — ${reg.swallowed?'<span class="swallowed">SWALLOWED</span>':'pressure '+reg.pressure}${h.blighted?' · <span class="swallowed">blighted ground</span>':''}${h.road?' · road':''}</div>`;
+    <div class="statline">${esc(reg.name)} — ${reg.swallowed?'<span class="swallowed">SWALLOWED</span>':'pressure '+reg.pressure}${h.blighted?' · <span class="swallowed">blighted ground</span>':''}${h.road?' · road':''}</div>
+    ${reg.swallowed?'':`<div class="pressure" title="Blight pressure ${reg.pressure} — at 100 the region is swallowed and its buried dead rise"><div style="width:${clamp(reg.pressure,0,100)}%"></div></div>`}`;
   if(h.feat)html+=`<div class="bg">${esc(FEAT_INFO[h.feat]||'')}</div>`;
   for(const a of ags){
     if(a.kind==='revenant'){const g=S.graves.find(g=>g.id===a.graveId);
@@ -6681,10 +6999,20 @@ function pickSquad(cb,opts){
   const loadout={kit:false,horn:false};
   const build=()=>{
     const cap=partyCap();
+    // Swords ride beside their banneret and take no slot — but only MAX_FIELD_SWORDS of them, in muster order.
+    // Say which ones stay with the baggage HERE, not silently on the field.
+    const rides=new Set(); let slots=MAX_FIELD_SWORDS;
+    for(const id of picked){ const s=soldierById(id); if(!s)continue; for(const w of livingSwords(s)){ if(slots<=0)break; rides.add(w.id); slots--; } }
     const list=S.roster.map(s=>{
       const benched=(s.benchedUntil||0)>=S.week||isStationed(s);
       const sw=livingSwords(s);
-      return `<button class="pick" ${benched?'disabled':''} onclick="TOG(${s.id})">${benched?'⊘':(picked.has(s.id)?'☑':'☐')} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(wpnName(s.weapon,s.wAff))}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}${deedsOf(s).length?' ⚑'+deedsOf(s).length:''}${sw.length?` <span class="hint">+ brings ${esc(sw.map(w=>w.name).join(', '))}</span>`:''}${isStationed(s)?` <span class="hint">— holding ${esc(provOf(s.stationedProv).n)}</span>`:benched?` <span class="hint">— sworn elsewhere this week</span>`:''}</button>`;
+      let swNote='';
+      if(sw.length){
+        if(picked.has(s.id)){ const ride=sw.filter(w=>rides.has(w.id)), stay=sw.filter(w=>!rides.has(w.id));
+          swNote=` <span class="hint">${ride.length?`+ brings ${esc(ride.map(w=>w.name).join(', '))}`:''}${stay.length?`${ride.length?' · ':'— '}${esc(stay.map(w=>w.name).join(', '))} stay${stay.length>1?'':'s'} with the baggage (${MAX_FIELD_SWORDS} swords ride at most)`:''}</span>`; }
+        else swNote=` <span class="hint">+ brings ${esc(sw.map(w=>w.name).join(', '))}</span>`;
+      }
+      return `<button class="pick" ${benched?'disabled':''} onclick="TOG(${s.id})">${benched?'⊘':(picked.has(s.id)?'☑':'☐')} ${esc(s.name)} — HP ${s.hp}/${s.maxhp}, ${esc(wpnName(s.weapon,s.wAff))}${s.wMod?'+'+s.wMod:''}, Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}${deedsOf(s).length?' ⚑'+deedsOf(s).length:''}${swNote}${isStationed(s)?` <span class="hint">— holding ${esc(provOf(s.stationedProv).n)}</span>`:benched?` <span class="hint">— sworn elsewhere this week</span>`:''}</button>`;
     }).join('');
     let items='';
     if((S.kits||0)>0) items+=`<button class="pick" onclick="LOAD('kit')">${loadout.kit?'☑':'☐'} 🩹 Chirurgeon’s Kit — deploy at full HP (×${S.kits})</button>`;
@@ -6753,7 +7081,8 @@ function elevArt(B,x,y,t){
   const e=(t.elev==null?1:t.elev);
   const N=elevAt(B,x,y-1),So=elevAt(B,x,y+1),E=elevAt(B,x+1,y),W=elevAt(B,x-1,y);
   let s='';
-  if(e>1) s+=`<rect width="46" height="46" fill="#f1e7cd" opacity="${Math.min(.44,(e-1)*0.2).toFixed(3)}"/>`;       // higher ground catches more light
+  const wash=groundOn(groundKind(B,t))?0.085:0.2;      // on painted ground the lift is slight: the lips and drops carry the height, and the paint must show
+  if(e>1) s+=`<rect width="46" height="46" fill="#f1e7cd" opacity="${Math.min(wash*2.2,(e-1)*wash).toFixed(3)}"/>`;       // higher ground catches more light
   else if(e<1) s+=`<rect width="46" height="46" fill="#04060a" opacity="${Math.min(.56,(1-e)*0.27).toFixed(3)}"/>`;  // low ground sinks into shadow
   // a shadow on every DOWNHILL edge (the drop) — thin for a 1-level slope, thick & dark for a 2+ cliff face
   const drop=(nb,vert,far)=>{ const d=e-nb; if(d<=0)return ''; const cliff=d>=2, op=cliff?.58:.32, w=cliff?8:4, p=far?46-w:0;
@@ -6909,22 +7238,24 @@ function renderBattle(){
     const isObj=B.objTile&&B.objTile.x===x&&B.objTile.y===y;
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
     const fog=visible?'':(explored?'fogseen':'fogdark');
-    grid+=`<div class="tile ${t.blighted&&fog!=='fogdark'?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" data-xy="${key}" style="background:${fog==='fogdark'?'':tileBg(B,t)}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    const gk=groundKind(B,t), gtex=fog!=='fogdark'&&groundOn(gk);
+    grid+=`<div class="tile ${gtex?'gt g-'+gk:''} ${t.blighted&&fog!=='fogdark'?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" data-xy="${key}" style="${fog==='fogdark'?'':'background-color:'+tileBg(B,t)}${gtex?`;--gx:${x%8};--gy:${y%8}`:''}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
     if(fog!=='fogdark'){
-      grid+=(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t))+elevArt(B,x,y,t);
+      const rend=gtex?tileRendered(B,x,y,t,gk):null;
+      grid+=(rend!=null?rend:(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t)))+elevArt(B,x,y,t);
       if(B.decals&&B.decals[key])grid+=decalArt(B.decals[key],x,y);
-      if(t.cache)grid+=cacheArt();
+      if(t.cache){ const cs=sprOf('prop_cache',x,y); grid+=cs?sprImg(cs,'ts td'):cacheArt(); }
       if(t.fire>0&&visible)grid+=fireArt(x,y);
     }
     if(un){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
       const badge=un.sanctuary>0?'<span class="stx" style="color:#e6d98a">☨</span>':un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
-      if(un.kind==='pc'){ const ps=un.sword?{cls:(WEAPONS[un.weapon]||{}).rng>1?'ranger':'fighter',face:null}:soldierById(un.ref); inner=ps?pcTopDown(ps,fsz):esc(un.name[0]); }
-      else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):villagerTopDown(un,fsz);
-      else if(un.prop)inner=un.ekey==='menhir'?menhirSvg(fsz):nestSvg(fsz);
-      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcTopDown({cls:(g2.snap&&g2.snap.cls),face:g2.face,commander:g2.snap&&g2.snap.commander},fsz,{revenant:true}):esc(un.name[0]); }
-      else inner=foeTopDown(un,fsz);
+      if(un.kind==='pc'){ const ps=un.sword?swordOf(un):soldierById(un.ref); inner=ps?pcTopDown(ps,fsz,{token:true}):esc(un.name[0]); }
+      else if(un.kind==='ally'){ const ps2=sprOf(un.prop?'prop_wagon':'prop_villager',un.uid,7); inner=ps2?sprImg(ps2):(un.prop?wagonSvg(fsz):villagerTopDown(un,fsz)); }
+      else if(un.prop){ const ps2=sprOf(un.ekey==='menhir'?'prop_menhir':'prop_nest',un.uid,3); inner=ps2?sprImg(ps2):(un.ekey==='menhir'?menhirSvg(fsz):nestSvg(fsz)); }
+      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcTopDown(revSprite(g2,un),fsz,{revenant:true,token:true}):esc(un.name[0]); }
+      else { const fs2=foeSprite(un); inner=fs2?sprImg(fs2):foeTopDown(un,fsz); }
       const cls2=un.kind==='ally'?'ally':cls;
       const crown=(B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
       let podB='';
@@ -6932,9 +7263,10 @@ function renderBattle(){
         podB=ps==='patrol'?'<span class="stx" style="color:#a39a86;left:-5px;right:auto;top:auto;bottom:2px">◦</span>':'<span class="stx" style="color:#e0593f;left:-5px;right:auto;top:auto;bottom:2px">!</span>'; }
       const ratio=un.hp/un.maxhp, hpc=un.kind==='foe'?'#b8442f':(ratio>0.6?'#7fa650':ratio>0.3?'#c9a227':'#c0492f');
       const spent=un.kind==='pc'&&!un.sword&&B.phase==='player'&&!pcTurnLeft(un);
-      grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''} ${spent?'spent':''} ${un.sword?'sword':''}" data-uid="${un.uid}"><div class="spr">${inner}</div>${badge}${crown}${podB}<div class="hp"><div style="width:${Math.max(4,Math.round(100*ratio))}%;background:${hpc}"></div></div>${un.prop&&un.kind==='ally'?'':`<span class="hpn">${un.hp}</span>`}</div>`;
+      const sprited=inner.indexOf('<img class="sp"')===0;
+      grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''} ${spent?'spent':''} ${un.sword?'sword':''} ${sprited?'sprited':''}" data-uid="${un.uid}"><div class="spr">${inner}</div>${badge}${crown}${podB}<div class="hp"><div style="width:${Math.max(4,Math.round(100*ratio))}%;background:${hpc}"></div></div>${un.prop&&un.kind==='ally'?'':`<span class="hpn">${un.hp}</span>`}</div>`;
       if(atk)grid+=`<span class="hitpct${fc.kill?' kill':''}">${fc.hit}%<small>${fc.kill?'☠ ':''}${fc.lo}–${fc.hi}</small></span>`;
-    } else if(bd){ grid+=`<div class="body">☠</div>`; }
+    } else if(bd){ const cs=sprOf('prop_corpse',x,y); grid+=cs?sprImg(cs,'ts td'):`<div class="body">☠</div>`; }
     grid+='</div>';
   }
   grid+=`<svg id="pathov" width="${GW*TS}" height="${GH*TS}"></svg></div>`;   // close #grid (the pan/zoom layer & overlays are assembled in the return below)
@@ -6951,7 +7283,7 @@ function renderBattle(){
   let showFace='';
   if(show){
     if(show.kind==='pc'){const ps=soldierById(show.ref); if(ps)showFace=`<div class="face" style="float:right">${pcTopDown(ps,48)}</div>`;}
-    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcTopDown({cls:g2.snap&&g2.snap.cls,face:g2.face,commander:g2.snap&&g2.snap.commander},48,{revenant:true})}</div>`;}
+    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcTopDown(revSprite(g2,show),48,{revenant:true})}</div>`;}
     else if(!show.prop)showFace=`<div class="face" style="float:right">${enemyFace(show.ekey,44)}</div>`;
   }
   const showTrk=show&&TRINKETS[show.trk];
@@ -7189,7 +7521,7 @@ function renderVictory(){
     <h2>Chronicle</h2>
     ${S.chronicle.slice(-8).map(c=>`<p class="bg">${esc(c)}</p>`).join('')||'<p class="hint">A short, bloody story.</p>'}
     <p style="margin-top:14px;font-style:italic">The Blight is not ended. It never ends. But for one season, on one banner, you fought everyone you failed to protect — and you were still standing when the smoke cleared.</p>
-    <p class="hint">— GRAVEBORNE, Act III. Thank you for playing the alpha. —</p>
+    <p class="hint">— GRAVEBORNE, Act I: The March. Thank you for playing the alpha. —</p>
     <button class="primary" onclick="NEWGAME()">Raise a new banner</button>
   </div></div>`;
 }

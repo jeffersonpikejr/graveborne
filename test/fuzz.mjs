@@ -179,6 +179,7 @@ const BOT = (seed, story) => {
     if (S.roster.length) return true;                                   // benched/stationed swords come back or can be recalled
     if (atSettlement() !== null && S.hirePool.some(h => S.coin >= hireCost(h))) return true;
     if (atSettlement() !== null && !S.hirePool.length && S.coin >= hireCost({ cost: 20 })) return true;   // resting a week refills the hiring line
+    if (atSettlement() !== null && S.coin + (S.stash || []).reduce((a, i) => a + itemSell(i), 0) >= hireCost({ cost: 20 })) return true;   // the wagons can be sold here, and a week's rest brings a sellsword the purse can afford
     // an empty company off the road needs SOME lever: a travel button that works, or a way to hire here
     const travel = [...document.querySelectorAll('button')].some(b => /Travel here|ride out/.test(b.textContent) && !b.disabled);
     return travel;
