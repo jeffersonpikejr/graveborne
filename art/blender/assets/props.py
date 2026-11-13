@@ -675,7 +675,7 @@ def deco(kind, n=1):
             for sg in (-1.0, 1.0):
                 Dl = T.unit(side[idx] * sg + Tn[idx] * 0.4 + UP * -0.1)
                 gr.add(*T.blades(P[idx], Dl, UP + rnd.normal(0, 0.2, (len(idx), 3)), ln, ln * 0.32, bend=0.3))
-        parts.append(gr.obj('fern', T.foliage('fern', color='#1f2e17', tip='#4a5a2a', seed=43, dead='#5a4424', dead_share=0.2), smooth=False))
+        parts.append(gr.obj('fern', T.foliage('fern', color='#1f2e17', tip='#445327', seed=43, dead='#4d4226', dead_share=0.05), smooth=False))
         parts.append(st.obj('fern_stems', T.foliage('fern_stem', color='#2c3018', tip='#4a4a26', seed=44)))
     if not grass.empty():
         parts.append(grass.obj('grass', T.foliage('foot_grass', color='#2c2e17', tip='#5a5630', seed=4), smooth=False))

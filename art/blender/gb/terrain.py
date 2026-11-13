@@ -696,7 +696,10 @@ def ellipsoid(c, r, seg=20, rings=12, nz=None, rough=0.0, scale=8.0):
     m = rings + 1
     i, j = np.meshgrid(np.arange(seg), np.arange(rings), indexing='ij')
     q0 = (i * m + j).ravel()
-    F = np.concatenate((np.column_stack((q0, q0 + m, q0 + m + 1)), np.column_stack((q0, q0 + m + 1, q0 + 1))))
+    F = np.concatenate((np.column_stack((q0, q0 + m, q0 + m + 1))[j.ravel() > 0],          # no slivers at the poles
+                        np.column_stack((q0, q0 + m + 1, q0 + 1))[j.ravel() < rings - 1]))
+    pole = F % m
+    F = np.where(pole == 0, 0, np.where(pole == rings, rings, F))                           # one vertex a pole
     return V, F
 
 
