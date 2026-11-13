@@ -152,6 +152,8 @@ await boot(); await dismissModals();
 const cleaned = await page.evaluate((BK) => {
   const S = G.state;
   G.weeklyTick(); G.save();
+  // v0.73: at phone width the deserters list lives in the Work sheet — raise it, so the page under test is the one that lists them
+  if (typeof MTAB === 'function' && typeof isNarrow === 'function' && isNarrow() && !document.querySelector('#fp-work')) MTAB('work');
   // the rendered page, collapsed panels included (the deserters list folds away at phone width), script source excluded
   const page = [...document.body.children].filter(e => e.tagName !== 'SCRIPT').map(e => e.textContent).join(' ');
   const lines = [...document.querySelectorAll('.statline')].map(e => e.textContent).filter(t => t.includes('wk to find them'));

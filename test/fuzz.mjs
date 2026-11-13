@@ -203,12 +203,15 @@ const BOT = (seed, story) => {
       if (S.roster.length < 4 && S.hirePool.length) { const i = S.hirePool.findIndex(h => S.coin >= hireCost(h)); if (i >= 0) { HIRE(i); return 'hire'; } }
       if (rnd() < 0.25 && S.roster.length < 7 && S.hirePool.length && S.coin > 90) { HIRE(0); return 'hire'; }
     }
+    // v0.73: the strategy screen folds its panels away, and on a phone keeps them in sheets: open what holds the buttons
+    if (typeof stratPanels === 'function' && !activeModal) { PREFS.panels = { company: true, hire: true, caravan: true, work: true, banner: true, standing: true, dead: true, log: true };
+      if (isNarrow()) mobileTab = pick(['company', 'caravan', 'caravan', 'work']); render(); }
     // story buttons
     const sb = [...document.querySelectorAll('button.storybtn:not([disabled])')];
     if (sb.length && rnd() < (story ? 0.9 : 0.4)) { pick(sb).click(); await sleep(0); return 'story'; }
     // any other enabled button in the camp panel, occasionally (commissions, shrine, outfitting, doctrines…)
     if (rnd() < 0.22) {
-      const side = [...document.querySelectorAll('#sideCol button:not([disabled]), #rosterCol button:not([disabled])')].filter(b => !/Rest a week|New Company|Hire|Provisions/.test(b.textContent));
+      const side = [...document.querySelectorAll('#strat .fp button:not([disabled]), #sact button:not([disabled]), #sideCol button:not([disabled]), #rosterCol button:not([disabled])')].filter(b => !/Rest a week|New Company|Hire|Provisions/.test(b.textContent) && !/fpx|srowx|sheetx/.test(b.className));
       if (side.length) { pick(side).click(); await sleep(0); return 'misc'; }
     }
     const r = rnd();

@@ -201,6 +201,38 @@ check('rendered field: manifest files exist, foes drawn from their own tier/capt
   art.miss.length === 0 && art.mapPainted && art.tier && art.base && art.captain && art.none && art.painted === art.tiles && art.edges > 0 && art.foeSprited >= 3
   && art.broken.length === 0 && art.bg && art.classic === 0 && !art.classicMap && art.classicFace && art.face, art);
 
+// 22. v0.73 — the strategy screen is the map: it fills the view and answers to zoom and pan without leaving its frame; the
+//     panels fold and stay folded; a tapped hex opens its panel and the end of a drag does not count as a tap; a soldier's
+//     row opens her whole card; on a phone the same panels come up as sheets from the tab bar
+await fresh('strat73');
+await page.setViewportSize({ width: 1280, height: 800 }); await page.waitForTimeout(300);
+const st = await page.evaluate(() => {
+  const out = {}, q = s => document.querySelector(s), vbw = () => Number(q('#mapsvg').getAttribute('viewBox').split(' ')[2]);
+  PREFS.panels = {}; PREFS.hidePanels = false; MAPCAM = null; sel = null; render();
+  const r = q('#mapsvg').getBoundingClientRect(); out.fills = Math.round(r.width) === innerWidth && Math.round(r.height) === innerHeight && !!q('#strat');
+  out.docks = !!q('#dockL #fp-company.open .srow') && !!q('#dockR #fp-caravan.open') && !q('#fp-banner.open') && /Rest a week/.test(q('#sact').textContent);
+  PANEL('company', true); out.folded = !q('#fp-company.open') && !q('#fp-company .fpb') && PREFS.panels.company === false; PANEL('company', true); out.reopened = !!q('#fp-company.open');
+  const w0 = vbw(); MAPZ(1); const w1 = vbw(); MAPZ(-1); MAPZ(-1); MAPZ(-1); MAPZ(-1); MAPZ(-1); MAPZ(-1); const w2 = vbw();
+  out.zoom = w1 < w0 && w2 > w0 && MAPCAM.s >= MAPCAM.min - 1e-6;
+  mapPan(-99999, -99999); const fr = mapFree(), cx = MAPCAM.x + (fr.x0 + fr.x1) / 2 / MAPCAM.s, cy = MAPCAM.y + (fr.y0 + fr.y1) / 2 / MAPCAM.s;
+  out.clamped = Math.abs(cx - MAPCAM.F.x) < 1 && Math.abs(cy - MAPCAM.F.y) < 1; MAPHOME();
+  const c = S.contracts[0]; HEX(c.q, c.r); out.selPanel = !!q('#dockR #fp-sel') && /Take contract|march|March/.test(q('#fp-sel').textContent); UNSEL(); out.unsel = !q('#fp-sel');
+  MAPDRAGGED = Date.now(); const svg = q('#mapsvg'), b = svg.getBoundingClientRect(); MAPCLICK({ currentTarget: svg, clientX: b.width / 2, clientY: b.height / 2 }); out.dragNotTap = sel === null;
+  MAPDRAGGED = 0; MAPCLICK({ currentTarget: svg, clientX: (mapFree().x0 + mapFree().x1) / 2, clientY: (mapFree().y0 + mapFree().y1) / 2 }); out.tap = sel !== null; sel = null;
+  SOLROW(S.roster[0].id); out.card = !!q('#fp-company .srowopen .scard') && /Outfit/.test(q('#fp-company .srowopen').textContent); SOLROW(S.roster[0].id); out.cardShut = !q('.srowopen');
+  HIDEP(); out.bare = !q('.dock') && !!q('#strat.bare') && !!q('#sact'); HIDEP();
+  return out; });
+await page.setViewportSize({ width: 400, height: 800 }); await page.waitForTimeout(400);
+const stm = await page.evaluate(() => { const out = {}, q = s => document.querySelector(s);
+  render(); out.tabs = !!q('#strat.narrow #mtabs') && !q('.dock') && !q('#sheet');
+  MTAB('company'); out.sheet = !!q('#sheet .srow') && !!q('#sheet #fp-hire'); MTAB('company'); out.shut = !q('#sheet');
+  MTAB('caravan'); out.caravan = !!q('#sheet #fp-caravan .fpb') && !!q('#sheet #fp-banner .fpb');
+  const c = S.contracts[0]; HEX(c.q, c.r); out.selSheet = q('#sheet') && q('#sheet').getAttribute('data-g') === 'sel'; UNSEL(); out.gone = !q('#sheet');
+  PREFS.panels = {}; return out; });
+await page.setViewportSize({ width: 1280, height: 800 }); await page.waitForTimeout(300);
+check('strategy screen: map fills the view, zoom and pan stay in the frame, panels fold and persist, hex panel, drag is not a tap, soldier card, map-only, phone sheets',
+  Object.values(st).every(Boolean) && Object.values(stm).every(Boolean), { st, stm });
+
 check('no uncaught page errors', errors.length === 0, errors.slice(0, 3));
 console.log(results.join('\n'));
 console.log(failed ? `\n${failed} regression(s) FAILED` : '\nPASS — ' + results.length + ' checks');
