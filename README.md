@@ -8,10 +8,35 @@ Single-file game — no build, no backend, no audio or image files; saves to you
 
 ## How to play
 - **Title screen**: continue, or raise a new banner — pick an **origin** (who founded the company), a **difficulty**, and optionally a **seed** (same seed, same realm, same omen, same rolls).
-- **Company screen**: take contracts (pay vs. danger vs. region pressure), hire, outfit soldiers from **the wagons**, buy provisions, rest to advance the week. The Blight pressure bars are the clock — a region at 100 is swallowed, and its buried graves rise. Renown buys **doctrines**.
+- **The march** (strategy screen): the map is the whole screen — drag to move it, wheel or pinch to zoom, tap a hex to read it. The company, the caravan, contracts and the rest float over it as panels that fold away (`H` hides them all; on a phone they are tabs along the bottom). Take contracts (pay vs. danger vs. region pressure), hire, outfit soldiers from **the wagons**, buy provisions, rest to advance the week. The Blight pressure bars are the clock — a region at 100 is swallowed, and its buried graves rise. Renown buys **doctrines**.
 - **Battle**: one **Move** + one **Action** per soldier per turn. Click blue tiles to move, gold to dash; click red-rimmed enemies to attack (the label is hit % and the damage band — a ☠ means the blow can kill); click any other enemy to **scout** its threat range. Small chests are **caches**: end a step on one. Retreating carries out only the bodies a living soldier stands beside — the rest are the Blight's.
-- **Keys**: `Tab`/`Space` next soldier · `1`–`9` abilities · `B` brace · `U` undo a step · `E`/`Enter` end turn · `WASD`/arrows pan · `+`/`−` zoom · `M` whole field · `C` centre · `V` inspect · `L` log · `R` retreat · `Esc` cancel · `?` help.
+- **Keys on the march**: `WASD`/arrows move the map · `+`/`−` zoom · `C` centre on the caravan · `H` panels · `Esc` close what is open.
+- **Keys in battle**: `Tab`/`Space` next soldier · `1`–`9` abilities · `B` brace · `U` undo a step · `E`/`Enter` end turn · `WASD`/arrows pan · `+`/`−` zoom · `M` whole field · `C` centre · `V` inspect · `L` log · `R` retreat · `Esc` cancel · `?` help.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
+
+## v0.73 (2026-11-13) — The March Is the Screen
+The strategy layer was three columns with the map boxed into the middle one. Now the map is the screen and
+everything else floats over it.
+
+- **The map fills the view.** Drag to move it, wheel or pinch to zoom, `WASD`/arrows and `+`/`−` on the keys, `C` to
+  come back to the caravan. It opens close enough to read the ground, with the caravan in the middle of what is
+  clear, and follows the caravan when a march carries it out of view. In Act I the camera roams one province and its
+  borders, as the old frame did; after the reveal the 🗺 button switches between the province and the realm.
+- **Panels fold away.** The Company, Sellswords for Hire, The Chronicle (left); Caravan, Contracts & Rumours, The
+  Banner, Standing, The Dead (right). A folded panel keeps one line of what matters (heads, what is posted, renown,
+  how many of your dead walk), a **!** when the caravan has something to do where it stands, and the game remembers
+  which you left open. **Map only** (`H`) clears them all.
+- **The company is a list.** One row a soldier: face, name, class, level, wounds, weapon. Tap a row for the whole
+  card and its buttons.
+- **A tapped hex opens This Ground** at the top of the right dock, with the march, the contract and the rites.
+- **The clock is always in reach**: Rest a week, provisions and the wagons sit on a bar at the foot of the map; an
+  earned doctrine shows in the top bar until it is chosen.
+- **On a phone** the map is the screen too: a two-line bar, four tabs along the bottom (Company, Caravan, Work,
+  Chronicle) that raise their panels as a sheet, and a tapped hex raises its own.
+- Hover tips on this screen are laid over the page, so a dock's edge no longer cuts them off.
+
+No save change. Tests: the regression suite adds a strategy-screen check (27); the fuzz bot opens the panels before it
+looks for buttons.
 
 ## v0.72 (2026-11-13) — The Whole Field, Rendered
 v0.71 put the rendered company on a field that was still flat colour and hand-drawn tokens. This version redraws
