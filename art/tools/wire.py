@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Wire approved (or in-review) company sprites into the game.
+"""Wire approved (or in-review) sprites into the game.
 
-    python3 art/tools/wire.py fighter ranger cleric acolyte     # copy those classes to assets/sprites and rewrite the manifest
+    python3 art/tools/wire.py fighter ranger cleric acolyte foe prop terr deco ground   # what the game ships today
     python3 art/tools/wire.py --check                           # verify index.html's manifest matches assets/sprites exactly
 
-Copies each named class's whole sprites, body layers and head layers from art/sprites to assets/sprites (the only
-sprite folder the page reads), then regenerates the SPR_MAN block in index.html from what is actually on disk, so the
-game never asks for a file that is not there. A class that is not named keeps the hand-drawn SVG. Needs no Blender.
+Each name is a file prefix (the part before the first underscore): a company class (its whole sprites, body layers and
+head layers), or a group: foe (foe_<key>...), prop, terr, deco, ground (the painted ground sheets and edge masks).
+Copies them from art/sprites to assets/sprites (the only sprite folder the page reads), then regenerates the SPR_MAN
+block in index.html from what is actually on disk, so the game never asks for a file that is not there. Anything not
+named, or not rendered yet, keeps its hand-drawn SVG. Needs no Blender.
 """
 import json, os, re, shutil, sys
 

@@ -335,6 +335,45 @@
   #grid .unit.sprited.spent .spr{filter:grayscale(.85) brightness(.62)}
   #grid .unit.sprited .hp{bottom:-5px} #grid .unit.sprited .hpn{bottom:-8px}
   #grid .unit.sprited.hitflash img.sp{filter:drop-shadow(0 0 .7px #000) drop-shadow(0 0 6px rgba(224,89,63,.95))}
+  /* ---- v0.72: the rest of the field, rendered — painted ground under everything, terrain and foes standing on it ---- */
+  #grid .tile.gt,#grid .ge{background-size:calc(var(--ts)*8) calc(var(--ts)*8);background-position:calc(var(--gx)*var(--ts)*-1) calc(var(--gy)*var(--ts)*-1)}
+  #grid .g-heath{background-image:url(assets/sprites/ground_heath.webp)} #grid .g-forest{background-image:url(assets/sprites/ground_forest.webp)} #grid .g-marsh{background-image:url(assets/sprites/ground_marsh.webp)} #grid .g-stony{background-image:url(assets/sprites/ground_stony.webp)} #grid .g-dirt{background-image:url(assets/sprites/ground_dirt.webp)} #grid .g-ashen{background-image:url(assets/sprites/ground_ashen.webp)} #grid .g-grave{background-image:url(assets/sprites/ground_grave.webp)} #grid .g-flag{background-image:url(assets/sprites/ground_flag.webp)} #grid .g-road{background-image:url(assets/sprites/ground_road.webp)} #grid .g-mire{background-image:url(assets/sprites/ground_mire.webp)} #grid .g-water{background-image:url(assets/sprites/ground_water.webp)} #grid .g-planks{background-image:url(assets/sprites/ground_planks.webp)} #grid .g-chasm{background-image:url(assets/sprites/ground_chasm.webp)} #grid .g-blight{background-image:url(assets/sprites/ground_blight.webp)}
+  #grid .ge,#grid .gbr{position:absolute;inset:0;pointer-events:none}
+  #grid .ge{-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+  #grid .ge-n{-webkit-mask-image:url(assets/sprites/ground_edge_n.webp);mask-image:url(assets/sprites/ground_edge_n.webp)}
+  #grid .ge-e{-webkit-mask-image:url(assets/sprites/ground_edge_e.webp);mask-image:url(assets/sprites/ground_edge_e.webp)}
+  #grid .ge-s{-webkit-mask-image:url(assets/sprites/ground_edge_s.webp);mask-image:url(assets/sprites/ground_edge_s.webp)}
+  #grid .ge-w{-webkit-mask-image:url(assets/sprites/ground_edge_w.webp);mask-image:url(assets/sprites/ground_edge_w.webp)}
+  #grid .gbl{animation:bpulse 3.2s ease-in-out infinite}
+  #grid .gbr{box-shadow:inset 0 calc(var(--ts)*.07) 0 #1a120a,inset 0 calc(var(--ts)*-.07) 0 #1a120a,inset 0 calc(var(--ts)*.1) 0 rgba(120,96,66,.5),inset 0 calc(var(--ts)*-.1) 0 rgba(0,0,0,.5)}
+  #grid .gbr.ns{transform:rotate(90deg)} #grid .tile.g-planks.gt:has(.gbr.ns){background-image:none}
+  #grid .gbr.ns{background:url(assets/sprites/ground_planks.webp) 0 0/calc(var(--ts)*8) calc(var(--ts)*8)}
+  #grid img.ts{position:absolute;max-width:none;pointer-events:none;width:calc(var(--ts)*1.5);height:calc(var(--ts)*1.5);left:calc(var(--ts)*-0.25);top:calc(var(--ts)*-0.61);-webkit-user-drag:none}
+  #grid .tile.fogseen img.ts{filter:brightness(.45) saturate(.6)} #grid .tile.fogseen .ge{opacity:.45}
+  #grid .tile.gt.moveable::after,#grid .tile.gt.dashable::after,#grid .tile.gt.threat::after,#grid .tile.gt.objtile::after{content:'';position:absolute;inset:0;pointer-events:none;background-image:var(--ovo,none),var(--ovt,none),var(--ovm,none)}
+  #grid .tile.gt.moveable{--ovm:linear-gradient(rgba(96,160,235,.17),rgba(96,160,235,.17));outline-color:rgba(124,184,245,.5)}
+  #grid .tile.gt.dashable{--ovm:linear-gradient(rgba(214,172,44,.12),rgba(214,172,44,.12));outline-color:rgba(222,184,70,.42)}
+  #grid .tile.gt.threat{--ovt:repeating-linear-gradient(45deg,rgba(190,62,44,.22) 0 4px,transparent 4px 8px)}
+  #grid .tile.gt.objtile{--ovo:repeating-linear-gradient(-45deg,rgba(201,162,39,.16) 0 6px,transparent 6px 12px)}
+  #grid .unit.sprited.foe::before{--ring:#c9573f} #grid .unit.sprited.undead::before{--ring:#8fa573} #grid .unit.sprited.ally::before{--ring:#c9b48a}
+  #grid .unit.sprited.foe.current::before,#grid .unit.sprited.undead.current::before{--ring:#ff7a5c}
+  /* ---- v0.72: chrome — worn leather over every panel, plates for buttons, a muster line on the title ---- */
+  body{background:url(assets/sprites/ui_grain.webp),radial-gradient(1100px 700px at 28% -8%,#1c1711,var(--bg) 62%) fixed,var(--bg)}
+  #header{background:url(assets/sprites/ui_grain.webp),linear-gradient(#211b14,#17130e);border-bottom:1px solid #000;box-shadow:0 1px 0 rgba(201,162,39,.14),0 6px 18px rgba(0,0,0,.5)}
+  .col{background:url(assets/sprites/ui_grain.webp),linear-gradient(#1e1913,#191510);border-color:#34291c;box-shadow:inset 0 0 0 1px rgba(201,162,39,.05),inset 0 1px 0 rgba(255,236,190,.05),0 4px 14px rgba(0,0,0,.5)}
+  .card{background:linear-gradient(#27221a,#221d16);border-color:#3a3023;box-shadow:inset 0 1px 0 rgba(255,236,190,.04),0 1px 3px rgba(0,0,0,.4)}
+  #modal{background:url(assets/sprites/ui_grain.webp),linear-gradient(#201a13,#17130e)}
+  h2{letter-spacing:.14em;border-bottom:1px solid transparent;border-image:linear-gradient(90deg,rgba(201,162,39,.55),rgba(201,162,39,.12) 60%,transparent) 1}
+  button{background:linear-gradient(#3a301f,#272116 55%,#201b12);border-color:#4a3d29;box-shadow:inset 0 1px 0 rgba(255,236,190,.09),0 1px 2px rgba(0,0,0,.5);border-radius:3px}
+  button:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
+  button.primary{background:linear-gradient(#5a4718,#3b2f11 55%,#2e250e);border-color:#9a7c2e;box-shadow:inset 0 1px 0 rgba(255,236,170,.2),0 1px 2px rgba(0,0,0,.5)}
+  button.danger{background:linear-gradient(#3a211c,#261512)}
+  .scard .face .spr-card,.face>.spr-card{border-color:#4a3d29;border-radius:3px}
+  #title{background:radial-gradient(900px 640px at 50% 34%,rgba(42,32,21,.55),rgba(8,7,5,.94) 72%),url(assets/sprites/ground_ashen.webp) center/900px,#0c0a07}
+  .tmuster{position:relative;height:150px;width:min(560px,92vw);margin:0 auto -34px;pointer-events:none;-webkit-mask-image:linear-gradient(#000 62%,transparent 96%);mask-image:linear-gradient(#000 62%,transparent 96%)}
+  .tmuster img{position:absolute;bottom:-34px;width:210px;height:210px;left:calc(50% - 105px + var(--x));filter:drop-shadow(0 6px 10px rgba(0,0,0,.8)) brightness(var(--b,1))}
+  @media (max-width:760px){ .tmuster{height:118px;margin-bottom:-26px} .tmuster img{width:160px;height:160px;left:calc(50% - 80px + var(--x)*.72);bottom:-24px} }
+  .spr-card.pt{background-size:330%;background-position:50% 19.5%;background-color:#1b1712;box-shadow:inset 0 0 10px rgba(0,0,0,.7)} .spr-card.pt.rv{background-color:#1d1626;border-color:#5a4372}
   .spr-card{display:block;border:1px solid var(--line);border-radius:3px;background-color:#161310;background-repeat:no-repeat;background-size:175%;background-position:50% 64%}
 </style>
 </head>
@@ -343,7 +382,7 @@
 <script>
 'use strict';
 /* ============================== UTILITIES ============================== */
-const VERSION='0.71';                                   // the one place the build names itself (title, header, title screen)
+const VERSION='0.72';                                   // the one place the build names itself (title, header, title screen)
 let S=null;                                             // the campaign record — declared first so the RNG below can read it
 /* ---- v0.70 ONE DIE. Every roll the simulation makes goes through rnd(), a mulberry32 stream whose state lives ON the
    record (S.rng) — so a run is a function of its seed, a reload continues the same stream, and a failing fuzz seed
@@ -1299,7 +1338,7 @@ function outfitModal(sid){
   const s=soldierById(sid); if(!s){ closeModal(); return; }
   const st=S.stash||[], at=A_TEMPER[s.aAff];
   const again=()=>{ save(); outfitModal(sid); };
-  const head=`<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+  const head=`<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
       <p style="margin:0"><b>${esc(s.name)}</b> <span class="tag">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">Lv ${s.level}</span></p>
       <div class="wline">${wpnIcon(s.weapon)} ${itemHtml(weaponItemOf(s))}</div>
       <div class="wline">🛡 <span class="tt" data-tip="${esc(armorTip(s.armor,s.aAff))}">${at?esc(at.n)+' ':''}${ARMORS[s.armor].n}</span></div>
@@ -1393,6 +1432,11 @@ function makeLook(founder){
 }
 // the procedural face that agrees with a head: its skin, hair colour and hair; eyes, mouth and marks still rolled
 function faceFor(look){ const f=makeFace(), e=lookEntry(look); if(e){ f.skin=e[0]; f.hc=e[1]; f.hair=e[2]; } return f; }
+// a soldier's portrait on a card: head and shoulders cut from their own rendered sprite (the same head they wear on the
+// field); the drawn face where the art is off or the class has no sprite
+function portrait(s,size,o){ o=o||{}; const p=spritesOn()&&s&&s.cls?sprPick(s,o):null;
+  if(!p)return faceSvg((s&&s.face)||{skin:0,hc:0},{size,revenant:o.revenant});
+  return `<div class="spr-card pt${o.revenant?' rv':''}" style="width:${size}px;height:${size}px;background-image:${p.whole?`url(${p.whole})`:`url(${p.head}),url(${p.body})`}"></div>`; }
 function faceSvg(f,o){ o=o||{}; const size=o.size||46; return `<svg viewBox="0 0 100 100" width="${size}" height="${size}">${faceInner(f,o)}</svg>`; }
 // grimdark board token: the soldier's own face framed in class-distinct armour + weapon (fighter/ranger/cleric/ash-acolyte/shade),
 // with a banner if they carry it. Reads by silhouette & colour when zoomed out, by detail when zoomed in.
@@ -1479,7 +1523,7 @@ function faceInner(f,o){
    drawn under the feet in CSS. The manifest is generated from assets/sprites, so a key is only emitted if the file
    exists. ---- */
 /*SPR_MAN:begin — written by art/tools/wire.py; do not edit by hand*/
-const SPR_MAN={whole:["acolyte_commander_f","acolyte_commander_m","acolyte_commander_revenant_f","acolyte_commander_revenant_m","acolyte_f","acolyte_m","acolyte_revenant_f","acolyte_revenant_m","acolyte_spear_f","acolyte_spear_m","acolyte_veteran_f","acolyte_veteran_m","cleric_commander_f","cleric_commander_m","cleric_commander_revenant_f","cleric_commander_revenant_m","cleric_f","cleric_m","cleric_revenant_f","cleric_revenant_m","cleric_shortsword_f","cleric_shortsword_m","cleric_spear_f","cleric_spear_m","cleric_veteran_f","cleric_veteran_m","fighter_commander_f","fighter_commander_m","fighter_commander_revenant_f","fighter_commander_revenant_m","fighter_f","fighter_m","fighter_revenant_f","fighter_revenant_m","fighter_veteran_f","fighter_veteran_m","ranger_commander_f","ranger_commander_m","ranger_commander_revenant_f","ranger_commander_revenant_m","ranger_f","ranger_m","ranger_revenant_f","ranger_revenant_m","ranger_spear_f","ranger_spear_m","ranger_veteran_f","ranger_veteran_m"],
+const SPR_MAN={whole:["acolyte_commander_f","acolyte_commander_m","acolyte_commander_revenant_f","acolyte_commander_revenant_m","acolyte_f","acolyte_m","acolyte_revenant_f","acolyte_revenant_m","acolyte_spear_f","acolyte_spear_m","acolyte_veteran_f","acolyte_veteran_m","cleric_commander_f","cleric_commander_m","cleric_commander_revenant_f","cleric_commander_revenant_m","cleric_f","cleric_m","cleric_revenant_f","cleric_revenant_m","cleric_shortsword_f","cleric_shortsword_m","cleric_spear_f","cleric_spear_m","cleric_veteran_f","cleric_veteran_m","fighter_commander_f","fighter_commander_m","fighter_commander_revenant_f","fighter_commander_revenant_m","fighter_f","fighter_m","fighter_revenant_f","fighter_revenant_m","fighter_veteran_f","fighter_veteran_m","foe_archer_1_f","foe_archer_1_m","foe_archer_2_f","foe_archer_2_m","foe_brigand_1_f","foe_brigand_1_m","foe_brigand_2_f","foe_brigand_2_m","foe_brigand_captain_1_f","foe_brigand_captain_1_m","foe_brigand_hardened_1_f","foe_brigand_hardened_1_m","foe_cutthroat_1_f","foe_cutthroat_1_m","foe_cutthroat_2_f","foe_cutthroat_2_m","foe_husk_1_f","foe_husk_1_m","foe_husk_2_f","foe_husk_2_m","foe_husk_bloated_1_f","foe_husk_bloated_1_m","foe_husk_ironbound_1_f","foe_husk_ironbound_1_m","ground_ashen","ground_blight","ground_chasm","ground_dirt","ground_edge_e","ground_edge_n","ground_edge_s","ground_edge_w","ground_flag","ground_forest","ground_grave","ground_heath","ground_marsh","ground_mire","ground_planks","ground_road","ground_stony","ground_water","map_blight","map_forest","map_hills","map_marsh","map_mountain","map_plains","map_setl","ranger_commander_f","ranger_commander_m","ranger_commander_revenant_f","ranger_commander_revenant_m","ranger_f","ranger_m","ranger_revenant_f","ranger_revenant_m","ranger_spear_f","ranger_spear_m","ranger_veteran_f","ranger_veteran_m","ui_grain"],
   body:["acolyte_commander_f","acolyte_commander_m","acolyte_commander_revenant_f","acolyte_commander_revenant_m","acolyte_f","acolyte_m","acolyte_revenant_f","acolyte_revenant_m","acolyte_spear_commander_f","acolyte_spear_commander_m","acolyte_spear_commander_revenant_f","acolyte_spear_commander_revenant_m","acolyte_spear_f","acolyte_spear_m","acolyte_spear_revenant_f","acolyte_spear_revenant_m","acolyte_spear_veteran_f","acolyte_spear_veteran_m","acolyte_veteran_f","acolyte_veteran_m","cleric_commander_f","cleric_commander_m","cleric_commander_revenant_f","cleric_commander_revenant_m","cleric_f","cleric_m","cleric_revenant_f","cleric_revenant_m","cleric_shortsword_commander_f","cleric_shortsword_commander_m","cleric_shortsword_commander_revenant_f","cleric_shortsword_commander_revenant_m","cleric_shortsword_f","cleric_shortsword_m","cleric_shortsword_revenant_f","cleric_shortsword_revenant_m","cleric_shortsword_veteran_f","cleric_shortsword_veteran_m","cleric_spear_commander_f","cleric_spear_commander_m","cleric_spear_commander_revenant_f","cleric_spear_commander_revenant_m","cleric_spear_f","cleric_spear_m","cleric_spear_revenant_f","cleric_spear_revenant_m","cleric_spear_veteran_f","cleric_spear_veteran_m","cleric_veteran_f","cleric_veteran_m","fighter_commander_f","fighter_commander_m","fighter_commander_revenant_f","fighter_commander_revenant_m","fighter_f","fighter_m","fighter_revenant_f","fighter_revenant_m","fighter_veteran_f","fighter_veteran_m","ranger_commander_f","ranger_commander_m","ranger_commander_revenant_f","ranger_commander_revenant_m","ranger_f","ranger_m","ranger_revenant_f","ranger_revenant_m","ranger_spear_commander_f","ranger_spear_commander_m","ranger_spear_commander_revenant_f","ranger_spear_commander_revenant_m","ranger_spear_f","ranger_spear_m","ranger_spear_revenant_f","ranger_spear_revenant_m","ranger_spear_veteran_f","ranger_spear_veteran_m","ranger_veteran_f","ranger_veteran_m"],
   heads:{"acolyte":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]},"cleric":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]},"fighter":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]},"ranger":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]}}};
 /*SPR_MAN:end*/
@@ -1511,6 +1555,58 @@ function pcTopDown(s,size,o){
 }
 // warm the cache with the squad about to march, so nobody walks onto the field as an empty ring
 function sprPreload(list){ if(!spritesOn())return; for(const s of list){ const p=sprPick(s,{}); if(!p)continue; for(const u of [p.whole,p.body,p.head])if(u){ const i=new Image(); i.src=u; } } }
+// v0.72 — everything else on the field, rendered: foes (foe_<key>[_<tag>]_<n>[_<m|f>]: whole sprites, each unit dealt one by
+// its id, from its tier's looks if its name carries the tag, the ♛ from the 'captain' looks), props and terrain
+// (prop_/terr_/deco_<kind>_<n>), and the painted ground (ground_<name>, one 8-tile sheet under the whole field).
+const SPR_IDX=(()=>{ const foe={},oth={},ground={},map={};
+  for(const n of SPR_MAN.whole){
+    let m=n.match(/^foe_([a-z]+)(?:_([a-z]+))?_(\d+)(?:_[mf])?$/);
+    if(m){ const k=foe[m[1]]=foe[m[1]]||{base:[],tags:{}}; if(m[2])(k.tags[m[2]]=k.tags[m[2]]||[]).push(n); else k.base.push(n); continue; }
+    m=n.match(/^(prop|terr|deco)_([a-z]+)_(\d+)(?:_[mf])?$/); if(m){ (oth[m[1]+'_'+m[2]]=oth[m[1]+'_'+m[2]]||[]).push(n); continue; }
+    m=n.match(/^ground_([a-z]+)$/); if(m){ ground[m[1]]=1; continue; }
+    m=n.match(/^map_([a-z]+)$/); if(m)map[m[1]]=1;
+  }
+  return {foe,oth,ground,map}; })();
+function sprHash(x,y){ return (((x*73856093)^(y*19349663))>>>0); }
+function foeSprite(u){
+  if(!spritesOn())return null; const k=SPR_IDX.foe[u.ekey]; if(!k||!k.base.length)return null;
+  const B=S.battle, tag=String(u.name||'').split(' ')[0].toLowerCase();
+  const pool=(B&&B.leaderUid===u.uid&&k.tags.captain)||k.tags[tag]||k.base;
+  return SPR_ROOT+pool[(u.uid||0)%pool.length]+'.webp';
+}
+function sprOf(kind,x,y){ if(!spritesOn())return null; const l=SPR_IDX.oth[kind]; return l?SPR_ROOT+l[sprHash(x,y)%l.length]+'.webp':null; }
+function sprImg(src,cls){ return `<img class="${cls||'sp'}" src="${src}" alt="" draggable="false">`; }
+// the ground a tile shows: its own kind for roads, water and the like; else the earth of the battlefield's theme
+const THEME_EARTH={marsh:'marsh',causeway:'marsh',woods:'forest',pass:'stony',cliffs:'stony',quarry:'stony',ruins:'dirt',town:'dirt',camp:'dirt',
+  menhir:'ashen',ritual:'heath',river:'heath',boulders:'heath',fields:'heath',crypt:'flag',graveyard:'grave'};
+const GROUND_OF={road:'road',bridge:'planks',mire:'mire',water:'water',chasm:'chasm'};
+const GROUND_PRIO={road:4,planks:3,mire:2,water:1,chasm:0};          // the earth itself is 5: the higher ground runs ragged over the lower
+function groundKind(B,t){ return GROUND_OF[t.t]||THEME_EARTH[B.mapTheme]||'heath'; }
+function groundOn(k){ return spritesOn()&&!!SPR_IDX.ground[k]; }
+const TERR_SPR={tree:'terr_tree',boulder:'terr_boulder',rubble:'terr_wall',column:'terr_column',stone:'terr_stone',brush:'terr_brush'};
+const DECO_SPR={rock:'deco_rock',bone:'deco_bones',skull:'deco_skull',barrel:'deco_barrel',crate:'deco_crate',wheel:'deco_wheel',stump:'deco_stump',log:'deco_log',plank:'deco_plank',reed:'deco_reeds',fern:'deco_fern'};
+// what a tile carries over its ground when the rendered art is on: the neighbours' ragged edges, the Blight's stain, the
+// terrain sprite or the scatter. Returns null when this tile has nothing rendered, and the SVG draws it as before.
+function tileRendered(B,x,y,t,gk){
+  if(!groundOn(gk))return null;
+  let s='';
+  const my=GROUND_PRIO[gk]==null?5:GROUND_PRIO[gk];
+  for(const [dx,dy,side] of [[0,-1,'n'],[1,0,'e'],[0,1,'s'],[-1,0,'w']]){
+    const nb=tileAt(B,x+dx,y+dy); if(!nb||!B.seen[(x+dx)+','+(y+dy)])continue;
+    const nk=groundKind(B,nb); if(nk===gk||nk==='planks'||!groundOn(nk))continue;
+    if((GROUND_PRIO[nk]==null?5:GROUND_PRIO[nk])>my)s+=`<i class="ge ge-${side} g-${nk}"></i>`;
+  }
+  if(t.t==='bridge'){ const wet=(dx,dy)=>{ const nb=tileAt(B,x+dx,y+dy); return !!nb&&(nb.t==='water'||nb.t==='chasm'); };
+    const ns=(wet(-1,0)||wet(1,0))&&!(wet(0,-1)||wet(0,1));           // water to the sides: the bridge runs north-south
+    s+=`<i class="gbr ${ns?'ns':''}"></i>`; }
+  if(t.blighted&&t.t!=='water'&&t.t!=='chasm'&&groundOn('blight'))s+=`<i class="ge g-blight gbl"></i>`;
+  const tk=TERR_SPR[t.t], src=tk?sprOf(tk,x,y):null;
+  if(src)s+=sprImg(src,'ts'+(t.t==='rubble'?' tw':''));
+  else if(tk)return s+(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t));      // no sprite for it yet: the old drawing, on the new ground
+  if(t.deco&&(t.t==='grass'||t.t==='road'||t.t==='mire')){ const dk=DECO_ALIAS[t.deco]||t.deco, ds=DECO_SPR[dk]?sprOf(DECO_SPR[dk],x,y):null;
+    s+=ds?sprImg(ds,'ts td'):`<svg class="decor" viewBox="0 0 46 46">${decoInner(t.deco,x,y)}</svg>`; }
+  return s;
+}
 function pcTopDownSvg(s,size,o){
   o=o||{}; const rev=!!o.revenant, cls=(s&&s.cls)||'fighter', cmdr=!!(s&&s.commander), K='#0e0b07';
   const f=(s&&s.face)||{skin:0,hc:0}; const skin=rev?'#9aa396':(SKINS[f.skin]||SKINS[0]);
@@ -1545,6 +1641,7 @@ function pcTopDownSvg(s,size,o){
 }
 function enemyFace(key,size){
   size=size||32;
+  { const k=spritesOn()&&SPR_IDX.foe[key]; if(k&&k.base.length)return `<div class="spr-card" style="width:${size}px;height:${size}px;background-image:url(${SPR_ROOT+k.base[0]}.webp)"></div>`; }
   const F=(fill)=>`<ellipse cx="50" cy="58" rx="23" ry="26" fill="${fill}" stroke="#17130e" stroke-width="2.5"/>`;
   let s='';
   switch(key){
@@ -2848,7 +2945,7 @@ window.BUYBACK=function(idx){
   }
   opts.push({label:'Leave them to the tavern',fn:()=>closeModal()});
   showModal(`${s.name}, run to ${town}`,
-    `<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+    `<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
      <p>You find ${esc(s.name)} ${s.wasCommander?'nursing a bottle and what is left of your company’s honor':'three drinks deep'} in a ${esc(town)} tavern. Back-wages and a bruised apology will bring them home${canPay?'.':' — but you cannot cover it right now.'}</p></div></div>`,
     opts);
 };
@@ -2872,7 +2969,7 @@ function grantXp(s,amt){
 }
 function featModal(s,opts,stat){
   const up=k=>stat===k?' statup':'';
-  const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
+  const body=`<div class="scard"><div class="face">${portrait(s,56)}</div><div class="sbody">
       <p style="margin:0"><b>${esc(s.name)}</b>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> reaches <b>level ${s.level}</b>.</p>
       <div class="statgrid">
         <span class="${up('maxhp')}"><span class="tt" data-tip="${esc(STAT_TIPS.hp)}">HP</span> ${s.hp}/${s.maxhp}${stat==='maxhp'?' (+2)':''}</span>
@@ -4292,7 +4389,7 @@ function calloutModal(B,g){
   const deedLine=(g.snap&&g.snap.deeds&&g.snap.deeds.length)
     ? `<p class="hint">The stories you told about her walk with her: ${esc(g.snap.deeds.map(d=>DEEDS[d]?DEEDS[d].n:'').filter(Boolean).join(', '))}.</p>`:'';
   return showModal(`${g.name}, Returned`,
-    `<div class="face revf" style="float:right;margin-left:8px">${faceSvg(g.face,{size:60,revenant:true})}</div>
+    `<div class="face revf" style="float:right;margin-left:8px">${portrait(revSprite(g),60,{revenant:true})}</div>
      <p>Across the field, a figure in your old colors — <b>Level ${shownLvl}</b> now, grown past what you buried. ${esc(FEATS[g.snap.feats[0]]?FEATS[g.snap.feats[0]].n:'')}${g.snap.feats.length>1?' + '+(g.snap.feats.length-1)+' more':''} — the build is yours. The face is hers. Barely.${retLine}</p>${deedLine}${swornLine}<div class="callout">“${esc(line)}”</div>${effect}${it}`,
     [{label:'Steel yourselves',fn:()=>closeModal()}]);
 }
@@ -4722,7 +4819,7 @@ function deedsModal(){
   const primer=!S.deedPrimerSeen?`<p class="hint" style="margin-bottom:8px">There is nothing left to teach a soldier past five. Kills are wages, and wages get spent. What counts now is what gets told at other fires — the revenant put back in the ground, the road that held. <b>Three tellings</b> to her name, one of them hers alone, and a town to hear them, and the company can raise her banner.</p>`:'';
   S.deedPrimerSeen=true;
   const rows=batch.map(e=>{ const s=soldierById(e.sid), D=DEEDS[e.id];
-    return `<div class="scard"><div class="face">${s?faceSvg(s.face,{size:44}):''}</div><div class="sbody">
+    return `<div class="scard"><div class="face">${s?portrait(s,44):''}</div><div class="sbody">
       <p style="margin:0"><b>${esc(s?s.name:'—')}</b> — <span style="color:var(--gold)">${esc(D.n)}</span></p>
       <p class="hint" style="margin:2px 0 0">${esc(D.line)}</p></div></div>`; }).join('');
   showModal('Deeds of the Field',primer+rows,[{label:'It will be told',cls:'primary',fn:()=>closeModal()}]);
@@ -4770,11 +4867,11 @@ function oathDemandModal(s){
   if(!s||!s.oath){closeModal();return;}
   const to=s.oath.to, O=OATHS[to];
   const body=to==='karsk'
-    ? `<div class="scard"><div class="face">${faceSvg(s.face,{size:50})}</div><div class="sbody">
+    ? `<div class="scard"><div class="face">${portrait(s,50)}</div><div class="sbody">
        <p style="margin-top:0"><b>${esc(s.name)}</b> — sworn to the Crown</p></div></div>
        <p>The rider wears the Gate’s grey and does not dismount. “The crown calls its sworn to the Fords. Two weeks’ garrison. Her oath, her duty — your inconvenience is noted, Commander, and irrelevant.”</p>
        <p class="hint">She told you this would come. It was written into the oath.</p>`
-    : `<div class="scard"><div class="face">${faceSvg(s.face,{size:50})}</div><div class="sbody">
+    : `<div class="scard"><div class="face">${portrait(s,50)}</div><div class="sbody">
        <p style="margin-top:0"><b>${esc(s.name)}</b> — sworn to the Folk</p></div></div>
        <p>The bell rings at first light and keeps ringing. A tithe of bread, they said, when the bell rings. It is ringing.</p>
        <p class="hint">She told you this would come. It was written into the oath.</p>`;
@@ -4826,7 +4923,7 @@ function swearOath(s,to){
 }
 function oathModal(s){
   const opts=['banner'].concat(oathAffinity(s).slice(0,2));
-  const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+  const body=`<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
     <p style="margin-top:0"><b>${esc(s.name)}</b> <span class="tag">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">${esc(bgOf(s).tag)}</span></p>
     <p class="hint" style="margin:2px 0">${esc(bgOf(s).line)}</p></div></div>
     <p>Word of the deed travels. At six a soldier has a name; at seven the name has suitors. ${esc(s.name)} comes to your fire with an offer already in her hand — and it is hers to take, not yours.</p>`;
@@ -4857,7 +4954,7 @@ function sellStrainApply(g){
 function oathCrisisModal(s){
   if(!s||!s.oath||s.oath.state==='broken'){closeModal();return;}
   const O=OATHS[s.oath.to], last=(s.oath.receipts||[]).slice(-1)[0]||'what the company has been doing';
-  const body=`<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+  const body=`<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
      <p style="margin-top:0"><b>${esc(s.name)}</b> — sworn to ${esc(O.patron)}</p>
      <p class="hint" style="margin:2px 0">Because ${esc(last)}.</p></div></div>
     <p>${esc(s.name)} stands at the wagon-tongue with her arms folded. “I swore to ${esc(O.patron)} before I swore to your ledger. Make it right, or ride out one short.”</p>`;
@@ -5079,7 +5176,7 @@ function ritesModal(g){
   const buryCost=(doc('gravewardens')||S.origin==='gravediggers')?0:12, burnFree=doc('gravewardens');
   const canBury=S.coin>=buryCost;
   return showModal(`Rites for ${g.name}`,
-    `<div class="scard"><div class="face">${faceSvg(g.face,{size:50})}</div><div class="sbody">
+    `<div class="scard"><div class="face">${portrait(revSprite(g),50)}</div><div class="sbody">
      <p style="margin-top:0">${esc(g.name)} — ${esc(BACKSTORIES[g.bg].line)}</p><p class="hint">Unfinished: ${esc(g.hook)}.</p>
      <p>The body is yours to answer for.</p></div></div>`,
     [
@@ -5632,7 +5729,7 @@ function ledgerScene(){
 function whisperEvent(s){
   s.whispered=true;
   showModal(`${s.name} — The Whisper`,
-    `<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
+    `<div class="scard"><div class="face">${portrait(s,56)}</div><div class="sbody">
      <p>${esc(s.name)} has started answering the graft when it talks. Quietly. At night. It is asking to be <i>used</i>.</p></div></div>`,
     [{label:'Indulge it — let it feed (+1 SKL, +1 corruption)',cls:'pick',fn:()=>{s.skl++;addCorruption(s,1);log(`${s.name} lets the graft feed. Her hands are steadier. Her eyes are worse.`,'blight');closeModal();}},
      {label:'Help her fight it (−2 resolve, −1 corruption)',cls:'pick',fn:()=>{s.res=Math.max(10,s.res-2);s.corr=Math.max(0,s.corr-1);log(`${s.name} grits through the whispering. It costs her sleep.`,'good');closeModal();}},
@@ -5641,7 +5738,7 @@ function whisperEvent(s){
 function demandEvent(s){
   s.demanded=true;
   showModal(`${s.name} — The Demand`,
-    `<div class="scard"><div class="face">${faceSvg(s.face,{size:56})}</div><div class="sbody">
+    `<div class="scard"><div class="face">${portrait(s,56)}</div><div class="sbody">
      <p>The graft has stopped whispering and started <i>negotiating</i>. It wants a promise from ${esc(s.name)} — and through her, from you.</p>
      <p class="hint">Promise it, and she fights like something unchained. But a promise to the Ash is an unfinished story — and you know where unfinished stories go.</p></div></div>`,
     [{label:'Make the promise (+2 damage, permanently; her revenant will rise stronger)',cls:'pick',fn:()=>{s.dmgBonus=(s.dmgBonus||0)+2; s.ashPromised=true; log(`${s.name} promises. The graft goes warm and quiet, like something fed.`,'blight');closeModal();}},
@@ -5864,7 +5961,7 @@ function hookEvent(s){
       return esc(H.tr.x(s))+` <span class="hint">(−${H.tr.xres||2} resolve${H.tr.xhp?', −'+H.tr.xhp+' HP':''}${H.tr.xcorr?', +'+H.tr.xcorr+' corruption':''}. It will come round again.)</span>`; }});
   if(H.fight)o.push({l:H.fight.l,cls:'danger',f:()=>evFight(H.fight.cname,H.fight.comp,{hookSid:s.id,hookBonus:H.fight.bonus||0})});
   o.push({l:'Not now. It will keep — it always has.',cls:'',f:()=>{ s.hookCool=S.week+6; s.res=Math.max(10,s.res-1); return `${esc(s.name)} nods. It is still there, the way a stone is still in a boot. (−1 resolve.)`; }});
-  evShow({t:H.t,b:`<div class="scard"><div class="face">${faceSvg(s.face,{size:54})}</div><div class="sbody"><p style="margin-top:0">${esc(H.p(s))}</p>
+  evShow({t:H.t,b:`<div class="scard"><div class="face">${portrait(s,54)}</div><div class="sbody"><p style="margin-top:0">${esc(H.p(s))}</p>
       <p class="hint">Unfinished: ${esc(bgOf(s).hook)}. Settle it and it is a deed to her name — and nothing her revenant can ever throw at you.</p></div></div>`,o});
 }
 
@@ -6033,11 +6130,17 @@ function ambient(on){
    between a player and a fight in progress. */
 let owedQueued=false;
 function bannerSvg(sz){ return `<svg width="${sz}" height="${Math.round(sz*1.3)}" viewBox="0 0 20 26"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>`; }
+// the title's muster line: the company as it is rendered, the Commander under the banner at the centre
+function titleMuster(){
+  if(!spritesOn())return '';
+  const line=[['ranger_veteran_f',-190,.72],['acolyte_m',190,.72],['cleric_f',-98,.86],['fighter_veteran_m',98,.86],['fighter_commander_f',0,1]].filter(l=>SPR_SET.whole.has(l[0]));
+  return line.length<3?'':`<div class="tmuster">${line.map(l=>`<img src="${SPR_ROOT+l[0]}.webp" alt="" style="--x:${l[1]}px;--b:${l[2]}">`).join('')}</div>`;
+}
 function renderTitle(){
   const live=S&&!S.over, L=legacyLoad();
   return `<div id="title"><div class="tembers"></div>
     <div class="tbox">
-      <div class="tbanner">${bannerSvg(54)}</div>
+      ${titleMuster()||`<div class="tbanner">${bannerSvg(54)}</div>`}
       <h1 class="tlogo">GRAVEBORNE</h1>
       <p class="ttag">You will fight everyone you fail to protect.</p>
       <div class="tmenu">
@@ -6101,7 +6204,7 @@ window.HOWTO=function(){
 };
 function settingsHtml(){
   const row=(lab,val,fn,tip)=>`<div class="setrow"><span class="tt" data-tip="${esc(tip)}">${lab}</span><button onclick="${fn}">${val}</button></div>`;
-  return row('Company art',PREFS.sprites!==false?'Rendered':'Classic',"SETP('sprites')",'Rendered: the Blender sprites for the Fighter, Ranger, Cleric and Ash Acolyte. Classic: the hand-drawn top-down figures from before.')
+  return row('Art',PREFS.sprites!==false?'Rendered':'Classic',"SETP('sprites')",'Rendered: the Blender sprites for the company, its enemies and the battlefield, on painted ground. Classic: the hand-drawn figures and flat ground from before.')
     +row('Sound',PREFS.sound?'On':'Off',"SETP('sound')",'Synthesised in the browser — no downloads.')
     +`<div class="setrow"><span>Volume</span><span><button onclick="SETVOL(-1)">−</button> <b>${Math.round(PREFS.vol*100)}%</b> <button onclick="SETVOL(1)">＋</button></span></div>`
     +row('Confirm End Turn',PREFS.confirmEnd?'When soldiers can still act':'Never',"SETP('confirmEnd')",'Ask before ending the turn while someone still has an action or a full step left.')
@@ -6386,9 +6489,22 @@ function hexTitle(h){
   }
   return t;
 }
+// a rendered sprite set down on the march map: s units across, its tile centre (50%/74% of the canvas) on (x,y)
+function mapSpr(kind,x,y,s,seed){ const src=sprOf(kind,seed||Math.round(x),Math.round(y)); return src?`<image href="${src}" x="${(x-s/2).toFixed(1)}" y="${(y-s*0.74).toFixed(1)}" width="${s}" height="${s}" pointer-events="none"/>`:''; }
 function hexArt(h,x,y){
   const P='pointer-events="none"';
   let a='';
+  if(spritesOn()&&h.setl===null){      // the same trees and stones the battlefield stands on, seen from the march
+    let r='';
+    if(h.t==='forest')r=mapSpr('terr_tree',x-6,y+1,25,h.q*3+1)+mapSpr('terr_tree',x+6,y+6,23,h.q*5+2);
+    else if(h.t==='mountain')r=mapSpr('terr_boulder',x-4,y+1,34,h.q)+mapSpr('terr_boulder',x+7,y+6,22,h.q+9);
+    else if(h.t==='hills')r=mapSpr('terr_boulder',x+2,y+5,17,h.q);
+    else if(h.t==='marsh')r=mapSpr('deco_reeds',x,y+4,22,h.q);
+    if(r){ a+=r;
+      if(h.feat==='ruin'){ const f=mapSpr('terr_column',x,y+5,24,h.q); if(f)return a+f+hexBlight(h,x,y,P); }
+      if(h.feat==='shrine'){ const f=mapSpr('terr_stone',x,y+5,22,h.q); if(f)return a+f+hexBlight(h,x,y,P); }
+      return a+hexFeat(h,x,y,P)+hexBlight(h,x,y,P); }
+  }
   if(h.setl!==null){
     a+=`<g ${P}><rect x="${x-8}" y="${y-2}" width="8" height="7" fill="#5a4a35" stroke="#17130e"/><path d="M${x-9} ${y-2} L${x-4} ${y-8} L${x+1} ${y-2} Z" fill="#7a5a3a" stroke="#17130e"/>
       <rect x="${x+1}" y="${y}" width="7" height="5" fill="#4c3f2d" stroke="#17130e"/><path d="M${x} ${y} L${x+4.5} ${y-5} L${x+9} ${y} Z" fill="#6b4f33" stroke="#17130e"/></g>`;
@@ -6404,21 +6520,29 @@ function hexArt(h,x,y){
   } else if(h.t==='marsh'){
     a+=`<g ${P} stroke="#4a5a4e" stroke-width="1.3"><path d="M${x-5} ${y+5} v-8 M${x-2} ${y+6} v-10 M${x+1} ${y+5} v-7"/><path d="M${x-8} ${y+7} h6 M${x+4} ${y+6} h6" stroke="#3d4a42"/></g>`;
   }
+  return a+hexFeat(h,x,y,P)+hexBlight(h,x,y,P);
+}
+function hexFeat(h,x,y,P){ let a='';
   if(h.feat==='ruin')a+=`<g ${P}><rect x="${x-6}" y="${y-4}" width="3.5" height="10" fill="#5c5548" stroke="#17130e" transform="rotate(-7 ${x-4} ${y})"/><rect x="${x+2}" y="${y-1}" width="3.5" height="7" fill="#524b3f" stroke="#17130e" transform="rotate(9 ${x+4} ${y+2})"/></g>`;
   if(h.feat==='shrine')a+=`<g ${P} stroke="#8a8578" stroke-width="1.8"><path d="M${x} ${y+6} v-11 M${x-4} ${y-1.5} h8"/></g>`;
   if(h.feat==='barrow')a+=`<g ${P}><path d="M${x-8} ${y+5} q8 -12 16 0 Z" fill="#4a4234" stroke="#17130e"/><circle cx="${x}" cy="${y+3}" r="1.8" fill="#17130e"/></g>`;
   if(h.feat==='battlefield')a+=`<g ${P} stroke="#6b6353" stroke-width="1.6"><path d="M${x-6} ${y+5} L${x+5} ${y-6} M${x+5} ${y+5} L${x-6} ${y-6}"/></g>`;
   if(h.feat==='watchtower')a+=`<g ${P}><rect x="${x-3}" y="${y-8}" width="6" height="14" fill="#524b3f" stroke="#17130e"/><path d="M${x-4.5} ${y-8} h2.5 v-2.5 h1.8 v2.5 h2.5 v-2.5 h1.8 v2.5 h2.4" stroke="#17130e" fill="none"/></g>`;
-  if(h.blighted)a+=`<g ${P} opacity=".75"><path d="M${x-8} ${y+8} q4 -10 2 -16 M${x+7} ${y+9} q-5 -8 -1 -15" stroke="#7a4fa3" stroke-width="1.4" fill="none"/><circle cx="${x+4}" cy="${y-6}" r="1.5" fill="#9a6fc9"/></g>`;
   return a;
 }
+function hexBlight(h,x,y,P){ return h.blighted?`<g ${P} opacity=".75"><path d="M${x-8} ${y+8} q4 -10 2 -16 M${x+7} ${y+9} q-5 -8 -1 -15" stroke="#7a4fa3" stroke-width="1.4" fill="none"/><circle cx="${x+4}" cy="${y-6}" r="1.5" fill="#9a6fc9"/></g>`:''; }
 function hexSvg(){
   const TC={plains:'#2e2a20',forest:'#26301f',hills:'#37322a',marsh:'#28302c',mountain:'#453f35'};
   // fogged provinces are drawn, but drained of colour — you can see the SHAPE of the world you haven't walked
   const FOG={plains:'#262218',forest:'#232b1d',hills:'#2c2822',marsh:'#232926',mountain:'#332f28'};
   const G=hexGeo();
   const wide=!!S.mapWide&&S.mapView!=='prov';              // the whole realm on one sheet, or the province you stand in (your choice once the frame is off)
-  let out='<defs><radialGradient id="vig" cx="50%" cy="42%" r="78%"><stop offset="60%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,.45)"/></radialGradient></defs>',glyphs='';
+  // v0.72: the country itself is painted — one sheet per kind of land, laid under the hexes as a pattern (4 hexes a repeat)
+  const MT=spritesOn()&&SPR_IDX.map.plains?SPR_IDX.map:null, MPW=HXS*7.2;
+  const pat=k=>MT&&MT[k]?`url(#mp-${k})`:null;
+  let out='<defs><radialGradient id="vig" cx="50%" cy="42%" r="78%"><stop offset="60%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(0,0,0,.45)"/></radialGradient>'
+    +(MT?Object.keys(MT).map(k=>`<pattern id="mp-${k}" patternUnits="userSpaceOnUse" width="${MPW}" height="${MPW}"><image href="${SPR_ROOT}map_${k}.webp" width="${MPW}" height="${MPW}" preserveAspectRatio="none"/></pattern>`).join(''):'')
+    +'</defs>',glyphs='';
   const CP=caravanProv();
   const focus=h=>h.prov===CP||(h.choke&&hexNbrs(h.q,h.r).some(n=>n.prov===CP));
   // ---- batched tier: every province you are NOT standing in, as one path per terrain bucket ----
@@ -6427,11 +6551,13 @@ function hexSvg(){
     const h=S.hexes[k];
     if(h.prov<0||focus(h))continue;
     const known=provKnown(h.prov);
-    const fill=h.blighted?(known?'#2c2138':'#231b2c'):(known?TC[h.t]:FOG[h.t]);
+    const tk=h.blighted?'blight':h.t;
+    const fill=pat(tk)?pat(tk)+(known?'|k':'|f'):(h.blighted?(known?'#2c2138':'#231b2c'):(known?TC[h.t]:FOG[h.t]));
     (buckets[fill]=buckets[fill]||[]).push(G.d[k]);
   }
-  for(const fill in buckets)
-    out+=`<path d="${buckets[fill].join('')}" fill="${fill}" stroke="#191612" stroke-width="0.6" pointer-events="none"/>`;
+  for(const fill in buckets){ const [f,dim]=fill.split('|'), dd=buckets[fill].join('');
+    out+=`<path d="${dd}" fill="${f}" stroke="${dim?'rgba(8,6,4,.5)':'#191612'}" stroke-width="0.6" pointer-events="none"/>`;
+    if(dim)out+=`<path d="${dd}" fill="${dim==='k'?'rgba(14,11,7,.5)':'rgba(16,14,11,.78)'}" pointer-events="none"/>`; }   // walked country dims; the unwalked is all but ash
   // province names + settlement dots carry the far world without per-hex cost
   for(const P of PROV_DEFS){
     if(P.id===CP)continue;
@@ -6460,12 +6586,12 @@ function hexSvg(){
   for(const k in S.hexes){
     const h=S.hexes[k]; if(!focus(h))continue;
     const{x,y}=hexCenter(h.q,h.r);
-    let fill=h.blighted?'#2c2138':TC[h.t];
-    if(h.setl!==null&&!h.blighted)fill='#3d352a';
+    let fill=h.blighted?(pat('blight')||'#2c2138'):(pat(h.t)||TC[h.t]);
+    if(h.setl!==null&&!h.blighted)fill=pat('setl')||'#3d352a';
     if(h.prov!==CP)fill='#1a1712';                      // the far side of a crossing: seen, not entered
     const seld=sel===k;
     out+=`<g style="cursor:pointer"><title>${esc(hexTitle(h))}</title>
-      <polygon points="${G.pts[k]}" fill="${fill}" stroke="${seld?'#c9a227':'#191612'}" stroke-width="${seld?2.2:1}"/></g>`;
+      <polygon points="${G.pts[k]}" fill="${fill}" stroke="${seld?'#c9a227':(MT?'rgba(8,6,4,.6)':'#191612')}" stroke-width="${seld?2.2:1}"/></g>`;
     glyphs+=hexArt(h,x,y);
     if(h.setl!==null)glyphs+=`<text x="${x}" y="${y+HXS-3}" class="hx" style="fill:#c9b48a;font-size:8.5px">${esc(REGION_DEFS[h.setl].s)}</text>`;
   }
@@ -6545,7 +6671,7 @@ function soldierCard(s,inHire,idx){
   const bondTxt=s.bonds.map(b=>{const o=soldierById(b.id);return o?`${o.name} (${b.type})`:null;}).filter(Boolean).join(', ');
   const nextArm=ARMORS[s.armor+1];
   return `<div class="card scard">
-    <div class="face">${faceSvg(s.face,{size:46})}</div>
+    <div class="face">${portrait(s,46)}</div>
     <div class="sbody">
       <span class="nm">${esc(s.name)}</span>${s.commander?' <span class="cmdr">Commander</span>':''} <span class="tag tt" data-tip="${esc((CLASSES[s.cls]||CLASSES.fighter).d)}">${esc((CLASSES[s.cls]||CLASSES.fighter).n)}</span> <span class="tag">${esc(bg.tag)}</span> <span class="tag">Lv ${s.level}${s.level>=6?' · '+NAME_LEVELS[s.level].n:''}</span>
       ${oathChip(s)}${isStationed(s)?`<span class="tag tt" style="border-color:#7d93a3;color:#a8b7c4" data-tip="Holding ground. She sends true word from ${esc(provOf(s.stationedProv).n)} and cannot be mustered.">⚑ Holding ${esc(provOf(s.stationedProv).n)}</span>`:''}
@@ -6638,7 +6764,7 @@ function offerBanner(s){
   })();
   const deedList=deedsOf(s).map(d=>`<div class="statline">⚑ <b>${esc(DEEDS[d.id].n)}</b>${d.note?' — '+esc(d.note):''} <span class="hint">(week ${d.week})</span></div>`).join('');
   const head=first
-    ? `<div class="scard"><div class="face">${faceSvg(s.face,{size:52})}</div><div class="sbody">
+    ? `<div class="scard"><div class="face">${portrait(s,52)}</div><div class="sbody">
         <p style="margin-top:0">The company sews a banner no lord issued.</p>${deedList}</div></div>${witness}
        <p>Choose the sword who kneels to it. The oath is to <b>her</b>, not to you.</p>`
     : `<p>${esc(s.name)}’s banner has no hands to hold it. Another comes to kneel.</p>`;
@@ -7090,11 +7216,13 @@ function renderBattle(){
     const isObj=B.objTile&&B.objTile.x===x&&B.objTile.y===y;
     if(isObj)title+=' — THE OBJECTIVE: hold this ground at round’s end';
     const fog=visible?'':(explored?'fogseen':'fogdark');
-    grid+=`<div class="tile ${t.blighted&&fog!=='fogdark'?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" data-xy="${key}" style="background:${fog==='fogdark'?'':tileBg(B,t)}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
+    const gk=groundKind(B,t), gtex=fog!=='fogdark'&&groundOn(gk);
+    grid+=`<div class="tile ${gtex?'gt g-'+gk:''} ${t.blighted&&fog!=='fogdark'?'blighttile':''} ${fog} ${mv?'moveable':''} ${dash?'dashable':''} ${atk?'attackable':''} ${blocked?'blockedshot':''} ${cst?'castable':''} ${isObj?'objtile':''} ${threat.has(key)?'threat':''} ${B.peekTile&&B.peekTile.x===x&&B.peekTile.y===y?'peeked':''}" data-xy="${key}" style="${fog==='fogdark'?'':'background-color:'+tileBg(B,t)}${gtex?`;--gx:${x%8};--gy:${y%8}`:''}" onclick="TILE(${x},${y})" title="${esc(title)}">`;
     if(fog!=='fogdark'){
-      grid+=(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t))+elevArt(B,x,y,t);
+      const rend=gtex?tileRendered(B,x,y,t,gk):null;
+      grid+=(rend!=null?rend:(t.t==='rubble'?wallArt(B,x,y,t):tileArt(t.t,x,y,t)))+elevArt(B,x,y,t);
       if(B.decals&&B.decals[key])grid+=decalArt(B.decals[key],x,y);
-      if(t.cache)grid+=cacheArt();
+      if(t.cache){ const cs=sprOf('prop_cache',x,y); grid+=cs?sprImg(cs,'ts td'):cacheArt(); }
       if(t.fire>0&&visible)grid+=fireArt(x,y);
     }
     if(un){
@@ -7102,10 +7230,10 @@ function renderBattle(){
       const badge=un.sanctuary>0?'<span class="stx" style="color:#e6d98a">☨</span>':un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
       if(un.kind==='pc'){ const ps=un.sword?swordOf(un):soldierById(un.ref); inner=ps?pcTopDown(ps,fsz,{token:true}):esc(un.name[0]); }
-      else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):villagerTopDown(un,fsz);
-      else if(un.prop)inner=un.ekey==='menhir'?menhirSvg(fsz):nestSvg(fsz);
+      else if(un.kind==='ally'){ const ps2=sprOf(un.prop?'prop_wagon':'prop_villager',un.uid,7); inner=ps2?sprImg(ps2):(un.prop?wagonSvg(fsz):villagerTopDown(un,fsz)); }
+      else if(un.prop){ const ps2=sprOf(un.ekey==='menhir'?'prop_menhir':'prop_nest',un.uid,3); inner=ps2?sprImg(ps2):(un.ekey==='menhir'?menhirSvg(fsz):nestSvg(fsz)); }
       else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcTopDown(revSprite(g2,un),fsz,{revenant:true,token:true}):esc(un.name[0]); }
-      else inner=foeTopDown(un,fsz);
+      else { const fs2=foeSprite(un); inner=fs2?sprImg(fs2):foeTopDown(un,fsz); }
       const cls2=un.kind==='ally'?'ally':cls;
       const crown=(B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
       let podB='';
@@ -7116,7 +7244,7 @@ function renderBattle(){
       const sprited=inner.indexOf('<img class="sp"')===0;
       grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''} ${spent?'spent':''} ${un.sword?'sword':''} ${sprited?'sprited':''}" data-uid="${un.uid}"><div class="spr">${inner}</div>${badge}${crown}${podB}<div class="hp"><div style="width:${Math.max(4,Math.round(100*ratio))}%;background:${hpc}"></div></div>${un.prop&&un.kind==='ally'?'':`<span class="hpn">${un.hp}</span>`}</div>`;
       if(atk)grid+=`<span class="hitpct${fc.kill?' kill':''}">${fc.hit}%<small>${fc.kill?'☠ ':''}${fc.lo}–${fc.hi}</small></span>`;
-    } else if(bd){ grid+=`<div class="body">☠</div>`; }
+    } else if(bd){ const cs=sprOf('prop_corpse',x,y); grid+=cs?sprImg(cs,'ts td'):`<div class="body">☠</div>`; }
     grid+='</div>';
   }
   grid+=`<svg id="pathov" width="${GW*TS}" height="${GH*TS}"></svg></div>`;   // close #grid (the pan/zoom layer & overlays are assembled in the return below)
