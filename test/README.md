@@ -5,6 +5,7 @@ Playwright scripts that boot the real game in headless Chromium and drive it thr
     python3 -m http.server 8931 --directory .      # serve the repo root
     node test/smoke.mjs                             # battle speed, stash/resume, error banner
     node test/spine.mjs                             # save stamp, legacy walk (incl. the v0.70 shape), backups, recovery
+    node test/trust.mjs                             # v0.68: story re-posts, sword cap, pressure bar, reckoning uncap
     node test/regress.mjs                           # one check per dead end / engine bug closed in v0.70
     node test/fuzz.mjs                              # a bot plays whole campaigns and fails on anything that reads as "it broke"
 

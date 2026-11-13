@@ -64,6 +64,25 @@ Save shape 67 → 70 through the v0.67 registry: old records get a stream, a com
 
 An independent read of the diff then found eleven things random play had not, all fixed and each now a regression check where it can be: a lost story contract could be re-fought at once for XP and a fresh cache (it now goes to ground for a week, and the field stays picked clean); game over ignored a wagon full of sellable steel; marching into an event's fight could be interrupted — and replaced — by an arrival modal queued behind it; a nemesis that took a trophy destroyed its own named weapon; First Blood was never used up by Cleave, Trip, Disarm or a riposte; the Wedding-Iron Ring healed three real hit points a battle; two weeks turning at once sent two debt collectors; backing out of an event fight was billed as a brigand robbery.
 
+## v0.68 (2026-09-04) — Every Word the Game Says Is True
+_Built on its own branch in September and merged with the graphics overhaul in v0.71. Where it and v0.70 fixed the same thing (a lost story beat), v0.70's version won: the contract stays on the map with a one-week cooldown, rather than being re-posted fresh — a fresh re-post reopened the retry farm v0.70's review closed._
+
+No new systems. Six places the game printed something it did not deliver, made honest.
+
+**The spine cannot dead-end.** A fought contract is consumed whether you won, lost, or fled — and two beats of the main story rode on ordinary contracts: the Magister's Courier, and the heir's price. Flee either, or lose it, and the posting was simply gone; the hint on the map kept pointing at a purple mark that no longer existed, forever. Worse, a region swallowed by the Blight took its story posting down with it. Now a story beat outlives its region, and whenever the stage says a beat is owed and nothing carries it — after any battle you did not win, and at every weekly refresh — it is posted again, with a line in the log that says so. A won heir beat advances the story the instant the field resolves — not when its epilogue modal runs — so a reload in the middle of the post-battle modals can never leave the record saying "owed" with nothing to claim it.
+
+**The finale keeps its promise.** v0.14 said *every* soldier you lost and never laid to rest walks in Vell's colors. The code fielded three, and the throne-room callout named three. Now the reckoning fields the whole graveyard: the revenants first, every one of them, up to the engine's ceiling; then their sworn and their risen in the same order with whatever room remains — and the throne room's own reinforcements leave that room open instead of filling to the ceiling first. If the room runs out the field log says how many wait beyond the doors — staged waves and budget pricing for this fight are a later version; until then the room is the bound and it says so. The callout names them all.
+
+**No more ghosts.** The satchel and the ledger both closed with "Act III arrives in a future build" — it shipped fifty versions ago — and the in-game act numbering contradicted the realm's (the whole March is Act I; the realm is what follows). The ghost lines are gone, the beats now point forward to what actually comes next, the "Act I — Proven" card no longer talks about where alpha v0.1 ends, and the ending card signs off as Act I: The March.
+
+**Elite foes wear their rank.** The power budget's top-up promoted foes to Veteran and Elite by rewriting their name — but only if the name was still the bare stock one. A foe that had already earned a tier tag took the power silently and fought as an elite while reading as chaff. The rank now rides in front of whatever the name already is; a named leader keeps its name and takes the power.
+
+**The clock reads as a clock.** The manual's first line calls the Blight pressure bars "the clock." The bars had been dead CSS for a while; pressure was a bare number. The region panel draws the bar again.
+
+**Two swords ride, and it says so.** Sworn swords take no muster slot — but only two of them march, in muster order, and a third banneret's sword simply never appeared. The muster now names which swords ride and which stay with the baggage, and the field log says it again when the fight opens.
+
+**Verified headless** (`test/trust.mjs`): the pressure bar renders; a fled Courier re-posts with its stage intact; a story posting survives a swallowed region; a fled heir quest re-posts and a won one does not; three swords on one banneret → muster names the one that stays, the field benches it and logs it; five risen graves → the reckoning fields all five under the ceiling, with retinue behind them.
+
 ## v0.67 (2026-09-04) — One Record, One Road Through It
 Nothing you can see. Everything the next twenty versions stand on.
 
