@@ -13,6 +13,31 @@ Single-file game — no build, no backend, no audio or image files; saves to you
 - **Keys**: `Tab`/`Space` next soldier · `1`–`9` abilities · `B` brace · `U` undo a step · `E`/`Enter` end turn · `WASD`/arrows pan · `+`/`−` zoom · `M` whole field · `C` centre · `V` inspect · `L` log · `R` retreat · `Esc` cancel · `?` help.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.71 (2026-11-13) — The Company, Rendered
+Two pieces of work built on their own branches in September and October never reached `main`, and v0.70 was built
+without them. This version merges both into v0.70.
+
+**The rendered company.** The Blender pipeline's sprites now draw the Fighter, Ranger, Cleric and Ash Acolyte on the
+field: every soldier is her kit's body — the weapon kit if her class has one for what she carries, the Commander's
+banner, the Veteran's mismatched dead-men's armour from level 5, the Revenant's rot — under **a head of her own**,
+dealt when she signs on and never shared with anyone alive. Sworn swords and your risen dead are drawn the same way.
+The figure stands a tile and a half tall on a ring in the team's colour (gold when selected, violet for your dead).
+Enemies keep the v0.70 top-down figures until the enemy art is done, and the Shade (no sprites yet) keeps hers.
+**Settings → Company art → Classic** puts the hand-drawn company back. The Ranger, Cleric and Acolyte are wired while
+their art is still in review (`art/ASSETS.md`).
+
+**The trust patch (v0.68)** lands with it: the finale fields *every* soldier you lost and never laid to rest (it
+quietly capped at three), earned ranks show on any foe's name, the region panel draws its Blight bar again, the muster
+names the sworn swords who stay with the baggage, and the copy that still promised acts already shipped is gone.
+
+**Under the hood.** Save shape 70 → 71: every soldier, sword and grave is dealt a head matched to the face it has worn
+all along (the skin first, then the hair), and a hollow released-oath record that a buy-back had already carried onto
+the roster is swept out (v0.70 only swept the deserters). Heads are dealt from the run's seeded stream, so a seed
+draws the same faces. `art/tools/wire.py` ships re-rendered sprites in one step and keeps the page's manifest equal to
+the files on disk. An empty banner's cheapest hire is now priced against the strongbox *plus* what the wagons would
+fetch — the same sum the game-over check uses (the fuzz bot found the one seed where they disagreed). Tests: the
+branch's four save checks and the trust suite are merged in; the regression suite adds a sprite-wiring check (25).
+
 ## v0.70 (2026-11-13) — A Run, a Road, and Somewhere to Put the Loot
 The biggest build since the realm opened. Four things at once: the engine stops having dead ends, the battlefield becomes readable and playable from the keyboard, loot gets somewhere to live, and every campaign becomes a *run* that is different from the last one.
 

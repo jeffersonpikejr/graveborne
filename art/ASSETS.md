@@ -104,15 +104,22 @@ enemy frequency comes from `CONTRACT_TYPES[*].pool` and `POD_DOCTRINES[*].comp`.
 
 ## The list
 
-Status: ✅ approved · 🔍 in review · ⏳ queued
+Status: ✅ approved · 🔍 in review · ⏳ queued · 🎮 in the game
+
+**v0.71:** the whole company is wired into the game at the owner's call (2026-11-13) — the Fighter as approved, and the
+Ranger, Cleric and Ash Acolyte **while still in review**, so the review continues in the real game rather than in
+screenshots. Their 🔍 stands until they are signed off; a re-render ships with `art/tools/wire.py`. Foes stay on the
+game's hand-drawn top-down SVG until Wave 2 is done, so the enemy side keeps one style. The Fighter has a single
+kit, so a Fighter carrying a mace, axe or spear still draws with the broadsword and shield; per-weapon Fighter kits
+(like the Ranger's spear kit) are the fix.
 
 ### Wave 1 — The Company (style anchor + every unit you control)
 | # | Asset | Variants | Score | Status |
 |---|---|---|---|---|
-| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded, the head carved from one skull (rev. 6) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | ✅ |
-| 2 | **Ranger — the Harrier**: hood pulled back over a capelet, a rain-dark cloak, quilted jack and laced jerkin laid on the body, a yew longbow held upright, a back quiver (or a boar spear) | same matrix, × bow / spear | 3×2×3 = 18 | 🔍 |
-| 3 | **Cleric — the Chirurgeon**: a mail hauberk under a belted bone-white surcoat with an oxblood cross, the coif pushed back into a collar, a flanged mace held low, a chapel lantern | same matrix, × mace / spear / shortsword | 3×2×3 = 18 | 🔍 |
-| 4 | **Ash Acolyte — the Grafted**: leather armour of their own (a boiled-leather cuirass scorched ash-black over a banded fauld, a skirt of hardened strips over the company's oxblood, a high standing collar, the hood pulled back, a leather spaulder on the sword arm); the left arm bare and Blight-grafted (ash-grey flesh split by violet veins, a strap harness, a broken Conclave manacle), the ashfire floating over the open palm, a shortsword held low | same matrix, × shortsword / spear | 3×2×3 = 18 | 🔍 |
+| 1 | **Fighter — the Line-Breaker**: half-plate over maille, bone-white scraped shield with an iron cross, broadsword held low, bareheaded, the head carved from one skull (rev. 6) | base · Commander · Veteran, each living + Revenant, male + female; plus portraits | 3×2×3 = 18 | ✅ 🎮 |
+| 2 | **Ranger — the Harrier**: hood pulled back over a capelet, a rain-dark cloak, quilted jack and laced jerkin laid on the body, a yew longbow held upright, a back quiver (or a boar spear) | same matrix, × bow / spear | 3×2×3 = 18 | 🔍 🎮 |
+| 3 | **Cleric — the Chirurgeon**: a mail hauberk under a belted bone-white surcoat with an oxblood cross, the coif pushed back into a collar, a flanged mace held low, a chapel lantern | same matrix, × mace / spear / shortsword | 3×2×3 = 18 | 🔍 🎮 |
+| 4 | **Ash Acolyte — the Grafted**: leather armour of their own (a boiled-leather cuirass scorched ash-black over a banded fauld, a skirt of hardened strips over the company's oxblood, a high standing collar, the hood pulled back, a leather spaulder on the sword arm); the left arm bare and Blight-grafted (ash-grey flesh split by violet veins, a strap harness, a broken Conclave manacle), the ashfire floating over the open palm, a shortsword held low | same matrix, × shortsword / spear | 3×2×3 = 18 | 🔍 🎮 |
 | 5 | Underkingdom Shade — black leathers, twin daggers (rare Cinderling recruit) | same matrix | 2×2×2 = 8 | ⏳ |
 
 ### Wave 2 — The Enemy (one style for the whole board; fill the three missing designs)

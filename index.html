@@ -319,6 +319,23 @@
   @media (max-width:760px){ .bbanner{font-size:16px;white-space:normal;text-align:center;width:88%;letter-spacing:.08em} .bbanner.pl,.bbanner.open{font-size:14px} .unit .hpn{font-size:9px} .hitpct{font-size:11px} }
   @media (hover:none){ .keyhint{display:none} }
   @media (max-width:760px){ #zoombtns{top:auto;bottom:calc(196px + env(safe-area-inset-bottom));gap:5px} #zoombtns button{width:38px;height:38px;font-size:17px} }
+  /* ---- v0.71: the rendered company — the sprite stands 1.5 tiles tall on the tile, a ring under its feet ---- */
+  #grid .unit.sprited{background:none !important;border-color:transparent !important;box-shadow:none !important;overflow:visible;z-index:5}
+  #grid .unit.sprited.current:not(.dodge):not(.hitflash){animation:none}   /* the ring carries the selection pulse; the dodge jig and hit flash still play on the token */
+  #grid .unit.sprited .spr{overflow:visible}
+  #grid .unit.sprited img.sp{position:absolute;max-width:none;pointer-events:none;width:calc(var(--ts)*1.5);height:calc(var(--ts)*1.5);
+    left:calc(var(--ts)*-0.25 - 2px);top:calc(var(--ts)*-0.61 - 2px);filter:drop-shadow(0 0 .7px rgba(0,0,0,.95));-webkit-user-drag:none}
+  #grid .unit.sprited::before{content:'';position:absolute;left:50%;top:50%;width:calc(var(--ts)*.76);height:calc(var(--ts)*.5);transform:translate(-50%,-50%);
+    border-radius:50%;--ring:#7fa3c9;border:2px solid var(--ring);box-shadow:0 0 0 1px rgba(0,0,0,.65),inset 0 0 0 1px rgba(0,0,0,.5);
+    background:radial-gradient(closest-side,rgba(0,0,0,.34),transparent 85%);pointer-events:none}
+  #grid .unit.sprited.rev::before{--ring:#a77fd6;box-shadow:0 0 0 1px rgba(0,0,0,.65),0 0 8px rgba(154,111,201,.85)}
+  #grid .unit.sprited.current::before{--ring:#d9b23a;animation:ringpulse 1.5s ease-in-out infinite}
+  #grid .unit.sprited.rev.current::before{--ring:#ff7a5c}
+  @keyframes ringpulse{0%,100%{box-shadow:0 0 0 1px rgba(0,0,0,.65),0 0 6px 1px rgba(201,162,39,.55)}50%{box-shadow:0 0 0 1px rgba(0,0,0,.65),0 0 14px 3px rgba(201,162,39,.95)}}
+  #grid .unit.sprited.spent .spr{filter:grayscale(.85) brightness(.62)}
+  #grid .unit.sprited .hp{bottom:-5px} #grid .unit.sprited .hpn{bottom:-8px}
+  #grid .unit.sprited.hitflash img.sp{filter:drop-shadow(0 0 .7px #000) drop-shadow(0 0 6px rgba(224,89,63,.95))}
+  .spr-card{display:block;border:1px solid var(--line);border-radius:3px;background-color:#161310;background-repeat:no-repeat;background-size:175%;background-position:50% 64%}
 </style>
 </head>
 <body>
@@ -326,7 +343,7 @@
 <script>
 'use strict';
 /* ============================== UTILITIES ============================== */
-const VERSION='0.70';                                   // the one place the build names itself (title, header, title screen)
+const VERSION='0.71';                                   // the one place the build names itself (title, header, title screen)
 let S=null;                                             // the campaign record — declared first so the RNG below can read it
 /* ---- v0.70 ONE DIE. Every roll the simulation makes goes through rnd(), a mulberry32 stream whose state lives ON the
    record (S.rng) — so a run is a function of its seed, a reload continues the same stream, and a failing fuzz seed
@@ -994,7 +1011,7 @@ const BOND_TYPES={ 'shield-kin':'stood back to back once too often', rival:'can�
    this section is either static data or lives OUTSIDE the campaign record (prefs, legacy), so none of it can be
    lost to a bad save. */
 const PREFS_KEY='graveborne_prefs_v1', LEGACY_KEY='graveborne_legacy_v1';
-const PREFS={sound:true,vol:0.5,confirmEnd:true,autoEnd:true,shake:true};
+const PREFS={sound:true,vol:0.5,confirmEnd:true,autoEnd:true,shake:true,sprites:true};
 function loadPrefs(){ try{ Object.assign(PREFS,JSON.parse(localStorage.getItem(PREFS_KEY)||'{}')); }catch(e){} }
 function savePrefs(){ try{ localStorage.setItem(PREFS_KEY,JSON.stringify(PREFS)); }catch(e){} }
 
@@ -1453,7 +1470,48 @@ function faceInner(f,o){
 }
 // TOP-DOWN battle sprite — the soldier seen from a high angle: crown of head + shoulders + gear projected onto the ground.
 // Grittier & more realistic than the front bust; reads by class silhouette (kite shield, bow arc, mace, ashfire orb, twin daggers) at a glance.
+/* ---- v0.71 THE RENDERED COMPANY. Fighter, Ranger, Cleric and Ash Acolyte are drawn from the Blender pipeline's
+   sprites (art/ → shipped to assets/sprites/). A soldier is two layers: the kit's body — class, then the weapon kit if
+   the class has one for her weapon, then Commander (any level) or Veteran (level 5+), living or Revenant, her form from
+   her head — with her own head (LOOKS) on top. Without a head, the whole sprite of the kit. A class with no sprites
+   (the Shade) and the "Classic art" setting both fall through to the hand-drawn SVG below. The anchor is the
+   pipeline's integration contract (art/tools/ingame.mjs): 1.5 tiles tall, 50%/74% on the tile centre, a team ring
+   drawn under the feet in CSS. The manifest is generated from assets/sprites, so a key is only emitted if the file
+   exists. ---- */
+/*SPR_MAN:begin — written by art/tools/wire.py; do not edit by hand*/
+const SPR_MAN={whole:["acolyte_commander_f","acolyte_commander_m","acolyte_commander_revenant_f","acolyte_commander_revenant_m","acolyte_f","acolyte_m","acolyte_revenant_f","acolyte_revenant_m","acolyte_spear_f","acolyte_spear_m","acolyte_veteran_f","acolyte_veteran_m","cleric_commander_f","cleric_commander_m","cleric_commander_revenant_f","cleric_commander_revenant_m","cleric_f","cleric_m","cleric_revenant_f","cleric_revenant_m","cleric_shortsword_f","cleric_shortsword_m","cleric_spear_f","cleric_spear_m","cleric_veteran_f","cleric_veteran_m","fighter_commander_f","fighter_commander_m","fighter_commander_revenant_f","fighter_commander_revenant_m","fighter_f","fighter_m","fighter_revenant_f","fighter_revenant_m","fighter_veteran_f","fighter_veteran_m","ranger_commander_f","ranger_commander_m","ranger_commander_revenant_f","ranger_commander_revenant_m","ranger_f","ranger_m","ranger_revenant_f","ranger_revenant_m","ranger_spear_f","ranger_spear_m","ranger_veteran_f","ranger_veteran_m"],
+  body:["acolyte_commander_f","acolyte_commander_m","acolyte_commander_revenant_f","acolyte_commander_revenant_m","acolyte_f","acolyte_m","acolyte_revenant_f","acolyte_revenant_m","acolyte_spear_commander_f","acolyte_spear_commander_m","acolyte_spear_commander_revenant_f","acolyte_spear_commander_revenant_m","acolyte_spear_f","acolyte_spear_m","acolyte_spear_revenant_f","acolyte_spear_revenant_m","acolyte_spear_veteran_f","acolyte_spear_veteran_m","acolyte_veteran_f","acolyte_veteran_m","cleric_commander_f","cleric_commander_m","cleric_commander_revenant_f","cleric_commander_revenant_m","cleric_f","cleric_m","cleric_revenant_f","cleric_revenant_m","cleric_shortsword_commander_f","cleric_shortsword_commander_m","cleric_shortsword_commander_revenant_f","cleric_shortsword_commander_revenant_m","cleric_shortsword_f","cleric_shortsword_m","cleric_shortsword_revenant_f","cleric_shortsword_revenant_m","cleric_shortsword_veteran_f","cleric_shortsword_veteran_m","cleric_spear_commander_f","cleric_spear_commander_m","cleric_spear_commander_revenant_f","cleric_spear_commander_revenant_m","cleric_spear_f","cleric_spear_m","cleric_spear_revenant_f","cleric_spear_revenant_m","cleric_spear_veteran_f","cleric_spear_veteran_m","cleric_veteran_f","cleric_veteran_m","fighter_commander_f","fighter_commander_m","fighter_commander_revenant_f","fighter_commander_revenant_m","fighter_f","fighter_m","fighter_revenant_f","fighter_revenant_m","fighter_veteran_f","fighter_veteran_m","ranger_commander_f","ranger_commander_m","ranger_commander_revenant_f","ranger_commander_revenant_m","ranger_f","ranger_m","ranger_revenant_f","ranger_revenant_m","ranger_spear_commander_f","ranger_spear_commander_m","ranger_spear_commander_revenant_f","ranger_spear_commander_revenant_m","ranger_spear_f","ranger_spear_m","ranger_spear_revenant_f","ranger_spear_revenant_m","ranger_spear_veteran_f","ranger_spear_veteran_m","ranger_veteran_f","ranger_veteran_m"],
+  heads:{"acolyte":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]},"cleric":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]},"fighter":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]},"ranger":{"l":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"],"r":["f00","f01","f02","f03","f04","f05","f06","f07","f08","f09","f10","f11","f12","f13","f14","f15","f16","f17","f18","f19","f20","f21","f22","f23","m00","m01","m02","m03","m04","m05","m06","m07","m08","m09","m10","m11","m12","m13","m14","m15","m16","m17","m18","m19","m20","m21","m22","m23"]}}};
+/*SPR_MAN:end*/
+const SPR_SET={whole:new Set(SPR_MAN.whole),body:new Set(SPR_MAN.body)};
+const SPR_ROOT='assets/sprites/';
+function spritesOn(){ return PREFS.sprites!==false; }
+// the kit a soldier's weapon calls for: a class that rolls more than one weapon has a kit per weapon; the rest wear the
+// class's own (the Fighter's broadsword, the Ranger's bow, the Cleric's mace, the Acolyte's shortsword)
+function sprKits(cls,weapon){ const fam=weapon?({sword:'shortsword',spear:'spear'})[wpnFam(weapon)]:null; return fam?[cls+'_'+fam,cls]:[cls]; }
+function sprPick(s,o){
+  s=s||{}; o=o||{};
+  const cls=s.cls||'fighter'; if(!SPR_MAN.heads[cls]&&!SPR_MAN.whole.some(k=>k.startsWith(cls+'_')))return null;
+  const rev=o.revenant?'_revenant':'', look=s.look&&lookEntry(s.look)?s.look:null;
+  const form=look?look[0]:(s.commander?'f':'m');
+  const tiers=s.commander?['_commander','']:((s.level||1)>=5?['_veteran','']:['']);
+  const kits=sprKits(cls,s.weapon);
+  const H=SPR_MAN.heads[cls], hasHead=!!(look&&H&&(rev?H.r:H.l).includes(look));
+  if(hasHead){ for(const k of kits)for(const t of tiers){ const key=`${k}${t}${rev}_${form}`; if(SPR_SET.body.has(key))return {body:SPR_ROOT+'body/'+key+'.webp',head:SPR_ROOT+'heads/'+cls+'_'+look+rev+'.webp'}; } }
+  for(const k of kits)for(const t of tiers)for(const f of [form,form==='m'?'f':'m']){ const key=`${k}${t}${rev}_${f}`; if(SPR_SET.whole.has(key))return {whole:SPR_ROOT+key+'.webp'}; }
+  return null;
+}
 function pcTopDown(s,size,o){
+  o=o||{};
+  const p=spritesOn()?sprPick(s,o):null;
+  if(!p)return pcTopDownSvg(s,size,o);
+  if(size>=44&&!o.token){ const bg=p.whole?`url(${p.whole})`:`url(${p.head}),url(${p.body})`;   // a card: the sprite cropped to head and shoulders
+    return `<div class="spr-card" style="width:${size}px;height:${size}px;background-image:${bg}"></div>`; }
+  return p.whole?`<img class="sp" src="${p.whole}" alt="" draggable="false">`:`<img class="sp" src="${p.body}" alt="" draggable="false"><img class="sp" src="${p.head}" alt="" draggable="false">`;
+}
+// warm the cache with the squad about to march, so nobody walks onto the field as an empty ring
+function sprPreload(list){ if(!spritesOn())return; for(const s of list){ const p=sprPick(s,{}); if(!p)continue; for(const u of [p.whole,p.body,p.head])if(u){ const i=new Image(); i.src=u; } } }
+function pcTopDownSvg(s,size,o){
   o=o||{}; const rev=!!o.revenant, cls=(s&&s.cls)||'fighter', cmdr=!!(s&&s.commander), K='#0e0b07';
   const f=(s&&s.face)||{skin:0,hc:0}; const skin=rev?'#9aa396':(SKINS[f.skin]||SKINS[0]);
   const shadow=`<ellipse cx="23" cy="39" rx="12" ry="3.4" fill="#000" opacity=".34"/>`;
@@ -1786,6 +1844,8 @@ function noteKill(att,def){
   else if(def.ekey==='blightsorc')m.push('sorc');
 }
 function isSword(u){ return !!(u&&u.sword); }
+// a revenant wears the kit she died in — her class, her weapon (as it is now: the field may have upgraded it), her rank
+function revSprite(g,u){ const sn=g.snap||{}; return {cls:sn.cls,face:g.face,look:g.look,commander:sn.commander,weapon:(u&&u.weapon)||sn.weapon,level:(u&&u.revLvl)||sn.level}; }
 function swordOf(u){ const o=soldierById(u.ownerId), w=o&&(o.retinue||[]).find(x=>x.id===u.swordId); return w||{cls:(WEAPONS[u.weapon]||{}).rng>1?'ranger':'fighter',face:null}; }
 // Name Levels are earned, never bought with XP. L6 needs three tellings, one of them hers alone.
 function nameEligible(s){
@@ -1821,7 +1881,8 @@ function refreshHirePool(){
   }
   // A banner with no one under it draws the desperate: while the company is empty, one of the two will always sign
   // for what is actually in the strongbox. (Otherwise 21 coin could wait weeks for a 21-coin sellsword to wander in.)
-  if(!S.roster.length){ const floor=20, h=S.hirePool[0]; if(hireCost(h)>S.coin&&S.coin>=hireCost({cost:floor})){ while(h.cost>floor&&hireCost(h)>S.coin)h.cost--; } }
+  if(!S.roster.length){ const floor=20, h=S.hirePool[0], purse=S.coin+(S.stash||[]).reduce((a,i)=>a+itemSell(i),0);   // the purse is the strongbox plus what the wagons would fetch — the same sum the game-over check uses
+    if(hireCost(h)>purse&&purse>=hireCost({cost:floor})){ while(h.cost>floor&&hireCost(h)>purse)h.cost--; } }
 }
 function log(msg,cls){ S.log.unshift({msg,cls:cls||'',week:S.week}); if(S.log.length>140)S.log.pop(); }
 
@@ -3458,6 +3519,7 @@ function startBattle(contract,squadIds){
   ensureFoesReachable(B);                                       // no enemy stranded behind sealed walls — every battle winnable
   placeCaches(B,contract);                                      // something on the field worth walking to
   S.battle=B;
+  sprPreload(squadIds.map(soldierById).filter(Boolean).concat(B.revGraveIds.map(id=>{ const g=S.graves.find(x=>x.id===id); return g?revSprite(g,null):null; }).filter(Boolean)));
   // quartermaster loadout & scouting are spent the moment the mission begins
   const lo=S._loadout||{}; S._loadout=null; S.scouted=false;
   if(lo.kit&&(S.kits||0)>0){ S.kits--; B.units.forEach(u=>{ if(u.kind==='pc')u.hp=u.maxhp; }); blog(B,'The chirurgeon’s kit does its work — the squad marches in whole.'); }
@@ -6039,7 +6101,8 @@ window.HOWTO=function(){
 };
 function settingsHtml(){
   const row=(lab,val,fn,tip)=>`<div class="setrow"><span class="tt" data-tip="${esc(tip)}">${lab}</span><button onclick="${fn}">${val}</button></div>`;
-  return row('Sound',PREFS.sound?'On':'Off',"SETP('sound')",'Synthesised in the browser — no downloads.')
+  return row('Company art',PREFS.sprites!==false?'Rendered':'Classic',"SETP('sprites')",'Rendered: the Blender sprites for the Fighter, Ranger, Cleric and Ash Acolyte. Classic: the hand-drawn top-down figures from before.')
+    +row('Sound',PREFS.sound?'On':'Off',"SETP('sound')",'Synthesised in the browser — no downloads.')
     +`<div class="setrow"><span>Volume</span><span><button onclick="SETVOL(-1)">−</button> <b>${Math.round(PREFS.vol*100)}%</b> <button onclick="SETVOL(1)">＋</button></span></div>`
     +row('Confirm End Turn',PREFS.confirmEnd?'When soldiers can still act':'Never',"SETP('confirmEnd')",'Ask before ending the turn while someone still has an action or a full step left.')
     +row('Auto-end the turn',PREFS.autoEnd?'When the squad is spent':'Never',"SETP('autoEnd')",'Hand the turn over by itself once every soldier has nothing left to do.')
@@ -7038,10 +7101,10 @@ function renderBattle(){
       const cls=un.kind==='pc'?'pc':(un.graveId?'rev':(un.undead?'undead':'foe'));
       const badge=un.sanctuary>0?'<span class="stx" style="color:#e6d98a">☨</span>':un.stunned?'<span class="stx" style="color:#7d93a3">✸</span>':un.rooted?'<span class="stx" style="color:#b08bc9">⚓</span>':un.warded?'<span class="stx" style="color:#b08bc9">✦</span>':un.shakenBy?'<span class="stx">!</span>':(un.rattled?'<span class="stx">~</span>':(un.defending?'<span class="stx" style="color:#7d93a3">◆</span>':''));
       let inner;
-      if(un.kind==='pc'){ const ps=un.sword?swordOf(un):soldierById(un.ref); inner=ps?pcTopDown(ps,fsz):esc(un.name[0]); }
+      if(un.kind==='pc'){ const ps=un.sword?swordOf(un):soldierById(un.ref); inner=ps?pcTopDown(ps,fsz,{token:true}):esc(un.name[0]); }
       else if(un.kind==='ally')inner=un.prop?wagonSvg(fsz):villagerTopDown(un,fsz);
       else if(un.prop)inner=un.ekey==='menhir'?menhirSvg(fsz):nestSvg(fsz);
-      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcTopDown({cls:(g2.snap&&g2.snap.cls),face:g2.face,look:g2.look,commander:g2.snap&&g2.snap.commander},fsz,{revenant:true}):esc(un.name[0]); }
+      else if(un.graveId){ const g2=S.graves.find(g=>g.id===un.graveId); inner=g2?pcTopDown(revSprite(g2,un),fsz,{revenant:true,token:true}):esc(un.name[0]); }
       else inner=foeTopDown(un,fsz);
       const cls2=un.kind==='ally'?'ally':cls;
       const crown=(B.leaderUid===un.uid)?'<span class="stx" style="color:#c9a227;right:auto;left:-5px">♛</span>':'';
@@ -7050,7 +7113,8 @@ function renderBattle(){
         podB=ps==='patrol'?'<span class="stx" style="color:#a39a86;left:-5px;right:auto;top:auto;bottom:2px">◦</span>':'<span class="stx" style="color:#e0593f;left:-5px;right:auto;top:auto;bottom:2px">!</span>'; }
       const ratio=un.hp/un.maxhp, hpc=un.kind==='foe'?'#b8442f':(ratio>0.6?'#7fa650':ratio>0.3?'#c9a227':'#c0492f');
       const spent=un.kind==='pc'&&!un.sword&&B.phase==='player'&&!pcTurnLeft(un);
-      grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''} ${spent?'spent':''} ${un.sword?'sword':''}" data-uid="${un.uid}"><div class="spr">${inner}</div>${badge}${crown}${podB}<div class="hp"><div style="width:${Math.max(4,Math.round(100*ratio))}%;background:${hpc}"></div></div>${un.prop&&un.kind==='ally'?'':`<span class="hpn">${un.hp}</span>`}</div>`;
+      const sprited=inner.indexOf('<img class="sp"')===0;
+      grid+=`<div class="unit ${cls2} ${u===un?'current':''} ${iu===un?'current':''} ${spent?'spent':''} ${un.sword?'sword':''} ${sprited?'sprited':''}" data-uid="${un.uid}"><div class="spr">${inner}</div>${badge}${crown}${podB}<div class="hp"><div style="width:${Math.max(4,Math.round(100*ratio))}%;background:${hpc}"></div></div>${un.prop&&un.kind==='ally'?'':`<span class="hpn">${un.hp}</span>`}</div>`;
       if(atk)grid+=`<span class="hitpct${fc.kill?' kill':''}">${fc.hit}%<small>${fc.kill?'☠ ':''}${fc.lo}–${fc.hi}</small></span>`;
     } else if(bd){ grid+=`<div class="body">☠</div>`; }
     grid+='</div>';
@@ -7069,7 +7133,7 @@ function renderBattle(){
   let showFace='';
   if(show){
     if(show.kind==='pc'){const ps=soldierById(show.ref); if(ps)showFace=`<div class="face" style="float:right">${pcTopDown(ps,48)}</div>`;}
-    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcTopDown({cls:g2.snap&&g2.snap.cls,face:g2.face,look:g2.look,commander:g2.snap&&g2.snap.commander},48,{revenant:true})}</div>`;}
+    else if(show.graveId){const g2=S.graves.find(g=>g.id===show.graveId); if(g2)showFace=`<div class="face revf" style="float:right">${pcTopDown(revSprite(g2,show),48,{revenant:true})}</div>`;}
     else if(!show.prop)showFace=`<div class="face" style="float:right">${enemyFace(show.ekey,44)}</div>`;
   }
   const showTrk=show&&TRINKETS[show.trk];

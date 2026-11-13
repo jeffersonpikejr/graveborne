@@ -33,6 +33,15 @@ Blender runs headless as the `bpy` Python module (Blender 4.5 LTS; needs Python 
 phone (like `test/`, it needs `playwright` resolvable from Node, or `PW_MODULE=/path/to/playwright/index.mjs`).
 `index.html` is not modified until an asset is approved.
 
+    python3 art/tools/wire.py fighter ranger cleric acolyte   # ship: copy those classes to assets/sprites, rewrite the manifest
+    python3 art/tools/wire.py --check                         # the page's manifest matches assets/sprites exactly
+
+`wire.py` is the last step: it copies the named classes from `art/sprites` to `assets/sprites` (the only sprite folder
+the page reads) and regenerates the `SPR_MAN` block in `index.html` from what is on disk, so the game never asks for a
+file that is missing. In the game, `pcTopDown()` draws a sprited class as the kit's body under the soldier's own head
+(the same selection rules as `ingame.mjs`), and falls back to the hand-drawn SVG for any class not wired and for the
+"Classic" company-art setting. Re-run it after every re-render of a wired class.
+
 ## Foes (whole sprites)
 
 A foe doesn't persist, so it ships a few whole sprites instead of body and head layers (ASSETS.md, the enemy plan):

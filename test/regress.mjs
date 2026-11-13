@@ -157,6 +157,22 @@ const q1 = await page.evaluate(() => { const con = S.contracts.find(x => x.q !==
   return { battle: S.battle && S.battle.cname, modal: activeModal ? activeModal.title : null }; });
 check('modal queue: marching into an event fight is not interrupted by a queued arrival', q1.battle === 'Event Fight' && q1.modal !== 'On the ground', q1);
 
+// ---- v0.71: the rendered company ----
+// 20. every soldier of a sprited class is drawn as her kit's body under her own head; every image actually loads;
+//     the Classic setting puts the hand-drawn figures back; the Shade (no sprites yet) falls back on her own
+await fresh('sprites');
+const sp = await page.evaluate(async () => { const R = S.roster; R[1].level = 5; R[2].weapon = 'spear'; R.push(makeSoldier('shade'));
+  const con = { id: nid(), type: 'patrol', regionId: 1, pay: 10, danger: 1, obj: 'slay', layout: 'fields', expires: 99, q: S.caravan.q, r: S.caravan.r };
+  startBattle(con, R.slice(0, 5).map(s => s.id)); activeModal = null; modalQ.length = 0; const B = S.battle; for (const t of B.tiles) B.seen[t.x + ',' + t.y] = 1; render();
+  const imgs = [...document.querySelectorAll('#grid .unit.sprited img.sp')];
+  await Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; })));
+  const shade = B.units.find(u => u.kind === 'pc' && soldierById(u.ref) && soldierById(u.ref).cls === 'shade');
+  const out = { sprited: document.querySelectorAll('#grid .unit.sprited').length, broken: imgs.filter(i => !i.naturalWidth).length, imgs: imgs.length,
+    shadeSvg: !!document.querySelector(`#grid .unit[data-uid="${shade.uid}"] svg`), vet: imgs.some(i => /_veteran_/.test(i.src)), spear: imgs.some(i => /_spear/.test(i.src)) };
+  PREFS.sprites = false; render(); out.classic = document.querySelectorAll('#grid .unit.sprited').length; PREFS.sprites = true; return out; });
+check('sprites: four sprited classes drawn body+head, all images load, Classic and the Shade fall back to SVG',
+  sp.sprited === 4 && sp.imgs === 8 && sp.broken === 0 && sp.shadeSvg && sp.vet && sp.spear && sp.classic === 0, sp);
+
 check('no uncaught page errors', errors.length === 0, errors.slice(0, 3));
 console.log(results.join('\n'));
 console.log(failed ? `\n${failed} regression(s) FAILED` : '\nPASS — ' + results.length + ' checks');
