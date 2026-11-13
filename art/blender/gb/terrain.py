@@ -151,9 +151,11 @@ def clip(ob, planes):
     return ob
 
 
-def clip_tile(ob, south=False):
-    """Cut a mesh to the tile's footprint: flush at x = +-0.5 and at the north edge (and the south, if asked)."""
-    planes = [((FOOT_X, 0, 0), (1, 0, 0)), ((-FOOT_X, 0, 0), (-1, 0, 0)), ((0, FOOT_Y, 0), (0, 1, 0))]
+def clip_tile(ob, south=False, pad=0.0):
+    """Cut a mesh to the tile's footprint: flush at x = +-0.5 and at the north edge (and the south, if asked).
+    pad: let it run that far past x = +-0.5 (a pixel and a half of overlap, so the antialiased edges of two
+    neighbouring sprites don't leave a hairline of ground showing between them)."""
+    planes = [((FOOT_X + pad, 0, 0), (1, 0, 0)), ((-FOOT_X - pad, 0, 0), (-1, 0, 0)), ((0, FOOT_Y, 0), (0, 1, 0))]
     if south:
         planes.append(((0, -FOOT_Y, 0), (0, -1, 0)))
     return clip(ob, planes)

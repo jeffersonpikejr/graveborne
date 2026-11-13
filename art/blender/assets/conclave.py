@@ -64,7 +64,7 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
     H = fr.head_frame(v.get('portrait') or v.get('level'))
     seed = seed + 31 * n + (5 if form == 'f' else 0)
     mt = CC.materials(n)
-    bowwood = G.wood('conclave_bow', color='#2f2a27', seed=44)
+    bowwood = G.wood('conclave_bow', color='#a39a84', seed=44)       # a pale stave: it has to read on dark ground
     string = G.flat('bowstring', '#b3a88c')
     shaft = G.wood('shaft', color='#6f6250', seed=47)
     point = G.steel('arrowhead', color='#3a3b3e', rust=0.5, blood=0.2, seed=52, edge=0.6)
@@ -73,7 +73,7 @@ def build(v, seed=7, turn=-4.0, look=None, head=True):
     fig = K.root('figure')
     parts = []
 
-    rb = CC.robe(D, fr, mt, parts, seed=seed, grafts=('l',), cut=0.38, band=BR.band(fr, D, 0.86, 1.545))
+    rb = CC.robe(D, fr, mt, parts, seed=seed, grafts=('l',), cut=0.38, glow=2.2, band=BR.band(fr, D, 0.86, 1.545))
     CC.mantle_hood(D, fr, H, mt, parts, seed=seed, low=1.36)
 
     # the quiver at the right hip

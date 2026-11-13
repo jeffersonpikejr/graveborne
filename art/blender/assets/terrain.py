@@ -148,6 +148,7 @@ def boulder(n):
 
 
 # ================================================================ walls
+SEAM = 0.006                          # overlap past x = +-0.5: 1.5 px of a shipped sprite (see T.clip_tile)
 COURSES = (0.14, 0.13, 0.13, 0.12)      # 0.52 to the top of the fourth course
 WALL_H = sum(COURSES)
 
@@ -205,12 +206,12 @@ def wall(n):
         z += ch
     stone_m = T.stone(f'wall_stone_{n}', color='#6c6961', color2='#4b4944', moss=moss, lichen=0.5, cracks=0.5,
                       seed=30 + n, scale=1.6, island=0.28, mud=0.6, mud_h=0.08)
-    face_ob = T.clip_tile(face.obj('wall_face', stone_m))
+    face_ob = T.clip_tile(face.obj('wall_face', stone_m), pad=SEAM)
     wd = face_ob.modifiers.new('weld', 'WELD')
     wd.merge_threshold = 0.0004
     # ---- the core: packed rubble and mortar, a height field with a skirt, exactly the footprint
     nx, ny = 44, 60
-    xs = np.linspace(-0.5, 0.5, nx)
+    xs = np.linspace(-0.5 - SEAM, 0.5 + SEAM, nx)
     ys = np.linspace(-FY + 0.014, FY, ny)
     X, Y = np.meshgrid(xs, ys, indexing='ij')
     P0 = np.column_stack((X.ravel(), Y.ravel(), np.zeros(X.size)))
@@ -252,7 +253,7 @@ def wall(n):
         rub.add(_rot(V, _rz(rnd.uniform(0.0, 3.1)) @ _rx(rnd.uniform(-0.3, 0.3)), (x, y, zt + s * 0.2)), F)
     rub_m = T.stone(f'wall_rubble_{n}', color='#716e65', color2='#4b4944', moss=moss * 0.9, lichen=0.5, cracks=0.3,
                     seed=40 + n, scale=2.0, island=0.3, mud=0.0)
-    rub_ob = T.clip_tile(rub.obj('wall_rubble', rub_m), south=True)
+    rub_ob = T.clip_tile(rub.obj('wall_rubble', rub_m), south=True, pad=SEAM)
     parts = [face_ob, core_ob, rub_ob]
     if n == 4:          # grass and weeds rooted in the top
         gr = T.Acc()
