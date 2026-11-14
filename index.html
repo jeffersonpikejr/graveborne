@@ -437,6 +437,12 @@
   #sheet{position:absolute;left:0;right:0;bottom:calc(50px + env(safe-area-inset-bottom));max-height:62vh;overflow-y:auto;z-index:7;padding:6px 6px 8px;display:flex;flex-direction:column;gap:6px;
     background:rgba(12,10,7,.9);border-top:1px solid #000;box-shadow:0 -1px 0 rgba(201,162,39,.25),0 -10px 26px rgba(0,0,0,.7)}
   #sheet .fp>header{cursor:default} #sheet>.sheetx+.fp>header{padding-right:46px} .sheetx{position:sticky;top:0;align-self:flex-end;z-index:2;margin-bottom:-34px;padding:3px 10px}
+  /* ---- v0.74: the Blight's clock in the top bar; the end screen says why ---- */
+  #sbar .sblight{border-bottom:0} #sbar .sblight.warn,#sbar .sblight.warn b{color:#c9a227} #sbar .sblight.crit,#sbar .sblight.crit b{color:#ff8a6a}
+  #sbar .sblight.crit{animation:critpulse 1.3s ease-in-out infinite} @keyframes critpulse{0%,100%{opacity:1}50%{opacity:.55}}
+  .endwhy{border-color:#7a2f24;background:linear-gradient(#2a1a15,#211611)} .endwhy h2{color:#d98074;margin-top:0}
+  .endlog{background:#15110c;border:1px solid var(--line);border-radius:3px;padding:6px 10px;font-size:12.5px} .endlog p{margin:2px 0}
+  .endlog .wk{color:var(--gold)} .endlog .bad{color:#d98074} .endlog .blight{color:#b08bc9} .endlog .good{color:#9ab86f}
   .spr-card.pt{background-size:330%;background-position:50% 19.5%;background-color:#1b1712;box-shadow:inset 0 0 10px rgba(0,0,0,.7)} .spr-card.pt.rv{background-color:#1d1626;border-color:#5a4372}
   .spr-card{display:block;border:1px solid var(--line);border-radius:3px;background-color:#161310;background-repeat:no-repeat;background-size:175%;background-position:50% 64%}
 </style>
@@ -446,7 +452,7 @@
 <script>
 'use strict';
 /* ============================== UTILITIES ============================== */
-const VERSION='0.73';                                   // the one place the build names itself (title, header, title screen)
+const VERSION='0.74';                                   // the one place the build names itself (title, header, title screen)
 let S=null;                                             // the campaign record — declared first so the RNG below can read it
 /* ---- v0.70 ONE DIE. Every roll the simulation makes goes through rnd(), a mulberry32 stream whose state lives ON the
    record (S.rng) — so a run is a function of its seed, a reload continues the same stream, and a failing fuzz seed
@@ -2585,6 +2591,7 @@ function advanceDays(n){
     if(foe){ interceptEncounter(foe,'They came to the camp at dawn.'); return; }
   }
   strandedCheck();
+  reportSwallowing();                                        // a horde can take a region between week-turns
   save(); render();
   checkBarrow();
 }
@@ -2621,7 +2628,8 @@ function agentsDaily(){
       if(!tgt){ S.agents=S.agents.filter(x=>x!==a); continue; }
       if(a.q===tgt.q&&a.r===tgt.r){
         const h=hex(a.q,a.r); const reg=regionAtHex(h); if(!reg){ S.agents=S.agents.filter(x=>x!==a); continue; }
-        reg.pressure+=10; if(reg.pressure>=100)swallowRegion(reg);
+        reg.pressure+=10; if(!provKnown((REGION_DEFS[reg.id]||{}).prov||0))reg.pressure=Math.min(reg.pressure,97);   // ground never walked never falls — to a horde no more than to the weeks
+        if(reg.pressure>=100)swallowRegion(reg);
         log(`A Blight horde falls on ${REGION_DEFS[h.setl!==null?h.setl:h.region].town}. Pressure surges in ${reg.name}.`,'blight');
         S.agents=S.agents.filter(x=>x!==a);
         continue;
@@ -2877,6 +2885,7 @@ function weeklyTick(){
   if(S.debt&&S.week>=S.debt.week)queueModal(()=>debtModal());
   if(typeof weeklyStory==='function')weeklyStory();        // the road's own stories: events, unfinished business, named heads
   checkGameOver();
+  reportSwallowing();
 }
 // Undercrown Runners begin in hock. The Undercrown always collects — the only question is in what.
 function debtModal(){
@@ -2898,8 +2907,35 @@ function rise(g,flavor){
   if(!S.agents.some(a=>a.kind==='revenant'&&a.graveId===g.id))
     spawnAgent('revenant',randomHexInRegion(g.regionId),{graveId:g.id,str:10});
 }
+// v0.74 — the Blight's clock, said out loud. The run ends the week the last region of walked ground is swallowed; until
+// v0.74 that happened with one log line and an end screen that never said why, so a campaign seemed to die on its own.
+let swallowQueued=false;   // one report at a time, however many regions go in a march (never saved)
+function walkedRegions(){ return S.regions.filter(r=>provKnown((REGION_DEFS[r.id]||{}).prov||0)); }
+function blightClock(){
+  const L=walkedRegions(), standing=L.filter(r=>!r.swallowed).sort((a,b)=>b.pressure-a.pressure);
+  return {total:L.length,stand:standing.length,standing,worst:standing[0]||null,fallen:L.filter(r=>r.swallowed)};
+}
+function reportSwallowing(){
+  if(S.over||swallowQueued)return;
+  if(!walkedRegions().some(r=>r.swallowed&&r.swallowWeek!=null&&!r.reported))return;
+  swallowQueued=true; queueModal(()=>swallowModal());
+}
+function swallowModal(){
+  swallowQueued=false;
+  const news=walkedRegions().filter(r=>r.swallowed&&r.swallowWeek!=null&&!r.reported); news.forEach(r=>r.reported=true);
+  const C=blightClock();
+  if(!news.length||S.over||!C.stand){ closeModal(); return; }   // if that was the last of it, the end screen says so
+  const names=news.map(r=>`<b>${esc(r.name)}</b>`).join(' and '), many=news.length>1;
+  showModal('The Swallowing',
+    `<p>${names} ${many?'are':'is'} gone. The Blight holds ${many?'them':'it'} now: the buried there get up, and only ruin-delves remain.</p>
+     <p><b>${C.stand} of ${C.total}</b> regions of the ground you have walked still stand.${C.stand===1?' <b style="color:#d98074">This is the last of it.</b>':''} When the last one is swallowed, the company has nowhere left to stand and the chronicle ends.</p>
+     ${C.standing.map(r=>`<div class="statline">${esc(r.name)} <span class="hint">— pressure</span> <b style="color:${r.pressure>=80?'#d98074':r.pressure>=60?'#c9a227':'var(--ink)'}">${r.pressure}</b></div>`).join('')}
+     <p class="hint">Won purge and hold contracts push it back where they are fought (−6), a shrine takes 30c to (−12), and Reconsecrate the Ground drives it out (−25).</p>`,
+    [{label:'Look at the map',cls:'primary',fn:()=>closeModal()}]);
+}
 function swallowRegion(r){
-  r.pressure=100; r.swallowed=true; r.salvage=6;
+  r.pressure=100; r.swallowed=true; r.salvage=6; r.swallowWeek=S.week;
+  if(provKnown((REGION_DEFS[r.id]||{}).prov||0))S.chronicle.push(`Week ${S.week}: the Blight swallowed ${r.name}.`);
   Object.values(S.hexes).forEach(h=>{ if(h.region===r.id)h.blighted=true; });
   log(`THE SWALLOWING — ${r.name} is gone. The Blight holds it now. Only ruin-delves remain there.`,'blight');
   for(const g of S.graves){ if(g.regionId===r.id&&g.state==='buried'){ rise(g,'The Blight took the graves with the ground.'); } }
@@ -2945,6 +2981,9 @@ function checkGameOver(){
   const lived=S.regions.filter(r=>provKnown((REGION_DEFS[r.id]||{}).prov||0));
   if(lived.length&&lived.every(r=>r.swallowed)){
     S.over=true;
+    const order=lived.filter(r=>r.swallowWeek!=null).sort((a,b)=>a.swallowWeek-b.swallowWeek);
+    S.end={how:'blight',week:S.week,last:order.length?order[order.length-1].name:null};
+    S.chronicle.push(`Week ${S.week}: the last of the ground went to the Blight, and the company broke up on the road.`);
     log('There is nowhere left to stand. The March belongs to the Blight.','bad');
     legacyRecordRun('blight');
     return;
@@ -2953,6 +2992,8 @@ function checkGameOver(){
   // cannot decrease, so the run is only dead when the cheapest possible hire is out of reach.
   if(S.roster.length===0&&S.coin+(S.stash||[]).reduce((a,i)=>a+itemSell(i),0)<hireCost({cost:20})){   // what is in the wagons counts: one sale in town can raise a banner again —   // 20 is the floor of a hire's asking price; standing with the Folk moves it
     S.over=true;
+    S.end={how:'fell',week:S.week,coin:S.coin,stash:(S.stash||[]).reduce((a,i)=>a+itemSell(i),0),need:hireCost({cost:20})};
+    S.chronicle.push(`Week ${S.week}: no one was left to carry the banner, and nothing in the strongbox to buy a sword.`);
     log('The banner falls. No one is left to carry it.','bad');
     legacyRecordRun('fell');
   }
@@ -7058,7 +7099,7 @@ function stratPanels(){
       body:()=>S.roster.map(s=>soldierRow(s,false)).join('')||'<p class="hint">No one left. Hire, or the banner falls.</p>'},
     hire:{t:'Sellswords for Hire',sum:setl!==null?(S.hirePool.length?`${S.hirePool.length} waiting`:'no one this week'):'in towns only',dock:'L',def:false,
       body:()=>setl!==null?(S.hirePool.map((h,i)=>soldierRow(h,true,i)).join('')||'<p class="hint">No one this week.</p>'):'<p class="hint">Sellswords wait in towns, not on the road. Reach a ⌂ settlement.</p>'},
-    log:{t:'The Chronicle',sum:esc(last),dock:'L',def:false,
+    log:{t:'The Chronicle',sum:esc(last),dock:'L',def:true,
       body:()=>`<div id="log">${S.log.map(l=>{const ic=l.cls==='wk'?'✦':l.cls==='bad'?'✖':l.cls==='good'?'✓':l.cls==='blight'?'⚰':'·';return `<p class="${l.cls}"><span class="lgi">${ic}</span>${l.msg}</p>`;}).join('')}</div>`},
     caravan:{t:'Caravan',sum:(todo?'<b class="fpbang">!</b> ':'')+esc(hexDesc(ch)),dock:'R',def:true,body:()=>cbody},
     work:{t:'Contracts & Rumours',sum:`${S.contracts.length} posted${nem?` · ${nem} ☠`:''}`,dock:'R',def:true,
@@ -7079,10 +7120,17 @@ function fpanel(id,p,sheet){
   return `<section class="fp${open?' open':''}" id="fp-${id}"><header ${p.pin||sheet?'':`onclick="PANEL('${id}',${!!p.def})" title="${open?'Fold away':'Open'}"`}>
     <span class="fpt">${p.t}</span><span class="fps">${p.sum||''}</span>${p.pin?`<button class="fpx" onclick="event.stopPropagation();${p.close}" title="Close">✕</button>`:(sheet?'':`<span class="fpc">${open?'▾':'▸'}</span>`)}</header>${open?`<div class="fpb">${p.body()}</div>`:''}</section>`;
 }
+function blightStat(){
+  const C=blightClock(); if(!C.total)return '';
+  const w=C.worst, lvl=(C.stand<=1||(C.stand<=2&&w&&w.pressure>=70))?'crit':(C.stand<C.total||(w&&w.pressure>=70))?'warn':'';
+  const tip=`The ground you have walked: ${C.stand} of ${C.total} regions still stand. Each is swallowed when its Blight pressure reaches 100; when the last one goes, the company has nowhere to stand and the run ends.\n`
+    +C.standing.map(r=>`${r.name} — ${r.pressure}`).join('\n')+(C.fallen.length?`\nGone: ${C.fallen.map(r=>r.name).join(', ')}`:'');
+  return `<span class="sstat sblight tt ${lvl}" data-tip="${esc(tip)}">☠ Ground held <b>${C.stand}/${C.total}</b>${lvl&&w?` <span class="sbw">· ${esc(w.name)} ${w.pressure}</span>`:''}</span>`;
+}
 function stratBar(narrow,bare){
   const h=caravanHex(), reg=regionAtHex(h), owed=docsOwed();
   return `<div id="sbar"><span class="sbrand" title="Graveborne — alpha v${VERSION}"><svg width="15" height="20" viewBox="0 0 20 26" style="vertical-align:-4px;margin-right:5px"><rect x="1" y="0" width="2.2" height="26" fill="#6b5636"/><path d="M4 2 h14 v15 l-7 -4.5 l-7 4.5 Z" fill="#7a2f24" stroke="#c9a227" stroke-width="1.2"/><circle cx="11" cy="7.5" r="2.2" fill="#c9a227"/></svg>${esc(S.cname||'Graveborne')}</span>
-    <span class="sstats"><span class="sstat">Week <b>${S.week}</b> · day <b>${(S.day%7)+1}</b></span>
+    <span class="sstats"><span class="sstat">Week <b>${S.week}</b> · day <b>${(S.day%7)+1}</b></span>${blightStat()}
     <span class="sstat sloc">⛺ <b>${esc(reg?reg.name:'the road between')}</b></span>
     <span class="sstat" title="Coin">Coin <b>${S.coin}</b></span>
     <span class="sstat" title="Provisions: one a head each week">Provisions <b>${S.prov}</b></span>
@@ -7684,15 +7732,38 @@ window.TILE=function(x,y){
 window.DEFEND=defend; window.ENDT=endPlayerPhase; window.RETREAT=retreat; window.MEDIC=useAbility; window.PEEK=peekToggle;
 window.ACTMENU=function(cancel){ const B=S.battle; if(!B||B.phase!=='player')return; if(cancel){ B.aim=null; B._actMenu=false; } else B._actMenu=!B._actMenu; render(); };
 window.ACTPICK=function(k){ const B=S.battle; if(!B)return; B._actMenu=false; if(k==='__brace')defend(); else useAbility(k); };   // pick from the Actions dropdown
+// why the run ended, in plain words — from the note checkGameOver keeps, or read off the record for a run that ended
+// before v0.74 kept one
+function endWhy(){
+  const E=S.end||{}, C=blightClock();
+  const how=E.how||((C.total&&!C.stand)?'blight':(!S.roster.length?'fell':null));
+  if(how==='blight'){
+    const order=C.fallen.slice().sort((a,b)=>(a.swallowWeek||0)-(b.swallowWeek||0));
+    const last=E.last||(order.length&&order[order.length-1].swallowWeek!=null?order[order.length-1].name:null);
+    return `<div class="card endwhy"><h2>Why it ended</h2>
+      <p><b>The Blight swallowed the last of the ground you had walked.</b> ${last?`${esc(last)} fell in week ${E.week||S.week}, the last of ${C.total} regions.`:`All ${C.total} regions of it are gone.`} With nowhere left to stand, the company broke up on the road.</p>
+      <p class="hint">Each region falls when its Blight pressure reaches 100. Won purge and hold contracts push it back (−6), shrines (−12), Reconsecrate the Ground (−25). The march screen counts the ground still held in the top bar.</p>
+      ${order.length?`<div class="hint">The order it went: ${order.map(r=>esc(r.name)+(r.swallowWeek!=null?` (week ${r.swallowWeek})`:'')).join(' · ')}</div>`:''}</div>`;
+  }
+  if(how==='fell'){
+    const coin=E.coin!=null?E.coin:S.coin, stash=E.stash!=null?E.stash:(S.stash||[]).reduce((a,i)=>a+itemSell(i),0), need=E.need||hireCost({cost:20});
+    return `<div class="card endwhy"><h2>Why it ended</h2>
+      <p><b>No one was left to carry the banner</b>, and the strongbox could not buy another: ${coin}c in it${stash?` and ${stash}c more in the wagons`:''}, where the cheapest sword in the March asks ${need}c.</p></div>`;
+  }
+  return '';
+}
 function renderGameOver(){
   if(S.victory)return renderVictory();
   const walking=S.graves.filter(g=>g.state==='risen');
   return header()+`<div id="main"><div class="col" style="flex:1">
     <h1>This is how the company died.</h1>
     <p>Week ${S.week}. Renown ${S.renown}. ${S.graves.length} graves in the ledger.</p>
+    ${endWhy()}
     <h2>Chronicle</h2>
     ${S.chronicle.map(c=>`<p class="bg">${esc(c)}</p>`).join('')||'<p class="hint">A short story.</p>'}
     ${walking.length?`<h2>Still walking</h2><p class="bond">${walking.map(g=>esc(g.name)).join(', ')} — unresolved, improving, wearing your colors. Someone else’s problem now.</p>`:''}
+    <h2>The last of the log</h2>
+    <div class="endlog">${S.log.slice(0,10).reverse().map(l=>`<p class="${l.cls||''}">${l.msg}</p>`).join('')}</div>
     <p style="margin-top:14px;font-style:italic">You fought everyone you failed to protect. In the end, that was everyone.</p>
     <button class="primary" onclick="NEWGAME()">Raise a new banner</button>
   </div></div>`;

@@ -233,6 +233,36 @@ await page.setViewportSize({ width: 1280, height: 800 }); await page.waitForTime
 check('strategy screen: map fills the view, zoom and pan stay in the frame, panels fold and persist, hex panel, drag is not a tap, soldier card, map-only, phone sheets',
   Object.values(st).every(Boolean) && Object.values(stm).every(Boolean), { st, stm });
 
+// 23. v0.74 — the Blight's ending is announced and explained: the top bar counts the ground held; a horde cannot swallow
+//     ground the company never walked; a walked region's fall raises a report with what still stands; the run that ends
+//     says why (the Blight, or a banner with no one to carry it), and so does a run that ended before the note was kept
+await fresh('end74');
+const end = await page.evaluate(() => {
+  const out = {}, L = walkedRegions(), bar = () => document.querySelector('#sbar').textContent;
+  const drain = (title) => { for (let i = 0; i < 10 && activeModal; i++) { if (activeModal.title === title) return activeModal; closeModal(); } return null; };
+  render(); out.bar = /Ground held/.test(bar()) && bar().includes(`${L.length}/${L.length}`);
+  const far = S.regions.find(r => !provKnown((REGION_DEFS[r.id] || {}).prov || 0) && !r.swallowed && REGION_DEFS[r.id] && REGION_DEFS[r.id].town);
+  far.pressure = 95; S.agents = S.agents.filter(a => a.kind !== 'horde'); spawnAgent('horde', { q: realmQ(far.id), r: realmR(far.id) }, { str: 9 });
+  S.coin += 500; S.prov += 50; advanceDays(1); drain('nothing');
+  out.farHolds = !far.swallowed && far.pressure <= 97;
+  const a = L[0]; L.forEach(r => { r.pressure = Math.min(r.pressure, 55); }); a.pressure = 99;
+  weeklyTick(); const m = drain('The Swallowing');
+  out.report = !!m && m.html.includes(a.name) && m.html.includes(`${L.length - 1} of ${L.length}`);
+  closeModal(); render(); out.barAfter = bar().includes(`${L.length - 1}/${L.length}`) && S.chronicle.some(c => c.includes(a.name));
+  const rest = walkedRegions().filter(r => !r.swallowed), lastR = rest[rest.length - 1];
+  rest.slice(0, -1).forEach(r => swallowRegion(r)); lastR.pressure = 99; weeklyTick();
+  out.over = S.over && S.end && S.end.how === 'blight' && S.end.last === lastR.name;
+  out.noModal = !activeModal || activeModal.title !== 'The Swallowing';
+  activeModal = null; modalQ.length = 0; render(); const t = document.body.textContent;
+  out.screen = t.includes('Why it ended') && t.includes(lastR.name) && /nowhere left to stand/i.test(t) && t.includes('The last of the log');
+  delete S.end; render(); out.inferred = document.body.textContent.includes('Why it ended') && /Blight swallowed the last/.test(document.body.textContent);
+  G.newGame({ seed: 'end74b' }); activeModal = null; modalQ.length = 0; S.roster = []; S.coin = 5; S.stash = []; checkGameOver();
+  out.fell = S.over && S.end && S.end.how === 'fell' && S.end.coin === 5; render();
+  out.fellScreen = /No one was left to carry the banner/.test(document.body.textContent) && document.body.textContent.includes('5c in it');
+  return out; });
+check('Blight clock: ground-held counter, unwalked ground holds against a horde, swallow report, end screen says why (and infers it for older runs), banner-falls cause',
+  Object.values(end).every(Boolean), end);
+
 check('no uncaught page errors', errors.length === 0, errors.slice(0, 3));
 console.log(results.join('\n'));
 console.log(failed ? `\n${failed} regression(s) FAILED` : '\nPASS — ' + results.length + ' checks');
