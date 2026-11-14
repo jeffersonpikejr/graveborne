@@ -440,6 +440,8 @@
   /* ---- v0.74: the Blight's clock in the top bar; the end screen says why ---- */
   #sbar .sblight{border-bottom:0} #sbar .sblight.warn,#sbar .sblight.warn b{color:#c9a227} #sbar .sblight.crit,#sbar .sblight.crit b{color:#ff8a6a}
   #sbar .sblight.crit{animation:critpulse 1.3s ease-in-out infinite} @keyframes critpulse{0%,100%{opacity:1}50%{opacity:.55}}
+  #sbar .sbwarnb{border-color:#d98074;color:#ffb39a}
+  .endreopen{border-color:#8a6f2a;background:linear-gradient(#2a2312,#1f1a10)} .endreopen p{margin:4px 0 8px}
   .endwhy{border-color:#7a2f24;background:linear-gradient(#2a1a15,#211611)} .endwhy h2{color:#d98074;margin-top:0}
   .endlog{background:#15110c;border:1px solid var(--line);border-radius:3px;padding:6px 10px;font-size:12.5px} .endlog p{margin:2px 0}
   .endlog .wk{color:var(--gold)} .endlog .bad{color:#d98074} .endlog .blight{color:#b08bc9} .endlog .good{color:#9ab86f}
@@ -452,7 +454,7 @@
 <script>
 'use strict';
 /* ============================== UTILITIES ============================== */
-const VERSION='0.74';                                   // the one place the build names itself (title, header, title screen)
+const VERSION='0.75';                                   // the one place the build names itself (title, header, title screen)
 let S=null;                                             // the campaign record — declared first so the RNG below can read it
 /* ---- v0.70 ONE DIE. Every roll the simulation makes goes through rnd(), a mulberry32 stream whose state lives ON the
    record (S.rng) — so a run is a function of its seed, a reload continues the same stream, and a failing fuzz seed
@@ -1891,6 +1893,7 @@ let TSCUR=46; // current battle tile size (responsive)
 let mobileTab=null; // the sheet open on a narrow screen: company · caravan · work · log, or none (the map)
 function newGame(opts){
   opts=opts||{};
+  try{ const raw=localStorage.getItem('graveborne_v01'); if(raw)localStorage.setItem(PREV_KEY,raw); }catch(e){}   // v0.75: the record this banner replaces can be put back (Kept Records)
   if(S&&!S.over)legacyRecordRun('abandoned');             // the banner you walk away from still goes in the Hall
   uid=1;
   const L=legacyLoad();
@@ -2592,6 +2595,7 @@ function advanceDays(n){
   }
   strandedCheck();
   reportSwallowing();                                        // a horde can take a region between week-turns
+  blightWatch();
   save(); render();
   checkBarrow();
 }
@@ -2628,8 +2632,8 @@ function agentsDaily(){
       if(!tgt){ S.agents=S.agents.filter(x=>x!==a); continue; }
       if(a.q===tgt.q&&a.r===tgt.r){
         const h=hex(a.q,a.r); const reg=regionAtHex(h); if(!reg){ S.agents=S.agents.filter(x=>x!==a); continue; }
-        reg.pressure+=10; if(!provKnown((REGION_DEFS[reg.id]||{}).prov||0))reg.pressure=Math.min(reg.pressure,97);   // ground never walked never falls — to a horde no more than to the weeks
-        if(reg.pressure>=100)swallowRegion(reg);
+        blightGain(reg,10); if(!provKnown((REGION_DEFS[reg.id]||{}).prov||0))reg.pressure=Math.min(reg.pressure,97);   // ground never walked never falls — to a horde no more than to the weeks
+        if(reg.pressure>=100)blightTake(reg);
         log(`A Blight horde falls on ${REGION_DEFS[h.setl!==null?h.setl:h.region].town}. Pressure surges in ${reg.name}.`,'blight');
         S.agents=S.agents.filter(x=>x!==a);
         continue;
@@ -2814,14 +2818,15 @@ function weeklyTick(){
     // Ground you have never walked rots slowly and never falls: revealing a continent of corpses is
     // strictly worse than hiding a live one. Seen ground keeps the Act-I clock exactly as tuned.
     const seen=provKnown((REGION_DEFS[r.id]||{}).prov||0);
-    r.pressure+=seen?ri(1,4)+(omen('conclaverising')?1:0):(chance(35)?1:0);
+    let inc=seen?ri(1,4)+(omen('conclaverising')?1:0):(chance(35)?1:0);
     if(seen)for(const nb of neighbors(r.id)){
       const n2=S.regions[nb];
-      if(n2.swallowed) r.pressure+=ri(2,5);
-      else if(n2.pressure>=70) r.pressure+=1;
+      if(n2.swallowed) inc+=ri(2,5);
+      else if(n2.pressure>=70) inc+=1;
     }
+    blightGain(r,inc);                                        // v0.75: at BLIGHT_PACE, 30% slower than it was
     if(!seen)r.pressure=Math.min(r.pressure,97);
-    if(r.pressure>=100){ swallowRegion(r); }
+    if(r.pressure>=100){ blightTake(r); }
   }
   // graves: lost bodies rise
   for(const g of S.graves){
@@ -2886,6 +2891,7 @@ function weeklyTick(){
   if(typeof weeklyStory==='function')weeklyStory();        // the road's own stories: events, unfinished business, named heads
   checkGameOver();
   reportSwallowing();
+  blightWatch();
 }
 // Undercrown Runners begin in hock. The Undercrown always collects — the only question is in what.
 function debtModal(){
@@ -2933,6 +2939,142 @@ function swallowModal(){
      <p class="hint">Won purge and hold contracts push it back where they are fought (−6), a shrine takes 30c to (−12), and Reconsecrate the Ground drives it out (−25).</p>`,
     [{label:'Look at the map',cls:'primary',fn:()=>closeModal()}]);
 }
+// v0.75 — the clock runs at 70% of v0.74's pace. Pressure stays a whole number; what a week adds below the next point is
+// carried on the region (creep), so the slower pace is exact and costs no extra roll.
+const BLIGHT_PACE=0.7;
+function blightGain(r,inc){ r.creep=(r.creep||0)+inc*BLIGHT_PACE; const whole=Math.floor(r.creep+1e-9); r.creep=Math.max(0,r.creep-whole); r.pressure+=whole; }
+// The Blight's expected course at the present pace: the mean of every roll, no hordes, nothing pushing back. st maps a
+// region id to {p,sw} for walked ground; the rest of the realm holds as it stands. One call is one week.
+function blightStep(st){
+  const add={}, cr=omen('conclaverising')?1:0;
+  for(const id in st){ if(st[id].sw)continue;
+    let inc=2.5+cr;
+    for(const nb of neighbors(+id)){ const y=st[nb], n2=S.regions[nb]; if(y?y.sw:n2.swallowed)inc+=3.5; else if((y?y.p:n2.pressure)>=70)inc+=1; }
+    add[id]=inc*BLIGHT_PACE; }
+  for(const id in add){ st[id].p+=add[id]; if(st[id].p>=100){ st[id].p=100; st[id].sw=true; } }
+}
+function blightState(){ const st={}; for(const r of walkedRegions())st[r.id]={p:r.pressure+(r.creep||0),sw:!!r.swallowed}; return st; }
+// weeks until the walked ground is gone, at the present pace (99: not within a year)
+function blightEta(st){
+  st=st||blightState(); const ids=Object.keys(st); if(!ids.length)return 99; if(ids.every(id=>st[id].sw))return 0;
+  for(let w=1;w<=52;w++){ blightStep(st); if(ids.every(id=>st[id].sw))return w; }
+  return 99;
+}
+// The warning comes about two weeks before the last of the walked ground is swallowed; and the last region is never
+// taken sooner than two week-turns after it, whatever the dice or a horde do. Pushed back past five weeks, it re-arms.
+let lastGroundDue=false;   // the warning is owed at the end of this tick (never saved)
+function blightWatch(){
+  if(!S||S.over)return;
+  const C=blightClock(); if(!C.total||!C.stand)return;
+  const eta=blightEta();
+  if(S.blightWarn&&!lastGroundDue&&eta>=5&&S.week>S.blightWarn.week)S.blightWarn=null;
+  if(!S.blightWarn&&eta<=2){ S.blightWarn={week:S.week}; lastGroundDue=true; }
+  if(lastGroundDue){ lastGroundDue=false; queueModal(()=>lastGroundModal()); }
+}
+function blightTake(r){
+  const C=blightClock();
+  if(C.stand===1&&C.standing[0]===r){                      // the last of the walked ground
+    if(!S.blightWarn){ S.blightWarn={week:S.week}; lastGroundDue=true; }
+    if(S.week<S.blightWarn.week+2){ r.pressure=99; r.creep=0; return; }
+  }
+  swallowRegion(r);
+}
+// what the story wants next, and where — the warning points at it
+function storyNext(){
+  if(!S.story)return null;
+  const st=S.story.stage, gate={q:realmQ(3),r:realmR(3)}, at=k=>{ const c=S.contracts.find(x=>x.story===k); return c?{q:c.q,r:c.r}:null; };
+  if(st===1)return {text:'Reach <b>Karsk Gate</b> with your Commander — the princess Maren pays for discreet swords.',hex:gate};
+  if(st===2){ const w=S.contracts.filter(c=>c.type==='purge'||c.type==='delve').sort((a,b)=>hexDist(S.caravan,a)-hexDist(S.caravan,b))[0];
+    return {text:'Win a <b>purge or delve</b> contract — the Conclave’s letters ride with its dead, and Maren wants proof.',hex:w?{q:w.q,r:w.r}:null}; }
+  if(st===3)return {text:'Bring the letters to <b>Maren at Karsk Gate</b>. She is expecting you.',hex:gate};
+  if(st===4)return {text:'Strike <b>The Magister’s Courier</b> — the purple mark on the map.',hex:at('courier')};
+  if(st===5)return {text:`Be on the barrow hex in <b>week ${S.story.meetWeek}</b> for the meeting under the barrow.`,hex:S.story.meetHex||null};
+  if(st===6)return {text:'Bring the Envoy’s ledger to <b>the palace at Karsk Gate</b> and choose whose hands it goes into.',hex:gate};
+  if(st===7)return {text:'Pay <b>the heir’s price</b> — the purple mark on the map.',hex:at('heir')};
+  if(st===8)return {text:'The heir owes you, and the King is dying. Rest and let the weeks turn; when he passes, Vell moves and you are sent for.',hex:null};
+  if(st===9)return {text:'<b>The Throne of Karsk</b>: Vell holds the throne room. Ride to Karsk Gate and end it — the crossings open when it is done.',hex:gate};
+  return {text:'The crossings are open. March into a province you have never walked and the company has new ground to stand on.',hex:null};
+}
+function lastGroundModal(){
+  const C=blightClock(); if(S.over||!C.stand){ closeModal(); return; }
+  const eta=blightEta(), nx=storyNext(), one=C.stand===1, r=C.standing[C.standing.length-1];
+  showModal('The Last of the Ground',
+    `<p>${one?`<b>${esc(r.name)}</b> is the last of the ground you have walked, and the Blight stands at <b>${r.pressure}</b> there.`:`<b>${C.stand}</b> regions of the ground you have walked still stand, and the Blight is close in every one.`}
+      At this pace ${one?'it':'the last of them'} is swallowed in about <b>${eta<=1?'a week':eta>=99?'a long while':eta+' weeks'}</b>. When it goes, the company has nowhere left to stand and the chronicle ends.</p>
+     ${nx?`<p><b>The next chapter waits on this:</b> ${nx.text}</p>`:''}
+     <p class="hint">Or buy time: a won purge or hold contract in ${one?esc(r.name):'the ground still standing'} (−6), its shrine (−12), Reconsecrate the Ground (−25). New ground counts too — march across a crossing into a province you have never walked.</p>`,
+    [nx&&nx.hex?{label:'Show the story mission',cls:'primary',fn:()=>{ closeModal(); FOCUSHEX(nx.hex.q,nx.hex.r); }}:null,
+     {label:'Look at the map',cls:nx&&nx.hex?'':'primary',fn:()=>closeModal()}].filter(Boolean));
+}
+window.LASTGROUND=function(){ lastGroundModal(); };
+window.FOCUSHEX=function(q,r){ const h=hex(q,r); if(!h)return; sel=hexKey(q,r); mobileTab=null; render(); if(MAPCAM){ const c=hexCenter(q,r); mapCentre(c.x,c.y); mapApply(); } };
+// ---- v0.75: a campaign the old, faster clock ended can be reopened. The walked ground is replayed from where the
+// campaign found it, at the new pace, for the weeks it ran; a region the company had kept lower keeps its own pressure;
+// and if that leaves under six weeks of ground, the replay is cut short until it does not.
+function reopenable(){
+  if(!S||!S.over||S.victory)return false;
+  const C=blightClock(), how=(S.end&&S.end.how)||((C.total&&!C.stand)?'blight':null);
+  return how==='blight'&&!(S.end&&S.end.clock>=2);
+}
+function unBlight(r){ Object.values(S.hexes).forEach(h=>{ if(h.region===r.id)h.blighted=false; }); }
+function blightRewind(){
+  for(const r of S.regions)if(r.swallowed&&!provKnown((REGION_DEFS[r.id]||{}).prov||0)){ r.swallowed=false; r.pressure=97; r.creep=0; unBlight(r); }   // the horde bug's harvest: ground never walked holds at 97
+  const L=walkedRegions(), p0=r=>Math.max(3,((REGION_DEFS[r.id]||{}).p)||20);
+  let weeks=Math.max(0,S.week-1), st, fell;
+  for(;;){
+    st={}; fell={}; for(const r of L)st[r.id]={p:p0(r),sw:false};
+    for(let w=1;w<=weeks;w++){ blightStep(st); for(const id in st)if(st[id].sw&&fell[id]==null)fell[id]=S.week-weeks+w; }
+    for(const r of L)if(!r.swallowed){ const x=st[r.id]; x.p=Math.min(r.pressure,x.sw?100:x.p); if(x.sw){ x.sw=false; delete fell[r.id]; } }
+    if(weeks<=0||blightEta(JSON.parse(JSON.stringify(st)))>=6)break;
+    weeks--;
+  }
+  for(const r of L){ const x=st[r.id];
+    if(x.sw){ r.swallowed=true; r.pressure=100; r.reported=true; r.swallowWeek=fell[r.id]!=null?fell[r.id]:(r.swallowWeek||null); }
+    else { if(r.swallowed)unBlight(r); r.swallowed=false; r.pressure=Math.min(99,Math.round(x.p)); r.creep=0; delete r.reported; delete r.swallowWeek; } }
+  blightCreep();
+}
+window.REOPEN=function(){
+  if(!reopenable())return;
+  blightRewind();
+  const Lg=legacyLoad(), nm=S.cname||'A nameless company', i=Lg.runs.findIndex(x=>x.name===nm&&x.seed===(S.seedText||'')&&x.how==='blight');
+  if(i>=0)Lg.runs.splice(i,1);
+  if(Lg.dead&&Lg.dead.company===(S.cname||'the old company'))Lg.dead=null;                   // she is not the next banner's to inherit after all
+  legacySave(Lg);
+  S.over=false; S.recorded=false; delete S.end; S.blightWarn=null; S.reopened=(S.reopened||0)+1; SCREEN=null; sel=null; MAPCAM=null;
+  const C=blightClock();
+  S.chronicle.push(`Week ${S.week}: the chronicle was reopened. The Blight runs slower now, and ${C.stand} of ${C.total} regions of the ground stand again.`);
+  log(`The chronicle is reopened. The Blight runs slower now — ${C.stand} of ${C.total} regions of the walked ground stand, and you will be warned before the last one goes.`,'wk');
+  genContracts(); storyHeal(); blightWatch(); save(); render(); pumpModals();
+};
+function reopenCard(){
+  if(!reopenable())return '';
+  return `<div class="card endreopen"><p><b>The Blight runs 30% slower since v0.75</b>, and warns you two weeks before the last of the ground goes. This company fell to the old pace.</p>
+    <p class="hint">Reopen the chronicle and the ground comes back where the slower clock would have it: replayed from the week the campaign began, a region you kept lower keeping its own pressure, and never less than six weeks of ground left. The roster, the coin, the story and the dead stay as they are.</p>
+    <button class="primary" onclick="REOPEN()">Reopen this chronicle</button></div>`;
+}
+// ---- v0.75: the record a new banner replaces is kept, and any record the browser holds can be put back
+const PREV_KEY='graveborne_prev_v01';
+function keptRecords(){
+  const cur=localStorage.getItem('graveborne_v01'), out=[], seen=new Set(cur?[cur]:[]);
+  const add=(key,from)=>{ let raw=null; try{ raw=localStorage.getItem(key); }catch(e){} if(!raw||seen.has(raw))return; seen.add(raw);
+    try{ const d=JSON.parse(raw); if(!d||!d.S)return; const x=d.S; out.push({key,from,name:x.cname||'A nameless company',week:x.week||1,over:!!x.over,victory:!!x.victory}); }catch(e){} };
+  add(PREV_KEY,'replaced by a new banner');
+  for(let v=SAVE_VER;v>=67;v--)add(backupKeyFor(v),'kept when the game updated');
+  add(BACKUP_KEY,'kept when the realm opened');
+  return out;
+}
+window.KEPT=function(){
+  const K=keptRecords();
+  showModal('Kept Records',
+    `<p>Records this browser holds besides the current one. Putting one back keeps the current record here in its place, so nothing is lost.</p>`
+    +K.map(k=>`<div class="statline"><b>${esc(k.name)}</b> — week ${k.week}${k.victory?' · the argument ended':k.over?' · ended':' · in the field'} <span class="hint">(${esc(k.from)})</span></div>`).join(''),
+    K.map(k=>({label:`Put back ${k.name}, week ${k.week}`,cls:'pick',fn:()=>KEPTRESTORE(k.key)})).concat([{label:'Close',fn:()=>closeModal()}]));
+};
+window.KEPTRESTORE=function(key){
+  let raw=null; try{ raw=localStorage.getItem(key); }catch(e){} if(!raw)return;
+  try{ const cur=localStorage.getItem('graveborne_v01'); if(cur&&cur!==raw)localStorage.setItem(PREV_KEY,cur); localStorage.setItem('graveborne_v01',raw); clearStashedBattle(); }catch(e){ return; }
+  location.reload();
+};
 function swallowRegion(r){
   r.pressure=100; r.swallowed=true; r.salvage=6; r.swallowWeek=S.week;
   if(provKnown((REGION_DEFS[r.id]||{}).prov||0))S.chronicle.push(`Week ${S.week}: the Blight swallowed ${r.name}.`);
@@ -2982,7 +3124,7 @@ function checkGameOver(){
   if(lived.length&&lived.every(r=>r.swallowed)){
     S.over=true;
     const order=lived.filter(r=>r.swallowWeek!=null).sort((a,b)=>a.swallowWeek-b.swallowWeek);
-    S.end={how:'blight',week:S.week,last:order.length?order[order.length-1].name:null};
+    S.end={how:'blight',week:S.week,last:order.length?order[order.length-1].name:null,clock:2};   // clock 2: the v0.75 pace, with its warning
     S.chronicle.push(`Week ${S.week}: the last of the ground went to the Blight, and the company broke up on the road.`);
     log('There is nowhere left to stand. The March belongs to the Blight.','bad');
     legacyRecordRun('blight');
@@ -2992,7 +3134,7 @@ function checkGameOver(){
   // cannot decrease, so the run is only dead when the cheapest possible hire is out of reach.
   if(S.roster.length===0&&S.coin+(S.stash||[]).reduce((a,i)=>a+itemSell(i),0)<hireCost({cost:20})){   // what is in the wagons counts: one sale in town can raise a banner again —   // 20 is the floor of a hire's asking price; standing with the Folk moves it
     S.over=true;
-    S.end={how:'fell',week:S.week,coin:S.coin,stash:(S.stash||[]).reduce((a,i)=>a+itemSell(i),0),need:hireCost({cost:20})};
+    S.end={how:'fell',clock:2,week:S.week,coin:S.coin,stash:(S.stash||[]).reduce((a,i)=>a+itemSell(i),0),need:hireCost({cost:20})};
     S.chronicle.push(`Week ${S.week}: no one was left to carry the banner, and nothing in the strongbox to buy a sword.`);
     log('The banner falls. No one is left to carry it.','bad');
     legacyRecordRun('fell');
@@ -6252,8 +6394,9 @@ function renderTitle(){
       <h1 class="tlogo">GRAVEBORNE</h1>
       <p class="ttag">You will fight everyone you fail to protect.</p>
       <div class="tmenu">
-        ${live?`<button class="primary" onclick="TCONT()">Continue — ${esc(S.cname||'the company')}, week ${S.week}</button>`:(S?`<button onclick="TCONT()">Read the chronicle of ${esc(S.cname||'the last company')}</button>`:'')}
-        <button class="${live?'':'primary'}" onclick="TNEW()">Raise a New Banner</button>
+        ${live?`<button class="primary" onclick="TCONT()">Continue — ${esc(S.cname||'the company')}, week ${S.week}</button>`:(S&&reopenable()?`<button class="primary" onclick="REOPEN()">Reopen ${esc(S.cname||'the last company')} — the Blight runs slower now</button><button onclick="TCONT()">Read the chronicle of ${esc(S.cname||'the last company')}</button>`:(S?`<button onclick="TCONT()">Read the chronicle of ${esc(S.cname||'the last company')}</button>`:''))}
+        <button class="${live||reopenable()?'':'primary'}" onclick="TNEW()">Raise a New Banner</button>
+        ${(()=>{ const n=keptRecords().length; return n?`<button onclick="KEPT()">Kept Records (${n})</button>`:''; })()}
         <button onclick="HALL()">The Hall of Banners${L.runs.length?` (${L.runs.length})`:''}</button>
         <button onclick="HOWTO()">How to Play</button>
         <button onclick="SETTINGS()">Settings</button>
@@ -6300,7 +6443,7 @@ window.NEWGAME=function(){ SCREEN='title'; newCompanyModal(); };
 window.HOWTO=function(){
   showModal('How to Play',
    `<h3>The company</h3>
-    <p class="hint">Take contracts off the map (gold <b>!</b>), march to them, win them, get paid. Each week costs wages and bread. The Blight pressure in every region is the clock: at 100 a region is swallowed, and whatever you buried there gets back up.</p>
+    <p class="hint">Take contracts off the map (gold <b>!</b>), march to them, win them, get paid. Each week costs wages and bread. The Blight pressure in every region is the clock: at 100 a region is swallowed, and whatever you buried there gets back up. When the last region of the ground you have walked is swallowed, the run ends — you are warned about two weeks before, and the top bar counts the ground you still hold.</p>
     <h3>The field</h3>
     <p class="hint">Your whole squad moves, then theirs. Each soldier has <b>movement</b> and one <b>action</b>, and movement splits around the action — step, strike, step. <span style="color:#7fb2e6">Blue</span> tiles keep your action; <span style="color:var(--gold)">gold</span> tiles are a dash that spends it. Tap a red-rimmed enemy to strike (the number is your chance), any other enemy to see how far it reaches. Unaware patrols carry a grey ◦ — you can pick your fight.</p>
     <p class="hint"><b>Keys</b> — Tab next soldier · 1–9 abilities · B brace · U undo a step · E or Enter end turn · Space next soldier · WASD/arrows pan · +/− zoom · C centre · V inspect · L log · R retreat · Esc cancel · ? this page.</p>
@@ -7122,10 +7265,10 @@ function fpanel(id,p,sheet){
 }
 function blightStat(){
   const C=blightClock(); if(!C.total)return '';
-  const w=C.worst, lvl=(C.stand<=1||(C.stand<=2&&w&&w.pressure>=70))?'crit':(C.stand<C.total||(w&&w.pressure>=70))?'warn':'';
+  const w=C.worst, eta=C.stand?blightEta():0, lvl=(S.blightWarn||eta<=4||C.stand<=1)?'crit':(C.stand<C.total||(w&&w.pressure>=70)||eta<=10)?'warn':'';
   const tip=`The ground you have walked: ${C.stand} of ${C.total} regions still stand. Each is swallowed when its Blight pressure reaches 100; when the last one goes, the company has nowhere to stand and the run ends.\n`
     +C.standing.map(r=>`${r.name} — ${r.pressure}`).join('\n')+(C.fallen.length?`\nGone: ${C.fallen.map(r=>r.name).join(', ')}`:'');
-  return `<span class="sstat sblight tt ${lvl}" data-tip="${esc(tip)}">☠ Ground held <b>${C.stand}/${C.total}</b>${lvl&&w?` <span class="sbw">· ${esc(w.name)} ${w.pressure}</span>`:''}</span>`;
+  return `<span class="sstat sblight tt ${lvl}" data-tip="${esc(tip+(eta<99?`\nAt this pace the last of it goes in about ${eta} week${eta===1?'':'s'}.`:''))}">☠ Ground held <b>${C.stand}/${C.total}</b>${lvl&&w?` <span class="sbw">· ${esc(w.name)} ${w.pressure}</span>`:''}${eta<=10?` <span class="sbw">· ~${eta} wk${eta===1?'':'s'}</span>`:''}</span>`;
 }
 function stratBar(narrow,bare){
   const h=caravanHex(), reg=regionAtHex(h), owed=docsOwed();
@@ -7136,6 +7279,7 @@ function stratBar(narrow,bare){
     <span class="sstat" title="Provisions: one a head each week">Provisions <b>${S.prov}</b></span>
     <span class="sstat" title="Renown earns doctrines">Renown <b>${S.renown}</b></span></span>
     ${owed>0?`<button class="storybtn sbalert" onclick="DOCTRINE()">⚑ A doctrine is earned — choose</button>`:''}
+    ${S.blightWarn?`<button class="storybtn sbalert sbwarnb" onclick="LASTGROUND()" title="The last of the ground is going — what to do">⚠ The last of the ground</button>`:''}
     <span style="flex:1"></span>
     ${narrow?'':`<button onclick="HIDEP()" title="Show or hide every panel (H)">${bare?'▣ Show panels':'▢ Map only'}</button>`}
     <button onclick="MENU()" title="Title screen: settings, how to play, the Hall of Banners, a new banner">☰ Menu</button></div>`;
@@ -7758,7 +7902,7 @@ function renderGameOver(){
   return header()+`<div id="main"><div class="col" style="flex:1">
     <h1>This is how the company died.</h1>
     <p>Week ${S.week}. Renown ${S.renown}. ${S.graves.length} graves in the ledger.</p>
-    ${endWhy()}
+    ${endWhy()}${reopenCard()}
     <h2>Chronicle</h2>
     ${S.chronicle.map(c=>`<p class="bg">${esc(c)}</p>`).join('')||'<p class="hint">A short story.</p>'}
     ${walking.length?`<h2>Still walking</h2><p class="bond">${walking.map(g=>esc(g.name)).join(', ')} — unresolved, improving, wearing your colors. Someone else’s problem now.</p>`:''}
