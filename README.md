@@ -14,6 +14,26 @@ Single-file game — no build, no backend, no audio or image files; saves to you
 - **Keys in battle**: `Tab`/`Space` next soldier · `1`–`9` abilities · `B` brace · `U` undo a step · `E`/`Enter` end turn · `WASD`/arrows pan · `+`/`−` zoom · `M` whole field · `C` centre · `V` inspect · `L` log · `R` retreat · `Esc` cancel · `?` help.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.74 (2026-11-14) — The Blight's Clock, Said Out Loud
+A run ends the week the Blight swallows the last region of the ground you have walked. Left alone, it takes the
+March in about 20 to 27 weeks; won purge and hold contracts, shrines and Reconsecration push it back. Until now the
+end came with one log line and an end screen that never said why, so a campaign seemed to die on its own.
+
+- **The top bar counts the ground held** (☠ Ground held 4/6). It turns amber once a region is lost or one passes 70,
+  and red and pulsing when the last one or two are close. Hover or tap it for every region's pressure.
+- **Each swallowing of walked ground stops the march with a report**: what fell, how many regions still stand and
+  their pressure, and what pushes it back.
+- **The end screen says why**: the Blight took the last of the ground (which region, which week, and the order the
+  rest went), or no one was left to carry the banner and the strongbox could not buy a sword (what was in it and what
+  a hire asks). It also shows the last ten lines of the log. A run that ended before this version gets its cause read
+  off the record.
+- **The Chronicle opens by default again.** v0.73 folded it, and with it every warning the road gives.
+- **Fixed: a Blight horde could swallow a region you had never walked.** That ground is meant to hold at 97 until
+  you get there, and a fallen neighbour speeds up the regions next to it.
+
+No save change: the cause is an additive note on a finished record. Tests: the regression suite adds a Blight-clock
+check (28).
+
 ## v0.73 (2026-11-13) — The March Is the Screen
 The strategy layer was three columns with the map boxed into the middle one. Now the map is the screen and
 everything else floats over it.
