@@ -14,6 +14,29 @@ Single-file game — no build, no backend, no audio or image files; saves to you
 - **Keys in battle**: `Tab`/`Space` next soldier · `1`–`9` abilities · `B` brace · `U` undo a step · `E`/`Enter` end turn · `WASD`/arrows pan · `+`/`−` zoom · `M` whole field · `C` centre · `V` inspect · `L` log · `R` retreat · `Esc` cancel · `?` help.
 - **Rites**: bury (12c, safe unless the ground is taken), burn (free, permanent, the company watches — resolve cost), or sell to the Conclave (+30c; she *will* be back, improved, and everyone knows what you did).
 
+## v0.75 (2026-11-14) — Two Weeks' Warning
+- **The Blight runs 30% slower.** Every week's advance, a horde's surge included, lands at 70% of what it was. The
+  remainder carries over on the region, so the pace is exact and costs no extra roll. Left alone, the March now falls
+  in weeks 27–40 (it was 20–27).
+- **Two weeks' warning before the end.** When the last of the ground you have walked is about two weeks from being
+  swallowed, *The Last of the Ground* stops the march. It says where the last ground is, how close the Blight stands
+  and how long is left, and points at the story's next step with a button that finds it on the map; finishing the
+  chapter is the way out. It also lists what buys time (purge/hold −6, shrines −12, Reconsecration −25, or crossing into
+  new ground). The last region is never taken sooner than two week-turns after the warning, whatever the dice or a horde
+  do. Push the Blight back past five weeks and the warning re-arms for the next approach. Until then the top bar
+  carries **⚠ The last of the ground**, and the ground-held counter shows the weeks left once ten or fewer remain.
+- **A campaign the old clock ended can be reopened.** Its end screen, and the title, offer **Reopen this chronicle**.
+  The walked ground is replayed from the week the campaign began at the new pace; a region the company had kept lower
+  keeps its own pressure; and at least six weeks of ground are left. Roster, coin, story and the dead stay as they were,
+  and the run's death leaves the Hall of Banners. A death at week 22–27 under the old clock reopens with 3–5 of the 6
+  regions standing and 12–17 weeks to go. Runs the new clock ends are final.
+- **Kept Records.** A new banner now keeps the record it replaces. The title lists every record the browser holds
+  (that one, and the copies taken before each save-format upgrade), and any of them can be put back; the current one
+  is kept in its place.
+
+No save change: the pace remainder, the warning and the end note are additive fields. Tests: the regression suite adds a
+check for the pace, the warning, the hold, the re-arm, the reopen and kept records (29).
+
 ## v0.74 (2026-11-14) — The Blight's Clock, Said Out Loud
 A run ends the week the Blight swallows the last region of the ground you have walked. Left alone, it takes the
 March in about 20 to 27 weeks; won purge and hold contracts, shrines and Reconsecration push it back. Until now the

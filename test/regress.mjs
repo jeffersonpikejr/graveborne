@@ -245,12 +245,12 @@ const end = await page.evaluate(() => {
   far.pressure = 95; S.agents = S.agents.filter(a => a.kind !== 'horde'); spawnAgent('horde', { q: realmQ(far.id), r: realmR(far.id) }, { str: 9 });
   S.coin += 500; S.prov += 50; advanceDays(1); drain('nothing');
   out.farHolds = !far.swallowed && far.pressure <= 97;
-  const a = L[0]; L.forEach(r => { r.pressure = Math.min(r.pressure, 55); }); a.pressure = 99;
+  const a = L[0]; L.forEach(r => { r.pressure = Math.min(r.pressure, 55); r.creep = 0; }); a.pressure = 99; a.creep = 0.9;   // v0.75: the slower pace carries fractions
   weeklyTick(); const m = drain('The Swallowing');
   out.report = !!m && m.html.includes(a.name) && m.html.includes(`${L.length - 1} of ${L.length}`);
   closeModal(); render(); out.barAfter = bar().includes(`${L.length - 1}/${L.length}`) && S.chronicle.some(c => c.includes(a.name));
   const rest = walkedRegions().filter(r => !r.swallowed), lastR = rest[rest.length - 1];
-  rest.slice(0, -1).forEach(r => swallowRegion(r)); lastR.pressure = 99; weeklyTick();
+  rest.slice(0, -1).forEach(r => swallowRegion(r)); lastR.pressure = 99; lastR.creep = 0.9; S.blightWarn = { week: S.week - 2 }; weeklyTick();   // warned two weeks ago (v0.75 holds the last region until then)
   out.over = S.over && S.end && S.end.how === 'blight' && S.end.last === lastR.name;
   out.noModal = !activeModal || activeModal.title !== 'The Swallowing';
   activeModal = null; modalQ.length = 0; render(); const t = document.body.textContent;
@@ -262,6 +262,45 @@ const end = await page.evaluate(() => {
   return out; });
 check('Blight clock: ground-held counter, unwalked ground holds against a horde, swallow report, end screen says why (and infers it for older runs), banner-falls cause',
   Object.values(end).every(Boolean), end);
+
+// 24. v0.75 — the slower clock, the last-ground warning and the reopen: a week's advance lands at 70% exactly; with the
+//     end two weeks out the warning comes up naming the story's next step; the last region is held for two week-turns after
+//     a warning whatever pushes it; pushed well back, the warning re-arms; a run the old clock ended can be reopened (and
+//     leaves its Hall entry), one the new clock ended cannot; a new banner keeps the record it replaces
+await fresh('clock75');
+const ck = await page.evaluate(() => {
+  const out = {}, L = walkedRegions(), drain = (t) => { for (let i = 0; i < 10 && activeModal; i++) { if (activeModal.title === t) return activeModal; closeModal(); } return null; };
+  const r0 = L[0]; r0.pressure = 40; r0.creep = 0; blightGain(r0, 10); const a1 = r0.pressure; blightGain(r0, 1); blightGain(r0, 1); out.pace = a1 === 47 && r0.pressure === 48 && Math.abs(r0.creep - 0.4) < 1e-6;
+  // the end two weeks out: one region left, close
+  S.story.stage = 3; const last = L.find(r => r.id === 3) || L[L.length - 1];
+  for (const r of L) if (r !== last) swallowRegion(r); for (const r of L) r.reported = true; last.pressure = 90; last.creep = 0; S.blightWarn = null;
+  weeklyTick(); const m = drain('The Last of the Ground');
+  out.warn = !!S.blightWarn && !!m && /next chapter/.test(m.html) && /Maren at Karsk Gate/.test(m.html) && m.btns.some(b => /Show the story mission/.test(b.label));
+  if (m) { m.btns.find(b => /Show the story mission/.test(b.label)).fn(); out.focus = sel === hexKey(realmQ(3), realmR(3)); }
+  closeModal(); render(); out.bar = /The last of the ground/.test(document.querySelector('#sbar').textContent) && /wk/.test(document.querySelector('.sblight').textContent);
+  // held for two week-turns after the warning, whatever pushes it
+  const W = (S.blightWarn || { week: S.week }).week; last.pressure = 100; blightTake(last); const held1 = !last.swallowed && last.pressure === 99;
+  S.week = W + 1; last.pressure = 100; blightTake(last); const held2 = !last.swallowed;
+  S.week = W + 2; last.pressure = 100; blightTake(last); out.hold = held1 && held2 && last.swallowed;
+  checkGameOver(); out.over = S.over && S.end.how === 'blight' && S.end.clock === 2 && !reopenable();
+  // the hold warns on its own when nothing did
+  G.newGame({ seed: 'clock75b' }); activeModal = null; modalQ.length = 0;
+  const L2 = walkedRegions(), z = L2[L2.length - 1]; for (const r of L2) if (r !== z) swallowRegion(r); S.blightWarn = null; z.pressure = 100; blightTake(z);
+  out.holdWarns = !z.swallowed && z.pressure === 99 && !!S.blightWarn;
+  // pushed well back, the warning re-arms
+  S.week += 1; z.pressure = 20; for (const r of L2) if (r !== z) { r.swallowed = false; r.pressure = 20; } lastGroundDue = false; blightWatch(); out.rearm = S.blightWarn === null;
+  // an old-clock death reopens; a new banner keeps the record it replaces
+  G.newGame({ seed: 'clock75c' }); activeModal = null; modalQ.length = 0; S.week = 24; S.renown = 3;
+  for (const r of walkedRegions()) swallowRegion(r); checkGameOver(); delete S.end; save();
+  const hallBefore = legacyLoad().runs.filter(x => x.seed === S.seedText && x.how === 'blight').length;
+  SCREEN = 'title'; render(); out.titleOffer = /Reopen/.test(document.querySelector('#title').textContent); SCREEN = null;
+  out.offer = reopenable(); REOPEN(); const C = blightClock();
+  out.reopen = !S.over && C.stand >= 1 && blightEta() >= 6 && hallBefore === 1 && legacyLoad().runs.filter(x => x.seed === S.seedText && x.how === 'blight').length === 0 && S.chronicle.some(c => /reopened/.test(c));
+  const before = localStorage.getItem('graveborne_v01'); G.newGame({ seed: 'clock75d' }); activeModal = null; modalQ.length = 0;
+  out.kept = localStorage.getItem('graveborne_prev_v01') === before && keptRecords().some(k => k.key === 'graveborne_prev_v01' && k.week === 24);
+  return out; });
+check('Blight v0.75: 70% pace, two-week last-ground warning with the story step, two-turn hold, re-arm, old-clock reopen, kept records',
+  Object.values(ck).every(Boolean), ck);
 
 check('no uncaught page errors', errors.length === 0, errors.slice(0, 3));
 console.log(results.join('\n'));
